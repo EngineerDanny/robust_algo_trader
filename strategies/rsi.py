@@ -18,7 +18,7 @@ def main():
     tickers.pop(474)
     tickers.pop(489)
 
-    frame = rsi_calc(tickers[0])
+    frame = rsi_calc(tickers[1])
     buy, sell = get_signals(frame)
 
     print(sell)

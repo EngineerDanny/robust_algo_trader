@@ -14,9 +14,7 @@ start = dt.datetime.now() - dt.timedelta(days=365*yr)
 end = dt.datetime.now()
 
 # Get the data from Yahoo Finance
-# time frame is 1 hour
-data = web.DataReader('AAPL', 'yahoo-dividends', start, end, retry_count=5,interval = 'm')
-web.data.read
+data = web.DataReader('TSLA', 'yahoo', start, end)
 
 adj_close = data['Adj Close']
 data[f'MA_{ma_1}'] = adj_close.rolling(ma_1).mean()
