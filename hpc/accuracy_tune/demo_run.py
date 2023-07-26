@@ -40,7 +40,7 @@ slope_threshold = param_dict["slope_threshold"]
 year = str(param_dict["year"])
 step_length = param_dict["step_length"]
 
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/robust_algo_trader/data" 
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
 dataset_dict = {
     "EURUSD_H1" : f"{root_data_dir}/EURUSD_H1_2007_2023_SMA_{timeperiod}.csv",
 }

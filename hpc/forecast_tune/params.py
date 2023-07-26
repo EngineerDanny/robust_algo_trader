@@ -8,7 +8,7 @@ import sys
 import pandas as pd
 
 
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/robust_algo_trader/data"
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data"
 params_df_list = []
 
 algo_list = ["LinearRegression"]

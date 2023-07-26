@@ -31,7 +31,7 @@ algorithm = param_dict["algorithm"]
 train_size = param_dict["train_size"]
 timeperiod = param_dict["sma"]
 
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/robust_algo_trader/data" 
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
 dataset_dict = {"EURUSD_H1" : f"{root_data_dir}/EURUSD_H1_200702210000_202304242100.tsv"}
 dataset_path = dataset_dict[dataset_name]
 
