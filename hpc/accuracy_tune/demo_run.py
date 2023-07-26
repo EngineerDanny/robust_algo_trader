@@ -80,7 +80,7 @@ offset = y.index[0]
 
 def forecast_isolate(j):
     outcome = None
-    
+    local_order = None
     # get the train and test indices
     splitter_y = splitter.split(y)
     train_idx, test_idx = next(islice(splitter_y, j, None))
@@ -123,24 +123,34 @@ def forecast_isolate(j):
                     tp_price = ask_price + 0.0150
                     sl_price = ask_price - 0.0100
                     
-                    order = {
+                    local_order = {
+                        "index": i,
                         "ask_price": ask_price,
                         "take_profit_price": tp_price, 
                         "stop_loss_price": sl_price, 
                         "position": "long",
-                        "MACD" : df.loc[i, "MACD"],
                         "SMA" : df.loc[i, "SMA"],
+                        "MACD" : df.loc[i, "MACD"],
+                        'MACD_Signal' : df.loc[i, "MACD_Signal"],
+                        "MACD_Hist" : df.loc[i, "MACD_Hist"],
+                        "RSI" : df.loc[i, "RSI"],
+                        "ATR" : df.loc[i, "ATR"],
+                        "ADX" : df.loc[i, "ADX"],
+                        "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
+                        "WILLR" : df.loc[i, "WILLR"],
+                        "label": None,
                     }
-                    orders.append(order)
                     has_traded = True
                 
                 if has_traded == True:
                     close_price = df.loc[i, "Close"]
                     if close_price >= tp_price:
                         outcome = 1
+                        local_order["label"] = outcome
                         break
                     elif close_price <= sl_price:
                         outcome = 0
+                        local_order["label"] = outcome
                         break
         else:
             for i in test_idx:
@@ -153,24 +163,36 @@ def forecast_isolate(j):
                     sl_price = ask_price + 0.0100
                     
                     order = {
+                        "index": i,
                         "ask_price": ask_price,
                         "take_profit_price": tp_price, 
                         "stop_loss_price": sl_price, 
                         "position": "short",
+                        "SMA" : df.loc[i, "SMA"],
+                        "MACD" : df.loc[i, "MACD"],
+                        'MACD_Signal' : df.loc[i, "MACD_Signal"],
+                        "MACD_Hist" : df.loc[i, "MACD_Hist"],
+                        "RSI" : df.loc[i, "RSI"],
+                        "ATR" : df.loc[i, "ATR"],
+                        "ADX" : df.loc[i, "ADX"],
+                        "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
+                        "WILLR" : df.loc[i, "WILLR"],
+                        "label": None,
                     }
-                    orders.append(order)
                     has_traded = True
                 
                 if has_traded == True:
                     close_price = df.loc[i, "Close"]
                     if close_price <= tp_price:
                         outcome = 1
+                        local_order["label"] = outcome
                         break
                     elif close_price >= sl_price:
                         outcome = 0
+                        local_order["label"] = outcome
                         break
 
-    return outcome, mape
+    return outcome, mape, local_order
 
 split_y = splitter.split(y)
 # create a parallel object with n_jobs processors
