@@ -15,13 +15,15 @@ algo_list = ["LinearRegression"]
 # train_size_list = [1680, 3360, 6720, 13_440, 16_800]
 # window_size_list = [48, 96, 192, 300, 384]
 
-train_size_list = [33600]
-window_size_list = [480]
+# train_size_list = [33600]
+train_size_list = [16_800]
+window_size_list = [24]
 forecast_horizon_list = [360]
 sma_list = [200]
 dataset_list = ["EURUSD_H1"]
 slope_threshold_list = [0]
-year_list = ['2016', '2017', '2018', '2019', '2020', '2021', '2022']
+# year_list = ['2016', '2017', '2018', '2019', '2020', '2021', '2022']
+year_list = ['2011', '2012', '2013', '2014', '2015']
 # step_length_list = [24]
 step_length_list = [1]
 
@@ -53,8 +55,10 @@ n_tasks, ncol = params_concat_df.shape
 date_time = datetime.now().strftime("%Y-%m-%d_%H:%M")
 job_name = f"ml_project_2_{date_time}"
 job_dir = "/scratch/da2343/" + job_name
-results_dir = os.path.join(job_dir, "results")
-os.system("mkdir -p " + results_dir)
+
+os.system("mkdir -p " + os.path.join(job_dir, "results"))
+os.system("mkdir -p " + os.path.join(job_dir, "orders"))
+
 params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 
 run_one_contents = f"""#!/bin/bash
