@@ -80,7 +80,7 @@ offset = y.index[0]
 
 def forecast_isolate(j):
     outcome = None
-    local_order = None
+    local_order = {"index": None}
     # get the train and test indices
     splitter_y = splitter.split(y)
     train_idx, test_idx = next(islice(splitter_y, j, None))
@@ -128,7 +128,7 @@ def forecast_isolate(j):
                         "ask_price": ask_price,
                         "take_profit_price": tp_price, 
                         "stop_loss_price": sl_price, 
-                        "position": "long",
+                        "position": 1,
                         "SMA" : df.loc[i, "SMA"],
                         "MACD" : df.loc[i, "MACD"],
                         'MACD_Signal' : df.loc[i, "MACD_Signal"],
@@ -162,12 +162,12 @@ def forecast_isolate(j):
                     tp_price = ask_price - 0.0150
                     sl_price = ask_price + 0.0100
                     
-                    order = {
+                    local_order = {
                         "index": i,
                         "ask_price": ask_price,
                         "take_profit_price": tp_price, 
                         "stop_loss_price": sl_price, 
-                        "position": "short",
+                        "position": 0,
                         "SMA" : df.loc[i, "SMA"],
                         "MACD" : df.loc[i, "MACD"],
                         'MACD_Signal' : df.loc[i, "MACD_Signal"],
@@ -191,7 +191,6 @@ def forecast_isolate(j):
                         outcome = 0
                         local_order["label"] = outcome
                         break
-
     return outcome, mape, local_order
 
 split_y = splitter.split(y)
@@ -202,18 +201,20 @@ results = parallel(delayed(forecast_isolate)(j) for j, _ in enumerate(split_y))
 # results = parallel(delayed(forecast_isolate)(j) for j in range(5))
 
 # unpack the results into separate lists
-outcomes, mapes = zip(*results)
-outcomes = [x for x in outcomes if x is not None]
+outcomes, mapes, orders = zip(*results)
+orders = list(orders)
+orders_df = pd.DataFrame.from_dict(orders)
+# drop the rows where any of the values is None
+orders_df = orders_df.dropna()
+# remove duplicate rows
+orders_df = orders_df.drop_duplicates()
+# remove duplicate indices
+orders_df = orders_df.drop_duplicates(subset=['index'])
+orders_df["year"] = year
 
+outcomes = [x for x in outcomes if x is not None]
 outcomes_array = np.array(outcomes)
 mapes_array = np.array(mapes)
-
-
-# apply the forecast_isolate function to the split_y list in parallel
-# results = parallel.apply_async(forecast_isolate, split_y)
-
-# get the results as a list
-# results = results.get()
 
 accuracy_df = pd.DataFrame({
     'accuracy': accuracy_score([1] * len(outcomes), outcomes),
@@ -233,7 +234,7 @@ accuracy_df = pd.DataFrame({
 }, index=[0])
 
 
-# Save dataframe as a csv to output directory
-out_file = f"results/{param_row}.csv"
-accuracy_df.to_csv(out_file, encoding='utf-8', index=False)
-print("Done!!")
+# # Save dataframe as a csv to output directory
+accuracy_df.to_csv(f"results/{param_row}.csv", encoding='utf-8', index=False)
+orders_df.to_csv(f"orders/{param_row}.csv", encoding='utf-8', index=False)
+# print("Done!!")

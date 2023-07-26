@@ -75,9 +75,11 @@ with open(run_one_sh, "w") as run_one_f:
 run_orig_py = "demo_run.py"
 run_one_py = os.path.join(job_dir, "run_one.py")
 shutil.copyfile(run_orig_py, run_one_py)
+
 orig_dir = os.path.dirname(run_orig_py)
-orig_results = os.path.join(orig_dir, "results")
-os.system("mkdir -p " + orig_results)
+os.system("mkdir -p " + os.path.join(orig_dir, "results"))
+os.system("mkdir -p " + os.path.join(orig_dir, "orders"))
+
 orig_csv = os.path.join(orig_dir, "params.csv")
 params_concat_df.to_csv(orig_csv, index=False)
 
