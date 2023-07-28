@@ -11,9 +11,21 @@ import pandas as pd
 root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data"
 params_df_list = []
 
-algo_list = ["LogisticRegressionCV", "KNeighborsClassifier", "RandomForestClassifier", "SVC"]
+algo_list = [
+            "KNeighborsClassifier", 
+            "SVC",
+            "DecisionTreeClassifier",
+            "MLPClassifier",
+            "AdaBoostClassifier",   
+            "RandomForestClassifier",
+            "DummyClassifier",
+            "LogisticRegressionCV", 
+             ]
 fold_id_list = [0, 1, 2, 3, 4]
-dataset_list = ["EURUSD_H1_2011_2015_TRADES_binary"]
+dataset_list = [
+        "EURUSD_H1_2011_2015_TRADES_real",
+        "EURUSD_H1_2011_2015_TRADES_synthetic",
+        ]
 
 for dataset_name in dataset_list:
     params_dict = {
@@ -42,8 +54,8 @@ params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 run_one_contents = f"""#!/bin/bash
 #SBATCH --array=0-{n_tasks-1}
 #SBATCH --time=24:00:00
-#SBATCH --mem=8GB
-#SBATCH --cpus-per-task=1
+#SBATCH --mem=64GB
+#SBATCH --cpus-per-task=64
 #SBATCH --error={job_dir}/slurm-%A_%a.out
 #SBATCH --output={job_dir}/slurm-%A_%a.out
 #SBATCH --job-name={job_name}
