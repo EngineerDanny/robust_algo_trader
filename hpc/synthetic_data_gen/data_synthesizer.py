@@ -10,7 +10,7 @@ warnings.filterwarnings('ignore')
 
 
 # input dataset
-input_data = '/projects/genomic-ml/da2343/ml_project_2/data/EURUSD_H1_2011_2015_TRADES_binary.csv'
+input_data = '/projects/genomic-ml/da2343/ml_project_2/data/EURUSD/EURUSD_H1_2011_2015_TRADES_binary.csv'
 # location of two output files
 mode = 'correlated_attribute_mode'
 description_file = f'/projects/genomic-ml/da2343/ml_project_2/hpc/synthetic_data_gen/out/{mode}/description.json'
