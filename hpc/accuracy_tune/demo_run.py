@@ -103,22 +103,23 @@ def forecast_isolate(j):
     y_test = y.loc[test_idx]
     
     # create a forecaster object using LinearRegression and recursive strategy
-    regressor = learner_dict[algorithm]
-    forecaster = make_reduction(regressor, 
-                                window_length=window_size, 
-                                strategy="recursive")
-    forecaster.fit(y_train)
-    fh = ForecastingHorizon(y_test.index, is_relative=False)
-    y_pred = forecaster.predict(fh)
-    mape = mean_absolute_percentage_error(y_test, y_pred, symmetric=False)
+    # regressor = learner_dict[algorithm]
+    # forecaster = make_reduction(regressor, 
+    #                             window_length=window_size, 
+    #                             strategy="recursive")
+    # forecaster.fit(y_train)
+    # fh = ForecastingHorizon(y_test.index, is_relative=False)
+    # y_pred = forecaster.predict(fh)
+    # mape = mean_absolute_percentage_error(y_test, y_pred, symmetric=False)
     
-    x = np.arange(1, len(y_pred) + 1)
-    slope, intercept = np.polyfit(x, y_pred, 1)
-    y_fit = np.polyval([slope, intercept], x)
-    mse = mean_squared_error(y_pred, y_fit)
-    mse_scaled = mse * 10e8
-    slope_scaled = slope * 10e5
+    # x = np.arange(1, len(y_pred) + 1)
+    # slope, intercept = np.polyfit(x, y_pred, 1)
+    # y_fit = np.polyval([slope, intercept], x)
+    # mse = mean_squared_error(y_pred, y_fit)
+    # mse_scaled = mse * 10e8
+    # slope_scaled = slope * 10e5
     
+    mape = 0
     current_position = None
     has_traded = False
     
@@ -291,7 +292,6 @@ split_y = splitter.split(y)
 parallel = Parallel(n_jobs=-1)
 # apply the forecast function to a range of indices in parallel
 results = parallel(delayed(forecast_isolate)(j) for j, _ in enumerate(split_y))
-# results = parallel(delayed(forecast_isolate)(j) for j in range(5))
 
 # unpack the results into separate lists
 outcomes, mapes, orders = zip(*results)
