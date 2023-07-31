@@ -42,7 +42,17 @@ step_length = param_dict["step_length"]
 
 root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
 dataset_dict = {
-    "EURUSD_H1" : f"{root_data_dir}/EURUSD_H1_2007_2023_SMA_{timeperiod}.csv",
+    "EURUSD_H1" : f"{root_data_dir}/EURUSD/EURUSD_H1_200702210000_202304242100_Update.csv",
+    "USDJPY_H1" : f"{root_data_dir}/USDJPY/USDJPY_H1_200705290000_202307282300_Update.csv",
+    "GBPUSD_H1" : f"{root_data_dir}/GBPUSD/GBPUSD_H1_200704170000_202307282300_Update.csv",
+    "AUDUSD_H1" : f"{root_data_dir}/AUDUSD/AUDUSD_H1_200704170000_202307282300_Update.csv",
+    "USDCAD_H1" : f"{root_data_dir}/USDCAD/USDCAD_H1_200705300000_202307282300_Update.csv",
+    "USDCHF_H1" : f"{root_data_dir}/USDCHF/USDCHF_H1_200704170000_202307282300_Update.csv",
+    # "NZDUSD_H1" : f"{root_data_dir}/NZDUSD/NZDUSD_H1_200704170000_202307282300_Update.csv",
+    "EURJPY_H1" : f"{root_data_dir}/EURJPY/EURJPY_H1_200705300000_202307282300_Update.csv",
+    "EURGBP_H1" : f"{root_data_dir}/EURGBP/EURGBP_H1_200703270000_202307282300_Update.csv",
+    
+    
 }
 dataset_path = dataset_dict[dataset_name]
 
