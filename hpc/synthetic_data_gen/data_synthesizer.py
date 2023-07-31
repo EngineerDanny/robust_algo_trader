@@ -13,12 +13,12 @@ warnings.filterwarnings('ignore')
 input_data = '/projects/genomic-ml/da2343/ml_project_2/data/EURUSD_H1_2011_2015_TRADES_binary.csv'
 # location of two output files
 mode = 'correlated_attribute_mode'
-description_file = f'/projects/genomic-ml/da2343/ml_project_2/hpc/algo_selection/out/{mode}/description.json'
-synthetic_data = f'/projects/genomic-ml/da2343/ml_project_2/hpc/algo_selection/out/{mode}/sythetic_data.csv'
+description_file = f'/projects/genomic-ml/da2343/ml_project_2/hpc/synthetic_data_gen/out/{mode}/description.json'
+synthetic_data = f'/projects/genomic-ml/da2343/ml_project_2/hpc/synthetic_data_gen/out/{mode}/sythetic_data.csv'
 
 # An attribute is categorical if its domain size is less than this threshold.
 # Here modify the threshold to adapt to the domain size of "education" (which is 14 in input dataset).
-threshold_value = 20
+threshold_value = 10
 
 # specify categorical attributes
 # categorical_attributes = {'education': True}
@@ -31,7 +31,7 @@ candidate_keys = {'index': True}
 # A parameter in Differential Privacy. It roughly means that removing a row in the input dataset will not 
 # change the probability of getting the same output more than a multiplicative difference of exp(epsilon).
 # Increase epsilon value to reduce the injected noises. Set epsilon=0 to turn off differential privacy.
-epsilon = 1
+epsilon = 50
 
 # The maximum number of parents in Bayesian network, i.e., the maximum number of incoming edges.
 degree_of_bayesian_network = 5
