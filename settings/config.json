@@ -1,0 +1,78 @@
+{
+  "hyperparameters": {
+    "learning_rate": 0.01,
+    "batch_size": 32,
+    "epochs": 10,
+    "dropout": 0.2,
+    "activation": "relu",
+    "optimizer": "adam",
+    "loss": "binary_crossentropy",
+    "metrics": ["accuracy", "precision", "recall"]
+  },
+  "paths": {
+    "data_dir": "data/",
+    "model_dir": "models/",
+    "log_dir": "logs/",
+    "config_file": "config.json",
+    "test_file": "test.csv",
+    "submission_file": "submission.csv"
+  },
+  "labels": {
+    "class_names": ["cat", "dog", "bird"],
+    "currency_pairs": [
+      "EURUSD",
+      "USDJPY",
+      "GBPUSD",
+      "AUDUSD",
+      "USDCAD",
+      "USDCHF",
+      "NZDUSD",
+      "EURJPY",
+      "GBPJPY",
+      "EURGBP"
+    ],
+    "target_column": "label"
+  },
+  "trading_settings": {
+    "EURUSD": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "USDJPY": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "GBPUSD": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "AUDUSD": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "USDCAD": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "USDCHF": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "NZDUSD": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "EURJPY": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "GBPJPY": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    },
+    "EURGBP": {
+      "take_profit": 0.015,
+      "stop_loss": 0.01
+    }
+  }
+}
