@@ -13,8 +13,8 @@ warnings.filterwarnings('ignore')
 input_data = '/projects/genomic-ml/da2343/ml_project_2/data/EURUSD_H1_2011_2015_TRADES_binary.csv'
 # location of two output files
 mode = 'correlated_attribute_mode'
-description_file = f'/projects/genomic-ml/da2343/ml_project_2/hpc/trade_binary_classifier/out/{mode}/description.json'
-synthetic_data = f'/projects/genomic-ml/da2343/ml_project_2/hpc/trade_binary_classifier/out/{mode}/sythetic_data.csv'
+description_file = f'/projects/genomic-ml/da2343/ml_project_2/hpc/algo_selection/out/{mode}/description.json'
+synthetic_data = f'/projects/genomic-ml/da2343/ml_project_2/hpc/algo_selection/out/{mode}/sythetic_data.csv'
 
 # An attribute is categorical if its domain size is less than this threshold.
 # Here modify the threshold to adapt to the domain size of "education" (which is 14 in input dataset).
