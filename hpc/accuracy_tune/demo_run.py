@@ -110,87 +110,171 @@ def forecast_isolate(j):
     mse_scaled = mse * 10e8
     slope_scaled = slope * 10e5
     
-    if abs(slope_scaled) > slope_threshold:
-        has_traded = False
-        if slope > 0:
-            for i in test_idx:
-                # check if there is a buy MACD crossover
-                if df.loc[i, "MACD_Crossover_Change"] > 0 and \
-                    has_traded == False and \
-                    df.loc[i, "Close"] > df.loc[i, "SMA"] and \
-                    df.loc[i, "MACD"] < 0:
-                    ask_price = df.loc[i, "Close"]
-                    tp_price = ask_price + 0.0150
-                    sl_price = ask_price - 0.0100
+    current_position = None
+    has_traded = False
+    
+    for i in test_idx:
+        # check if there is a buy MACD crossover
+        if df.loc[i, "MACD_Crossover_Change"] > 0 and \
+            has_traded == False and \
+            df.loc[i, "Close"] > df.loc[i, "SMA"] and \
+            df.loc[i, "MACD"] < 0:
+            ask_price = df.loc[i, "Close"]
+            tp_price = ask_price + 0.0150
+            sl_price = ask_price - 0.0100
+            current_position = 1
+            
+            local_order = {
+                "index": i,
+                "ask_price": ask_price,
+                "take_profit_price": tp_price, 
+                "stop_loss_price": sl_price, 
+                "position": 1,
+                "SMA" : df.loc[i, "SMA"],
+                "MACD" : df.loc[i, "MACD"],
+                'MACD_Signal' : df.loc[i, "MACD_Signal"],
+                "MACD_Hist" : df.loc[i, "MACD_Hist"],
+                "RSI" : df.loc[i, "RSI"],
+                "ATR" : df.loc[i, "ATR"],
+                "ADX" : df.loc[i, "ADX"],
+                "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
+                "WILLR" : df.loc[i, "WILLR"],
+                "label": None,
+            }
+            has_traded = True
+            
+        elif df.loc[i, "MACD_Crossover_Change"] < 0 and \
+            has_traded == False and \
+            df.loc[i, "Close"] < df.loc[i, "SMA"] and \
+            df.loc[i, "MACD"] > 0:    
+            ask_price = df.loc[i, "Close"]
+            tp_price = ask_price - 0.0150
+            sl_price = ask_price + 0.0100
+            current_position = 0
+            
+            local_order = {
+                "index": i,
+                "ask_price": ask_price,
+                "take_profit_price": tp_price, 
+                "stop_loss_price": sl_price, 
+                "position": 0,
+                "SMA" : df.loc[i, "SMA"],
+                "MACD" : df.loc[i, "MACD"],
+                'MACD_Signal' : df.loc[i, "MACD_Signal"],
+                "MACD_Hist" : df.loc[i, "MACD_Hist"],
+                "RSI" : df.loc[i, "RSI"],
+                "ATR" : df.loc[i, "ATR"],
+                "ADX" : df.loc[i, "ADX"],
+                "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
+                "WILLR" : df.loc[i, "WILLR"],
+                "label": None,
+            }
+            has_traded = True
+        
+        if has_traded == True:
+            close_price = df.loc[i, "Close"]
+            if current_position == 1:
+                if close_price >= tp_price:
+                    outcome = 1
+                    local_order["label"] = outcome
+                    break
+                elif close_price <= sl_price:
+                    outcome = 0
+                    local_order["label"] = outcome
+                    break
+            else:
+                if close_price <= tp_price:
+                    outcome = 1
+                    local_order["label"] = outcome
+                    break
+                elif close_price >= sl_price:
+                    outcome = 0
+                    local_order["label"] = outcome
+                    break
+    
+    # if abs(slope_scaled) > slope_threshold:
+    #     has_traded = False
+    #     if slope > 0:
+    #         for i in test_idx:
+    #             # check if there is a buy MACD crossover
+    #             if df.loc[i, "MACD_Crossover_Change"] > 0 and \
+    #                 has_traded == False and \
+    #                 df.loc[i, "Close"] > df.loc[i, "SMA"] and \
+    #                 df.loc[i, "MACD"] < 0:
+    #                 ask_price = df.loc[i, "Close"]
+    #                 tp_price = ask_price + 0.0150
+    #                 sl_price = ask_price - 0.0100
                     
-                    local_order = {
-                        "index": i,
-                        "ask_price": ask_price,
-                        "take_profit_price": tp_price, 
-                        "stop_loss_price": sl_price, 
-                        "position": 1,
-                        "SMA" : df.loc[i, "SMA"],
-                        "MACD" : df.loc[i, "MACD"],
-                        'MACD_Signal' : df.loc[i, "MACD_Signal"],
-                        "MACD_Hist" : df.loc[i, "MACD_Hist"],
-                        "RSI" : df.loc[i, "RSI"],
-                        "ATR" : df.loc[i, "ATR"],
-                        "ADX" : df.loc[i, "ADX"],
-                        "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
-                        "WILLR" : df.loc[i, "WILLR"],
-                        "label": None,
-                    }
-                    has_traded = True
+    #                 local_order = {
+    #                     "index": i,
+    #                     "ask_price": ask_price,
+    #                     "take_profit_price": tp_price, 
+    #                     "stop_loss_price": sl_price, 
+    #                     "position": 1,
+    #                     "SMA" : df.loc[i, "SMA"],
+    #                     "MACD" : df.loc[i, "MACD"],
+    #                     'MACD_Signal' : df.loc[i, "MACD_Signal"],
+    #                     "MACD_Hist" : df.loc[i, "MACD_Hist"],
+    #                     "RSI" : df.loc[i, "RSI"],
+    #                     "ATR" : df.loc[i, "ATR"],
+    #                     "ADX" : df.loc[i, "ADX"],
+    #                     "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
+    #                     "WILLR" : df.loc[i, "WILLR"],
+    #                     "label": None,
+    #                 }
+    #                 has_traded = True
                 
-                if has_traded == True:
-                    close_price = df.loc[i, "Close"]
-                    if close_price >= tp_price:
-                        outcome = 1
-                        local_order["label"] = outcome
-                        break
-                    elif close_price <= sl_price:
-                        outcome = 0
-                        local_order["label"] = outcome
-                        break
-        else:
-            for i in test_idx:
-                if df.loc[i, "MACD_Crossover_Change"] < 0 and \
-                    has_traded == False and \
-                    df.loc[i, "Close"] < df.loc[i, "SMA"] and \
-                    df.loc[i, "MACD"] > 0:    
-                    ask_price = df.loc[i, "Close"]
-                    tp_price = ask_price - 0.0150
-                    sl_price = ask_price + 0.0100
+    #             if has_traded == True:
+    #                 close_price = df.loc[i, "Close"]
+    #                 if close_price >= tp_price:
+    #                     outcome = 1
+    #                     local_order["label"] = outcome
+    #                     break
+    #                 elif close_price <= sl_price:
+    #                     outcome = 0
+    #                     local_order["label"] = outcome
+    #                     break
+    #     else:
+    #         for i in test_idx:
+    #             if df.loc[i, "MACD_Crossover_Change"] < 0 and \
+    #                 has_traded == False and \
+    #                 df.loc[i, "Close"] < df.loc[i, "SMA"] and \
+    #                 df.loc[i, "MACD"] > 0:    
+    #                 ask_price = df.loc[i, "Close"]
+    #                 tp_price = ask_price - 0.0150
+    #                 sl_price = ask_price + 0.0100
                     
-                    local_order = {
-                        "index": i,
-                        "ask_price": ask_price,
-                        "take_profit_price": tp_price, 
-                        "stop_loss_price": sl_price, 
-                        "position": 0,
-                        "SMA" : df.loc[i, "SMA"],
-                        "MACD" : df.loc[i, "MACD"],
-                        'MACD_Signal' : df.loc[i, "MACD_Signal"],
-                        "MACD_Hist" : df.loc[i, "MACD_Hist"],
-                        "RSI" : df.loc[i, "RSI"],
-                        "ATR" : df.loc[i, "ATR"],
-                        "ADX" : df.loc[i, "ADX"],
-                        "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
-                        "WILLR" : df.loc[i, "WILLR"],
-                        "label": None,
-                    }
-                    has_traded = True
+    #                 local_order = {
+    #                     "index": i,
+    #                     "ask_price": ask_price,
+    #                     "take_profit_price": tp_price, 
+    #                     "stop_loss_price": sl_price, 
+    #                     "position": 0,
+    #                     "SMA" : df.loc[i, "SMA"],
+    #                     "MACD" : df.loc[i, "MACD"],
+    #                     'MACD_Signal' : df.loc[i, "MACD_Signal"],
+    #                     "MACD_Hist" : df.loc[i, "MACD_Hist"],
+    #                     "RSI" : df.loc[i, "RSI"],
+    #                     "ATR" : df.loc[i, "ATR"],
+    #                     "ADX" : df.loc[i, "ADX"],
+    #                     "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
+    #                     "WILLR" : df.loc[i, "WILLR"],
+    #                     "label": None,
+    #                 }
+    #                 has_traded = True
                 
-                if has_traded == True:
-                    close_price = df.loc[i, "Close"]
-                    if close_price <= tp_price:
-                        outcome = 1
-                        local_order["label"] = outcome
-                        break
-                    elif close_price >= sl_price:
-                        outcome = 0
-                        local_order["label"] = outcome
-                        break
+    #             if has_traded == True:
+    #                 close_price = df.loc[i, "Close"]
+    #                 if close_price <= tp_price:
+    #                     outcome = 1
+    #                     local_order["label"] = outcome
+    #                     break
+    #                 elif close_price >= sl_price:
+    #                     outcome = 0
+    #                     local_order["label"] = outcome
+    #                     break
+   
+   
     return outcome, mape, local_order
 
 split_y = splitter.split(y)
@@ -237,4 +321,4 @@ accuracy_df = pd.DataFrame({
 # # Save dataframe as a csv to output directory
 accuracy_df.to_csv(f"results/{param_row}.csv", encoding='utf-8', index=False)
 orders_df.to_csv(f"orders/{param_row}.csv", encoding='utf-8', index=False)
-# print("Done!!")
+print("Done!!")
