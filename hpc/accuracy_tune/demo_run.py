@@ -84,7 +84,7 @@ mapes = []
 orders = []
 outcomes = []
 
-y = df[['SMA']]
+y = df[[f'SMA_{timeperiod}']]
 offset = y.index[0]
 
 
@@ -95,7 +95,6 @@ def forecast_isolate(j):
     splitter_y = splitter.split(y)
     train_idx, test_idx = next(islice(splitter_y, j, None))
 
-    # train_idx, test_idx = splitter.split(y)[j]
     train_idx = train_idx + offset
     test_idx = test_idx + offset
     
@@ -127,7 +126,7 @@ def forecast_isolate(j):
         # check if there is a buy MACD crossover
         if df.loc[i, "MACD_Crossover_Change"] > 0 and \
             has_traded == False and \
-            df.loc[i, "Close"] > df.loc[i, "SMA"] and \
+            df.loc[i, "Close"] > df.loc[i, f"SMA_{timeperiod}"] and \
             df.loc[i, "MACD"] < 0:
             ask_price = df.loc[i, "Close"]
             tp_price = ask_price + 0.0150
@@ -140,7 +139,7 @@ def forecast_isolate(j):
                 "take_profit_price": tp_price, 
                 "stop_loss_price": sl_price, 
                 "position": 1,
-                "SMA" : df.loc[i, "SMA"],
+                f"SMA_{timeperiod}" : df.loc[i, f"SMA_{timeperiod}"],
                 "MACD" : df.loc[i, "MACD"],
                 'MACD_Signal' : df.loc[i, "MACD_Signal"],
                 "MACD_Hist" : df.loc[i, "MACD_Hist"],
@@ -155,7 +154,7 @@ def forecast_isolate(j):
             
         elif df.loc[i, "MACD_Crossover_Change"] < 0 and \
             has_traded == False and \
-            df.loc[i, "Close"] < df.loc[i, "SMA"] and \
+            df.loc[i, "Close"] < df.loc[i, f"SMA_{timeperiod}"] and \
             df.loc[i, "MACD"] > 0:    
             ask_price = df.loc[i, "Close"]
             tp_price = ask_price - 0.0150
@@ -168,7 +167,7 @@ def forecast_isolate(j):
                 "take_profit_price": tp_price, 
                 "stop_loss_price": sl_price, 
                 "position": 0,
-                "SMA" : df.loc[i, "SMA"],
+                f"SMA_{timeperiod}" : df.loc[i, f"SMA_{timeperiod}"],
                 "MACD" : df.loc[i, "MACD"],
                 'MACD_Signal' : df.loc[i, "MACD_Signal"],
                 "MACD_Hist" : df.loc[i, "MACD_Hist"],
@@ -209,7 +208,7 @@ def forecast_isolate(j):
     #             # check if there is a buy MACD crossover
     #             if df.loc[i, "MACD_Crossover_Change"] > 0 and \
     #                 has_traded == False and \
-    #                 df.loc[i, "Close"] > df.loc[i, "SMA"] and \
+    #                 df.loc[i, "Close"] > df.loc[i, f"SMA_{timeperiod}"] and \
     #                 df.loc[i, "MACD"] < 0:
     #                 ask_price = df.loc[i, "Close"]
     #                 tp_price = ask_price + 0.0150
@@ -221,7 +220,7 @@ def forecast_isolate(j):
     #                     "take_profit_price": tp_price, 
     #                     "stop_loss_price": sl_price, 
     #                     "position": 1,
-    #                     "SMA" : df.loc[i, "SMA"],
+    #                     f"SMA_{timeperiod}" : df.loc[i, f"SMA_{timeperiod}"],
     #                     "MACD" : df.loc[i, "MACD"],
     #                     'MACD_Signal' : df.loc[i, "MACD_Signal"],
     #                     "MACD_Hist" : df.loc[i, "MACD_Hist"],
@@ -248,7 +247,7 @@ def forecast_isolate(j):
     #         for i in test_idx:
     #             if df.loc[i, "MACD_Crossover_Change"] < 0 and \
     #                 has_traded == False and \
-    #                 df.loc[i, "Close"] < df.loc[i, "SMA"] and \
+    #                 df.loc[i, "Close"] < df.loc[i, f"SMA_{timeperiod}"] and \
     #                 df.loc[i, "MACD"] > 0:    
     #                 ask_price = df.loc[i, "Close"]
     #                 tp_price = ask_price - 0.0150
@@ -260,7 +259,7 @@ def forecast_isolate(j):
     #                     "take_profit_price": tp_price, 
     #                     "stop_loss_price": sl_price, 
     #                     "position": 0,
-    #                     "SMA" : df.loc[i, "SMA"],
+    #                     f"SMA_{timeperiod}" : df.loc[i, f"SMA_{timeperiod}"],
     #                     "MACD" : df.loc[i, "MACD"],
     #                     'MACD_Signal' : df.loc[i, "MACD_Signal"],
     #                     "MACD_Hist" : df.loc[i, "MACD_Hist"],
