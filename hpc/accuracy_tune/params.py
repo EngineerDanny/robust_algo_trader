@@ -25,7 +25,6 @@ dataset_list = ["EURUSD_H1", "USDJPY_H1", "GBPUSD_H1",
 slope_threshold_list = [0]
 year_list = ['2011', '2012', '2013', '2014', '2015'] # training year_list
 # year_list = ['2016', '2017', '2018', '2019', '2020', '2021', '2022'] # testing year_list
-# step_length_list = [24]
 step_length_list = [1]
 
 for dataset_name in dataset_list:
@@ -40,7 +39,6 @@ for dataset_name in dataset_list:
         'step_length': step_length_list,
         'slope_threshold': slope_threshold_list,
         'year': year_list,
-
     }
 
     params_df = pd.MultiIndex.from_product(
