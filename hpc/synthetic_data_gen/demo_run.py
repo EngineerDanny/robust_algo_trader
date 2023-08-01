@@ -1,28 +1,14 @@
-import pandas as pd
-import numpy as np
-from DataSynthesizer.DataDescriber import DataDescriber
-from DataSynthesizer.DataGenerator import DataGenerator
-from DataSynthesizer.ModelInspector import ModelInspector
-from DataSynthesizer.lib.utils import read_json_file, display_bayesian_network
-import warnings
-
 import sys
 import os
 import pandas as pd
 import numpy as np
-from datetime import date
-import talib
-from sklearn.linear_model import *
-from sktime.forecasting.base import ForecastingHorizon
-from sktime.forecasting.compose import make_reduction
-from sktime.utils.plotting import plot_series
-from sktime.performance_metrics.forecasting import mean_absolute_percentage_error, mean_squared_error
-from sklearn.metrics import accuracy_score
-from sktime.forecasting.model_selection import SlidingWindowSplitter
-from joblib import Parallel, delayed
-from itertools import islice
 import json
 import warnings
+from DataSynthesizer.DataDescriber import DataDescriber
+from DataSynthesizer.DataGenerator import DataGenerator
+from DataSynthesizer.ModelInspector import ModelInspector
+from DataSynthesizer.lib.utils import read_json_file, display_bayesian_network
+
 
 warnings.filterwarnings('ignore')
 
@@ -65,8 +51,8 @@ candidate_keys = {'index': True}
 epsilon = 50
 
 # The maximum number of parents in Bayesian network, i.e., the maximum number of incoming edges.
-# TODO: change this to 5
-degree_of_bayesian_network = 10
+# TODO: change this to 10
+degree_of_bayesian_network = 5
 
 # Number of tuples generated in synthetic dataset.
 # TODO: change this to 100_000
