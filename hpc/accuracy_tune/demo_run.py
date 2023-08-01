@@ -13,6 +13,7 @@ from sklearn.metrics import accuracy_score
 from sktime.forecasting.model_selection import SlidingWindowSplitter
 from joblib import Parallel, delayed
 from itertools import islice
+import json
 import warnings
 
 
@@ -51,10 +52,16 @@ dataset_dict = {
     # "NZDUSD_H1" : f"{root_data_dir}/NZDUSD/NZDUSD_H1_200704170000_202307282300_Update.csv",
     "EURJPY_H1" : f"{root_data_dir}/EURJPY/EURJPY_H1_200705300000_202307282300_Update.csv",
     "EURGBP_H1" : f"{root_data_dir}/EURGBP/EURGBP_H1_200703270000_202307282300_Update.csv",
-    
-    
 }
+
 dataset_path = dataset_dict[dataset_name]
+# Load the config file
+config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
+with open(config_path) as f:
+  config = json.load(f)
+# Get the take_profit and stop_loss levels from the config file
+tp = config["trading_settings"][dataset_name]["take_profit"]
+sl = config["trading_settings"][dataset_name]["stop_loss"]
 
 def extract_df(path, year, train_size):
     df = pd.read_csv(path, index_col=0)
@@ -89,8 +96,6 @@ offset = y.index[0]
 
 
 def forecast_isolate(j):
-    outcome = None
-    local_order = {"index": None}
     # get the train and test indices
     splitter_y = splitter.split(y)
     train_idx, test_idx = next(islice(splitter_y, j, None))
@@ -121,6 +126,8 @@ def forecast_isolate(j):
     
     mape = 0
     current_position = None
+    outcome = None
+    local_order = {"index": None}
     has_traded = False
     
     for i in test_idx:
@@ -130,8 +137,8 @@ def forecast_isolate(j):
             df.loc[i, "Close"] > df.loc[i, f"SMA_{timeperiod}"] and \
             df.loc[i, "MACD"] < 0:
             ask_price = df.loc[i, "Close"]
-            tp_price = ask_price + 0.0150
-            sl_price = ask_price - 0.0100
+            tp_price = ask_price + tp
+            sl_price = ask_price - sl
             current_position = 1
             
             local_order = {
@@ -158,8 +165,8 @@ def forecast_isolate(j):
             df.loc[i, "Close"] < df.loc[i, f"SMA_{timeperiod}"] and \
             df.loc[i, "MACD"] > 0:    
             ask_price = df.loc[i, "Close"]
-            tp_price = ask_price - 0.0150
-            sl_price = ask_price + 0.0100
+            tp_price = ask_price - tp
+            sl_price = ask_price + sl
             current_position = 0
             
             local_order = {
@@ -304,6 +311,7 @@ orders_df = orders_df.drop_duplicates()
 # remove duplicate indices
 orders_df = orders_df.drop_duplicates(subset=['index'])
 orders_df["year"] = year
+orders_df["dataset_name"] = dataset_name
 
 outcomes = [x for x in outcomes if x is not None]
 outcomes_array = np.array(outcomes)
