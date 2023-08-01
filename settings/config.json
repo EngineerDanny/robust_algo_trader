@@ -18,7 +18,6 @@
     "submission_file": "submission.csv"
   },
   "labels": {
-    "class_names": ["cat", "dog", "bird"],
     "currency_pairs": [
       "EURUSD",
       "USDJPY",
@@ -34,43 +33,43 @@
     "target_column": "label"
   },
   "trading_settings": {
-    "EURUSD": {
+    "EURUSD_H1": {
       "take_profit": 0.015,
       "stop_loss": 0.01
     },
-    "USDJPY": {
-      "take_profit": 1.5,
-      "stop_loss": 1
+    "USDJPY_H1": {
+      "take_profit": 2,
+      "stop_loss": 1.33
     },
-    "GBPUSD": {
+    "GBPUSD_H1": {
       "take_profit": 0.015,
       "stop_loss": 0.01
     },
-    "AUDUSD": {
+    "AUDUSD_H1": {
       "take_profit": 0.015,
       "stop_loss": 0.01
     },
-    "USDCAD": {
+    "USDCAD_H1": {
       "take_profit": 0.015,
       "stop_loss": 0.01
     },
-    "USDCHF": {
+    "USDCHF_H1": {
       "take_profit": 0.015,
       "stop_loss": 0.01
     },
-    "NZDUSD": {
+    "NZDUSD_H1": {
       "take_profit": 0.015,
       "stop_loss": 0.01
     },
-    "EURJPY": {
-      "take_profit": 1,
-      "stop_loss": 0.66
+    "EURJPY_H1": {
+      "take_profit": 2,
+      "stop_loss": 1.33
     },
-    "GBPJPY": {
-      "take_profit": 1,
-      "stop_loss": 0.66
+    "GBPJPY_H1": {
+      "take_profit": 2,
+      "stop_loss": 1.33
     },
-    "EURGBP": {
+    "EURGBP_H1": {
       "take_profit": 0.01,
       "stop_loss": 0.0066
     }
