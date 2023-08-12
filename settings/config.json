@@ -1,21 +1,11 @@
 {
-  "hyperparameters": {
-    "learning_rate": 0.01,
-    "batch_size": 32,
-    "epochs": 10,
-    "dropout": 0.2,
-    "activation": "relu",
-    "optimizer": "adam",
-    "loss": "binary_crossentropy",
-    "metrics": ["accuracy", "precision", "recall"]
-  },
   "paths": {
     "data_dir": "data/",
     "model_dir": "models/",
     "log_dir": "logs/",
     "config_file": "config.json"        
   },
-  "model_version": "1",
+  "model_version": "0.1.0",
   "labels": {
     "currency_pairs": [
       "EURUSD",
