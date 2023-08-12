@@ -5,3 +5,5 @@
 *.jpg
 *.pyc
 data/**/*.json
+*.pkl
+*.pickle
