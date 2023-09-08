@@ -156,6 +156,14 @@ def forecast_isolate(j):
                 "ADX" : df.loc[i, "ADX"],
                 "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
                 "WILLR" : df.loc[i, "WILLR"],
+
+                "OBV" : df.loc[i, "OBV"],
+                "CCI" : df.loc[i, "CCI"],
+                "PSAR" : df.loc[i, "PSAR"],
+                "AD" : df.loc[i, "AD"],
+                "ADOSC" : df.loc[i, "ADOSC"],
+                "VOLUME_RSI" : df.loc[i, "VOLUME_RSI"],                
+                "MFI" : df.loc[i, "MFI"],
                 "label": None,
             }
             has_traded = True
@@ -184,6 +192,13 @@ def forecast_isolate(j):
                 "ADX" : df.loc[i, "ADX"],
                 "AROON_Oscillator" : df.loc[i, "AROON_Oscillator"],
                 "WILLR" : df.loc[i, "WILLR"],
+                "OBV" : df.loc[i, "OBV"],
+                "CCI" : df.loc[i, "CCI"],
+                "PSAR" : df.loc[i, "PSAR"],
+                "AD" : df.loc[i, "AD"],
+                "ADOSC" : df.loc[i, "ADOSC"],
+                "VOLUME_RSI" : df.loc[i, "VOLUME_RSI"],                
+                "MFI" : df.loc[i, "MFI"],
                 "label": None,
             }
             has_traded = True
