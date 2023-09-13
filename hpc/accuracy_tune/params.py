@@ -20,10 +20,11 @@ train_size_list = [16_800]
 window_size_list = [24]
 forecast_horizon_list = [360]
 sma_list = [200]
-dataset_list = ["EURUSD_H1", "USDJPY_H1", "GBPUSD_H1",
-                "AUDUSD_H1", "USDCAD_H1", "USDCHF_H1", "EURJPY_H1", "EURGBP_H1"]
+# dataset_list = ["EURUSD_H1", "USDJPY_H1", "GBPUSD_H1",
+#                 "AUDUSD_H1", "USDCAD_H1", "USDCHF_H1", "EURJPY_H1", "EURGBP_H1"]
+dataset_list = ["EURUSD_H1"]
 slope_threshold_list = [0]
-year_list = ['2011', '2012', '2013', '2014', '2015'] # training year_list
+year_list = ['2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019','2020', '2021', '2022'] # training year_list
 # year_list = ['2016', '2017', '2018', '2019', '2020', '2021', '2022'] # testing year_list
 step_length_list = [1]
 

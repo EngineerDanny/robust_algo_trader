@@ -31,6 +31,18 @@ date_time = "2023-07-30_19:34"
 date_time = "2023-07-31_19:05"
 date_time = "2023-07-31_19:32"
 
+date_time = "2023-09-08_09:53"
+date_time = "2023-09-08_09:59"
+date_time = "2023-09-08_10:26"
+
+date_time = "2023-09-08_12:09"
+date_time = "2023-09-08_12:23"
+date_time = "2023-09-08_15:27"
+date_time = "2023-09-08_16:06"
+date_time = "2023-09-08_16:06"
+date_time = "2023-09-10_15:41"
+date_time = "2023-09-10_18:40"
+date_time = "2023-09-10_19:07"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{date_time}/results/*.csv"):

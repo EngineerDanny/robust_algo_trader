@@ -6,7 +6,7 @@ from datetime import date
 import talib
 from sklearn.linear_model import *
 from sktime.forecasting.base import ForecastingHorizon
-from sktime.forecasting.compose import make_reduction
+# from sktime.forecasting.compose import make_reduction
 from sktime.utils.plotting import plot_series
 from sktime.performance_metrics.forecasting import mean_absolute_percentage_error, mean_squared_error
 from sklearn.metrics import accuracy_score
@@ -132,14 +132,21 @@ def forecast_isolate(j):
     
     for i in test_idx:
         # check if there is a buy MACD crossover
+        # if df.loc[i, "MACD_Crossover_Change"] > 0 and \
+        #     has_traded == False and \
+        #     df.loc[i, "Close"] > df.loc[i, f"SMA_{timeperiod}"] and \
+        #     df.loc[i, "MACD"] < 0:
+        # if df.loc[i, "AROON_Oscillator"] <= -100 and \
         if df.loc[i, "MACD_Crossover_Change"] > 0 and \
-            has_traded == False and \
-            df.loc[i, "Close"] > df.loc[i, f"SMA_{timeperiod}"] and \
-            df.loc[i, "MACD"] < 0:
+            has_traded == False:
             ask_price = df.loc[i, "Close"]
             tp_price = ask_price + tp
             sl_price = ask_price - sl
             current_position = 1
+            
+            # tp_price = ask_price - tp
+            # sl_price = ask_price + sl
+            # current_position = 0
             
             local_order = {
                 "index": i,
@@ -164,14 +171,18 @@ def forecast_isolate(j):
                 "ADOSC" : df.loc[i, "ADOSC"],
                 "VOLUME_RSI" : df.loc[i, "VOLUME_RSI"],                
                 "MFI" : df.loc[i, "MFI"],
+                "Date_Time" : df.loc[i, "Date_Time"],
                 "label": None,
             }
             has_traded = True
             
+        # elif df.loc[i, "MACD_Crossover_Change"] < 0 and \
+        #     has_traded == False and \
+        #     df.loc[i, "Close"] < df.loc[i, f"SMA_{timeperiod}"] and \
+        #     df.loc[i, "MACD"] > 0:    
+        # elif df.loc[i, "AROON_Oscillator"] >= 100 and \
         elif df.loc[i, "MACD_Crossover_Change"] < 0 and \
-            has_traded == False and \
-            df.loc[i, "Close"] < df.loc[i, f"SMA_{timeperiod}"] and \
-            df.loc[i, "MACD"] > 0:    
+            has_traded == False:    
             ask_price = df.loc[i, "Close"]
             tp_price = ask_price - tp
             sl_price = ask_price + sl
@@ -199,6 +210,7 @@ def forecast_isolate(j):
                 "ADOSC" : df.loc[i, "ADOSC"],
                 "VOLUME_RSI" : df.loc[i, "VOLUME_RSI"],                
                 "MFI" : df.loc[i, "MFI"],
+                "Date_Time" : df.loc[i, "Date_Time"],
                 "label": None,
             }
             has_traded = True
