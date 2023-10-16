@@ -7,3 +7,4 @@
 data/**/*.json
 *.pkl
 *.pickle
+drl/trade_env_tensorboard/*
