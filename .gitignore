@@ -4,6 +4,7 @@
 *.svg
 *.jpg
 *.pyc
+*.zip
 data/**/*.json
 *.pkl
 *.pickle
