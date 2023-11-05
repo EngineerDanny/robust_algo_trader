@@ -1,0 +1,12 @@
+*.csv
+*.tsv
+*.png
+*.svg
+*.jpg
+*.pyc
+*.zip
+data/**/*.json
+*.pkl
+*.pickle
+drl/trade_env_tensorboard/*
+*.DS_Store
