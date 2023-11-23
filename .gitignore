@@ -10,3 +10,6 @@ data/**/*.json
 *.pickle
 drl/trade_env_tensorboard/*
 *.DS_Store
+*.gz
+dnn/data/FashionMNIST/raw/*
+*.pth
