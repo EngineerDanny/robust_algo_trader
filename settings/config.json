@@ -23,8 +23,8 @@
   },
   "trading_settings": {
     "EURUSD_H1": {
-      "take_profit": 0.0075,
-      "stop_loss": 0.0050
+      "take_profit": 0.0040,
+      "stop_loss": 0.0025
     },
     "USDJPY_H1": {
       "take_profit": 2,
