@@ -8,7 +8,9 @@
 **Aproach**: Train ML algorithms on historic data (close prices) to forecast future close prices.
 
 **Algos Used**: 
+- Theta
 - Exponential Smoothing
+- Linear Regression
 - Bayesian Ridge
 - BlockRNNModel
 
