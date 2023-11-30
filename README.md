@@ -42,6 +42,7 @@
 - Signal trend is not clearly defined and sometimes not captured by the forecast.
 - It is not stable and maintable.
 
+![Screenshot 2023-11-29 at 5 48 28 PM](https://github.com/EngineerDanny/robust_algo_trader/assets/47421661/40c368de-1f77-494a-9200-4d392d6debfc)
 
 
 ## License
