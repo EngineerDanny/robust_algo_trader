@@ -13,3 +13,4 @@ drl/trade_env_tensorboard/*
 *.gz
 dnn/data/FashionMNIST/raw/*
 *.pth
+!experiments/*
