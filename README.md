@@ -11,7 +11,10 @@
 
 **Test**: Test forecast prediction with actual labels and find the MAPE between prediction and labels.
 
-**Problem**: Too much noise in the data so ML algos cannot learn the signal, algos learn the noise instead.
+**Problem**: 
+- Too much noise in the data so ML algos cannot learn the signal, algos learn the noise instead.
+- Continuous Retraining of algos using historic data from window size takes time.
+- It is not stable and maintable.
 
 ![exp1](https://github.com/EngineerDanny/robust_algo_trader/blob/main/assets/experiments/exp1.jpeg)
 
