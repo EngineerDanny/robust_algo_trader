@@ -47,11 +47,24 @@
 
 ## [Experiment 3 - MACD Crossover Entry Point, Get Features and Predict the label](https://github.com/EngineerDanny/robust_algo_trader/tree/main/hpc/forecast_tune)
 
-**Aproach**: 
+### Aproach 
 - Use MACD crossover as the entry point to get features and predict the Label.
+- Set take profit and stop loss levels at point of entry.
 - If the MACD crossover is positive, the trade is long, otherwise the trade is short.
 - The label describes whether the trade is profitable or not (1 or 0).
 - The features are only technical indicators with well defined range (RSI, ADX etc).
+
+### Supervised Learning Problem
+**Problem**:
+- The features are not good enough to describe the market.
+- The features does not have a clear relationship with the label.
+
+### Reinforcement Learning Problem
+**Problem**:
+- The reward function is not stable.
+- Overfitting to the training environment.
+- The features does not have a clear relationship with the label.
+
 
 
 ## License
