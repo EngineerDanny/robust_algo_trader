@@ -45,7 +45,7 @@
 ![Screenshot 2023-11-29 at 5 48 28 PM](https://github.com/EngineerDanny/robust_algo_trader/assets/47421661/40c368de-1f77-494a-9200-4d392d6debfc)
 
 
-## [Experiment 3 - MACD Crossover Entry Point, Get Features and Predict the label](https://github.com/EngineerDanny/robust_algo_trader/tree/main/hpc/forecast_tune)
+## [Experiment 3 - MACD Crossover Entry Point, Get Features and Predict the label](https://github.com/EngineerDanny/robust_algo_trader/tree/main/hpc/accuracy_tune)
 
 ### Aproach 
 - Use MACD crossover as the entry point to get features and predict the Label.
