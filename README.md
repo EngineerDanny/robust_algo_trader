@@ -7,7 +7,10 @@
 ## [Experiment 1 - Using ML to forecast close prices](https://github.com/EngineerDanny/robust_algo_trader/tree/main/forecast)
 **Aproach**: Train ML algorithms on historic data (close prices) to forecast future close prices.
 
-**Algos Used**: Exponential Smoothing, Bayesian Ridge, BlockRNNModel, etc
+**Algos Used**: 
+- Exponential Smoothing
+- Bayesian Ridge
+- BlockRNNModel
 
 **Test**: Test forecast prediction with actual labels and find the MAPE between prediction and labels.
 
