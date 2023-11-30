@@ -4,7 +4,7 @@
 
 - The project focuses on forex data, which consists of open, high, low and close (OHLC) prices, as well as technical indicators such as simple moving average (SMA) and Bollinger bands (BB).
 
-## [Experiment 1 - Using ML to forecast close prices](https://github.com/EngineerDanny/robust_algo_trader/tree/main/forecast)
+## [Experiment 1 - Using ML to Forecast Close Prices](https://github.com/EngineerDanny/robust_algo_trader/tree/main/forecast)
 **Aproach**: Train ML algorithms on historic data (close prices) to forecast future close prices.
 
 **Algos Used**: 
@@ -24,7 +24,7 @@
 ![exp1](https://github.com/EngineerDanny/robust_algo_trader/blob/main/assets/experiments/exp1.jpeg)
 
 
-## [Experiment 2 - Using ML to forecast Simple Moving Average (SMA)](https://github.com/EngineerDanny/robust_algo_trader/tree/main/hpc/forecast_tune)
+## [Experiment 2 - Using ML to Forecast Simple Moving Average (SMA) of Close Prices](https://github.com/EngineerDanny/robust_algo_trader/tree/main/hpc/forecast_tune)
 **Aproach**: Remove the noise by using SMA as the label instead of close prices. Train ML algorithms on historic data (SMA) to forecast future SMA.
 
 **Algos Used**:
