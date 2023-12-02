@@ -33,34 +33,42 @@ y = df[['Close']]
 offset = y.index[0]
 
 def save_setup_graph(subset_df, position, label):
-    plt.figure(figsize=(8,6)) # Increase the figure size to fit two subplots
-    plt.subplot(2, 1, 1)
+    plt.figure(figsize=(8, 6)) 
+    # Increase the figure size to fit two subplots
+    # plt.subplot(2, 1, 1)
     # plt.plot(subset_df["Close"], label="Close")
     plt.plot(subset_df["SMA_20"], label="SMA_20")
     # plt.plot(df["SMA_30"], label="SMA_30")
     plt.plot(subset_df["SMA_50"], label="SMA_50")
     plt.plot(subset_df["SMA_100"], label="SMA_100")
     close_price = subset_df["Close"].iloc[-1]
+    
+    tp_eps = tp + 0.001
+    sl_eps = sl + 0.001
+    
+    sl_eps = sl
+    tp_eps = tp
+    
     if position == 1:
-        plt.axhspan(close_price, close_price + tp, facecolor="green", xmin= 0.96, alpha=0.5) 
-        plt.axhspan(close_price - sl, close_price, facecolor="red", xmin= 0.96, alpha=0.5)
+        plt.axhspan(close_price, close_price + tp_eps, facecolor="green", xmin= 0.96, alpha=0.5) 
+        plt.axhspan(close_price - sl_eps, close_price, facecolor="red", xmin= 0.96, alpha=0.5)
     else:
-        plt.axhspan(close_price, close_price + sl, facecolor="red", xmin= 0.96, alpha=0.5) 
-        plt.axhspan(close_price - tp, close_price, facecolor="green", xmin= 0.96, alpha=0.5)
+        plt.axhspan(close_price, close_price + sl_eps, facecolor="red", xmin= 0.96, alpha=0.5) 
+        plt.axhspan(close_price - tp_eps, close_price, facecolor="green", xmin= 0.96, alpha=0.5)
     plt.xticks([])
     plt.yticks([])
     
-    # Plot the MACD graph below the price chart
-    plt.subplot(2, 1, 2) # Create a subplot for the MACD graph
-    plt.plot(subset_df["MACD"], label="MACD") # Add this line to plot the MACD column
-    plt.plot(subset_df["MACD_Signal"], label="MACD_Signal") # Add this line to plot the MACD_Signal column
-    plt.bar(subset_df.index, subset_df["MACD_Hist"], label="MACD_Hist") # Add this line to plot the MACD_Hist column as a bar chart
-    plt.legend()
-    plt.title("MACD chart")
-    plt.xlabel("")
-    plt.ylabel("")
-    plt.xticks([])
-    plt.yticks([])
+    # # Plot the MACD graph below the price chart
+    # plt.subplot(2, 1, 2) # Create a subplot for the MACD graph
+    # plt.plot(subset_df["MACD"], label="MACD") # Add this line to plot the MACD column
+    # plt.plot(subset_df["MACD_Signal"], label="MACD_Signal") # Add this line to plot the MACD_Signal column
+    # plt.bar(subset_df.index, subset_df["MACD_Hist"], label="MACD_Hist") # Add this line to plot the MACD_Hist column as a bar chart
+    # plt.legend()
+    # plt.title("MACD chart")
+    # plt.xlabel("")
+    # plt.ylabel("")
+    # plt.xticks([])
+    # plt.yticks([])
     
     save_path = f"/projects/genomic-ml/da2343/ml_project_2/data/EURUSD/{label}"
     # name should be the index of the first row in the subset_df
@@ -121,6 +129,10 @@ for index in range(window_size, len(df)):
                 local_order["close_time"] = df.loc[j, "Date_Time"]
                 break
         
+        if local_order["label"] is None:
+            break    
+        
+        
         # create set-up graph for local_order
         # subset_df should be a df with window_size rows from i-window_size to i
         subset_df = df.loc[i-window_size:i]
@@ -170,6 +182,11 @@ for index in range(window_size, len(df)):
                 local_order["label"] = 0
                 local_order["close_time"] = df.loc[j, "Date_Time"]
                 break
+        
+        if local_order["label"] is None:
+            break
+        
+        subset_df = df.loc[i-window_size:i]
         save_setup_graph(subset_df, current_position, local_order["label"])
         trades.append(local_order)
         
