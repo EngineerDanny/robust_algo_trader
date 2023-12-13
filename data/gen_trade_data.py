@@ -80,6 +80,7 @@ def save_setup_graph(subset_df, position, label, index):
         plt.axhspan(close_price - tp_eps, close_price, facecolor="green", xmin= 0.96, alpha=0.9)
     plt.xticks([])
     plt.yticks([])
+    plt.box(False)
     
     save_path = f"/projects/genomic-ml/da2343/ml_project_2/data/EURUSD/{label}"
     # name should be the index of the first row in the subset_df
