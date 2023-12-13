@@ -16,17 +16,24 @@ import json
 import warnings
 import matplotlib.pyplot as plt
 
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
-dataset_path = f"{root_data_dir}/EURUSD/EURUSD_H1_200702210000_202304242100_Update.csv"
+# dataset_name = "EURUSD_H1"
+# root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/EURUSD" 
+# dataset_path = f"{root_data_dir}/EURUSD_H1_200702210000_202304242100_Update.csv"
+
+dataset_name = "USDJPY_H1"
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/USDJPY" 
+dataset_path = f"{root_data_dir}/USDJPY_H1_200705290000_202307282300_Update.csv"
+
+
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
 with open(config_path) as f:
-  config = json.load(f)
-  
-dataset_name = "EURUSD_H1"
+  config = json.load(f)  
 # Get the take_profit and stop_loss levels from the config file
 tp = config["trading_settings"][dataset_name]["take_profit"]
 sl = config["trading_settings"][dataset_name]["stop_loss"]
+delta = config["trading_settings"][dataset_name]["delta"]
+
 df = pd.read_csv(dataset_path, index_col=0)
 df['Index'] = df.index
 
@@ -66,8 +73,8 @@ def save_setup_graph(subset_df, position, label, index):
     
     close_price = subset_df["Close"].iloc[-1]
     
-    tp_eps = tp + 0.0025
-    sl_eps = sl + 0.0025
+    tp_eps = tp + delta
+    sl_eps = sl + delta
     
     sl_eps = sl
     tp_eps = tp
@@ -82,13 +89,12 @@ def save_setup_graph(subset_df, position, label, index):
     plt.yticks([])
     plt.box(False)
     
-    save_path = f"/projects/genomic-ml/da2343/ml_project_2/data/EURUSD/{label}"
+    save_path = f"{root_data_dir}/{label}"
     # name should be the index of the first row in the subset_df
     plt.savefig(f"{save_path}/{index}.png", dpi=128, bbox_inches="tight")
     # close the figure
     plt.close()
     
-
 
 trades = []
 window_size = 24 * 5
