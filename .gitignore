@@ -14,3 +14,5 @@ drl/trade_env_tensorboard/*
 dnn/data/FashionMNIST/raw/*
 *.pth
 !experiments/*
+*.err
+*.out
