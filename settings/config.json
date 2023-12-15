@@ -25,7 +25,8 @@
     "EURUSD_H1": {
       "take_profit": 0.0050,
       "stop_loss": 0.0025,
-      "delta": 0.0025
+      "delta": 0.0025,
+      "window_size": 120
     },
     "USDJPY_H1": {
       "take_profit": 1,
