@@ -49,28 +49,27 @@ PATH = './model.pth'
 class CNNet(nn.Module):
     def __init__(self):
         super(CNNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, 5)
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(3, 16, 5) # Input channels, output channels, kernel size
         self.conv2 = nn.Conv2d(16, 32, 5)
         self.conv3 = nn.Conv2d(32, 32, 5)
-        self.pool = nn.MaxPool2d(2, 2)
+        self.pool = nn.MaxPool2d(2, 2) # Kernel size, stride
         self.dropout = nn.Dropout(0.25)
-        self.fc1 = nn.Linear(86528, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, 1) 
+        self.fc1 = nn.Linear(86528, 128)
+        self.fc2 = nn.Linear(128, 1) 
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
+        # Apply the convolutional layers with pooling and dropout
         x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
         x = self.relu(self.conv3(x))
         x = self.dropout(x)
         x = torch.flatten(x, 1)
         x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.sigmoid(self.fc3(x))
+        x = self.sigmoid(self.fc2(x))
         return x
-
 
 # Load the trained model
 cnn = CNNet()
@@ -78,14 +77,19 @@ cnn.load_state_dict(torch.load(PATH))
 cnn.to(device)
 cnn.eval()
 
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
-dataset_path = f"{root_data_dir}/EURUSD/EURUSD_H1_200702210000_202304242100_Update.csv"
+# dataset_name = "EURUSD_H1"
+# root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/EURUSD" 
+# dataset_path = f"{root_data_dir}/EURUSD_H1_200702210000_202304242100_Update.csv"
+
+dataset_name = "USDJPY_H1"
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/USDJPY" 
+dataset_path = f"{root_data_dir}/USDJPY_H1_200705290000_202307282300_Update.csv"
+
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
 with open(config_path) as f:
   config = json.load(f)
   
-dataset_name = "EURUSD_H1"
 # Get the take_profit and stop_loss levels from the config file
 tp = config["trading_settings"][dataset_name]["take_profit"]
 sl = config["trading_settings"][dataset_name]["stop_loss"]
@@ -240,7 +244,7 @@ try:
             # Get the model output
             output = cnn(image)
             output_item = output.item()
-            threshold = 0.8
+            threshold = 0.5
             pred = 1 if output_item > threshold else 0
             # use that to execute a trade order
             if pred == 1:
@@ -252,6 +256,6 @@ except Exception as e:
     
 trades_df = pd.DataFrame(trades)
 # save the trades dataframe to a csv file
-trades_df.to_csv(f"ml_trades_threshold_0.8_seq_{dataset_name}_2007_2023.csv", index=False)
+trades_df.to_csv(f"ml_2_trades_threshold_0.5_seq_{dataset_name}_2007_2023.csv", index=False)
 # trades_df.to_csv(f"dummy_trades_seq_{dataset_name}_2007_2023.csv", index=False)
 print("Done!")
