@@ -77,13 +77,13 @@ cnn.load_state_dict(torch.load(PATH))
 cnn.to(device)
 cnn.eval()
 
-# dataset_name = "EURUSD_H1"
-# root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/EURUSD" 
-# dataset_path = f"{root_data_dir}/EURUSD_H1_200702210000_202304242100_Update.csv"
+dataset_name = "EURUSD_H1"
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/EURUSD" 
+dataset_path = f"{root_data_dir}/EURUSD_H1_200702210000_202304242100_Update.csv"
 
-dataset_name = "USDJPY_H1"
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/USDJPY" 
-dataset_path = f"{root_data_dir}/USDJPY_H1_200705290000_202307282300_Update.csv"
+# dataset_name = "USDJPY_H1"
+# root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/USDJPY" 
+# dataset_path = f"{root_data_dir}/USDJPY_H1_200705290000_202307282300_Update.csv"
 
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
@@ -91,18 +91,18 @@ with open(config_path) as f:
   config = json.load(f)
   
 # Get the take_profit and stop_loss levels from the config file
-tp = config["trading_settings"][dataset_name]["take_profit"]
-sl = config["trading_settings"][dataset_name]["stop_loss"]
-delta = config["trading_settings"][dataset_name]["delta"]
+config_settings = config["trading_settings"][dataset_name]
+tp = config_settings["take_profit"]
+sl = config_settings["stop_loss"]
+delta = config_settings["delta"]
+window_size = config_settings["window_size"]
 
 df = pd.read_csv(dataset_path, index_col=0)
 df['Index'] = df.index
-
 y = df[['Close']]
 offset = y.index[0]
 
 trades = []
-window_size = 24 * 5
 
 def save_setup_graph(subset_df, position, index):
     green_df = subset_df[subset_df['Close'] > subset_df['Open']].copy()
@@ -254,5 +254,5 @@ except Exception as e:
 trades_df = pd.DataFrame(trades)
 # save the trades dataframe to a csv file
 trades_df.to_csv(f"ml_2_trades_threshold_0.5_seq_fix_{dataset_name}_2007_2023.csv", index=False)
-# trades_df.to_csv(f"dummy_trades_seq_{dataset_name}_2007_2023.csv", index=False)
+# trades_df.to_csv(f"dummy_trades_seq_fix_{dataset_name}_2007_2023.csv", index=False)
 print("Done!")
