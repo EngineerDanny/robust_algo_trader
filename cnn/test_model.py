@@ -43,7 +43,7 @@ transform = transforms.Compose(
 device = "cpu"
 
 # Save the model
-PATH = './model.pth'
+PATH = './model_39.pth'
 
 # Define the model
 class CNNet(nn.Module):
