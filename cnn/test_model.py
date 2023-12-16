@@ -195,7 +195,7 @@ def create_trade_order(row, position, tp, sl):
 
 try:
     # loop through all rows in the dataframe
-    for row in df.iloc[window_size:].iterrows():
+    for index, row in df.iloc[window_size:].iterrows():
         # check if there are any open trades
         if len(trades) != 0:
             prev_trade = trades[-1]
@@ -231,9 +231,8 @@ try:
             # trades.append(local_order) 
 
             # TODO: ML
-            index = row[0]
             subset_df = df.loc[(index-window_size+1):(index)]
-            save_setup_graph(subset_df, current_position, i)
+            save_setup_graph(subset_df, current_position, index)
             # use the model to predict 1 or 0
             image = Image.open("plot.png").convert("RGB")
             image = transform(image)
