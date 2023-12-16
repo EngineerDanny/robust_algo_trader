@@ -31,7 +31,8 @@
     "USDJPY_H1": {
       "take_profit": 1,
       "stop_loss": 0.5,
-      "delta": 0.5
+      "delta": 0.5,
+      "window_size": 120
     },
     "GBPUSD_H1": {
       "take_profit": 0.015,
