@@ -30,13 +30,14 @@ config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
 with open(config_path) as f:
   config = json.load(f)  
 # Get the take_profit and stop_loss levels from the config file
-tp = config["trading_settings"][dataset_name]["take_profit"]
-sl = config["trading_settings"][dataset_name]["stop_loss"]
-delta = config["trading_settings"][dataset_name]["delta"]
+config_settings = config["trading_settings"][dataset_name]
+tp = config_settings["take_profit"]
+sl = config_settings["stop_loss"]
+delta = config_settings["delta"]
+window_size = config_settings["window_size"]
 
 df = pd.read_csv(dataset_path, index_col=0)
 df['Index'] = df.index
-
 y = df[['Close']]
 offset = y.index[0]
 
@@ -97,7 +98,6 @@ def save_setup_graph(subset_df, position, label, index):
     
 
 trades = []
-window_size = 24 * 5
 
 # loop through all rows in the dataframe
 for index in range(window_size, len(df)):
