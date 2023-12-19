@@ -65,6 +65,13 @@
 - Overfitting to the training environment.
 - The features does not have a clear relationship with the label.
 
+## Experiment 4 - Using ML to Predict Labels using some technical indicators as features
+**Aproach**: Generate features from technical indicators and use them to predict the label. Label is 1 if the trade is profitable, 0 otherwise.
+
+**Problem**:
+- THere is no clear relationship between the features and the label.
+- The prediction is not accurate and robust enough to be used for trading.
+- It is not stable and maintable.
 
 
 ## License
