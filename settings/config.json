@@ -6,20 +6,18 @@
     "config_file": "config.json"        
   },
   "model_version": "0.1.0",
-  "labels": {
-    "currency_pairs": [
-      "EURUSD",
-      "USDJPY",
-      "GBPUSD",
-      "AUDUSD",
-      "USDCAD",
-      "USDCHF",
-      "NZDUSD",
-      "EURJPY",
-      "GBPJPY",
-      "EURGBP"
-    ]
-  },
+  "currency_pairs": [
+    "EURUSD",
+    "USDJPY",
+    "GBPUSD",
+    "AUDUSD",
+    "USDCAD",
+    "USDCHF",
+    "NZDUSD",
+    "EURJPY",
+    "GBPJPY",
+    "EURGBP"
+  ],
   "trading_settings": {
     "EURUSD_H1": {
       "take_profit": 0.0050,
