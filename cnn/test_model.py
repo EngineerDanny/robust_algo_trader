@@ -241,7 +241,8 @@ try:
             # Get the model output
             output = cnn(image)
             output_item = output.item()
-            threshold = 0.5
+            # threshold = 0.5
+            threshold = 0.95
             pred = 1 if output_item > threshold else 0
             # use that to execute a trade order
             if pred == 1:
@@ -253,6 +254,6 @@ except Exception as e:
     
 trades_df = pd.DataFrame(trades)
 # save the trades dataframe to a csv file
-trades_df.to_csv(f"ml_2_trades_threshold_0.5_seq_fix_{dataset_name}_2007_2023.csv", index=False)
+trades_df.to_csv(f"ml_2_trades_threshold_0.95_seq_fix_{dataset_name}_2007_2023.csv", index=False)
 # trades_df.to_csv(f"dummy_trades_seq_fix_{dataset_name}_2007_2023.csv", index=False)
 print("Done!")
