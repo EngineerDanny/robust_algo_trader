@@ -7,14 +7,10 @@ import shutil
 import sys
 import pandas as pd
 
-
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data"
 params_df_list = []
-
 dataset_list = ["EURUSD_H1", "USDJPY_H1", "GBPUSD_H1", 
-                "AUDUSD_H1", "AUDCAD_H1", "AUDCHF_H1", 
-                "USDCAD_H1", "USDCHF_H1", "EURGBP_H1", "EURJPY_H1"  ]
-
+                "AUDUSD_H1", "AUDCAD_H1", "AUDCHF_H1",
+                "USDCAD_H1", "USDCHF_H1", "EURGBP_H1", "EURJPY_H1"]
 threshold = [0.5, 0.8, 0.9, 0.95]
 params_dict = {
     'dataset_name': dataset_list,
@@ -25,9 +21,7 @@ params_df = pd.MultiIndex.from_product(
     names=params_dict.keys()
 ).to_frame().reset_index(drop=True)
 params_df_list.append(params_df)
-
 params_concat_df = pd.concat(params_df_list, ignore_index=True)
-
 
 n_tasks, ncol = params_concat_df.shape
 date_time = datetime.now().strftime("%Y-%m-%d_%H:%M")
@@ -52,7 +46,7 @@ run_one_sh = os.path.join(job_dir, "run_one.sh")
 with open(run_one_sh, "w") as run_one_f:
     run_one_f.write(run_one_contents)
 
-run_orig_py = "demo_run.py"
+run_orig_py = "test_model.py"
 run_one_py = os.path.join(job_dir, "run_one.py")
 shutil.copyfile(run_orig_py, run_one_py)
 orig_dir = os.path.dirname(run_orig_py)
