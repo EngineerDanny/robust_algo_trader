@@ -272,7 +272,34 @@ except Exception as e:
     print(e)
     
 trades_df = pd.DataFrame(trades)
-# save the trades dataframe to a csv file
-trades_df.to_csv(f"ml_2_trades_threshold_{str(threshold)}_seq_fix_{dataset_name}_2007_2023.csv", index=False)
-# trades_df.to_csv(f"dummy_trades_seq_fix_{dataset_name}_2007_2023.csv", index=False)
+trades_df['Date_Time'] = pd.to_datetime(trades_df['Date_Time'])
+trades_df['Year'] = trades_df['Date_Time'].dt.year
+trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
+
+# Create Max Drawdown column
+max_drawdown_df = trades_df.copy() 
+max_drawdown_df = max_drawdown_df[['Year', 'Return', 'label']]
+max_drawdown = 0
+max_drawdown_column = []
+for index, row in max_drawdown_df.iterrows():
+    if row['Return'] == 2:
+        max_drawdown = 0
+    elif row['Return'] == -1:
+        max_drawdown += 1
+    max_drawdown_column.append(max_drawdown)
+max_drawdown_df['Max Drawdown'] = max_drawdown_column
+max_drawdown_df = max_drawdown_df.groupby(['Year']).agg({'Max Drawdown': 'max'}).reset_index()
+
+# for each year, sum the returns and count the number of labels as trades
+trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'}).reset_index()
+trades_df['trades'] = trades_df['label']
+trades_df.drop(['label'], axis=1, inplace=True)
+trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
+trades_df['Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
+trades_df['dataset_name'] = dataset_name
+trades_df['threshold'] = threshold
+
+# Save dataframe as a csv to output directory
+out_file = f"results/{param_row}.csv"
+trades_df.to_csv(out_file, encoding='utf-8', index=False)
 print("Done!")
