@@ -59,58 +59,6 @@ param_dict = dict(params_df.iloc[param_row, :])
 dataset_name = param_dict["dataset_name"]
 threshold = param_dict["threshold"]
 
-# Set a random seed for reproducibility
-seed = 42
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-torch.manual_seed(seed)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(seed)
-    
-# Define data transformations
-transform = transforms.Compose( 
-    [transforms.Resize((64, 64)),
-     transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]) 
-
-
-device = "cpu"
-
-# Save the model
-PATH = './model_39.pth'
-
-# Define the model
-class CNNet(nn.Module):
-    def __init__(self):
-        super(CNNet, self).__init__()
-        # Convolutional layers
-        self.conv1 = nn.Conv2d(3, 16, 5) # Input channels, output channels, kernel size
-        self.conv2 = nn.Conv2d(16, 32, 5)
-        self.conv3 = nn.Conv2d(32, 32, 5)
-        self.pool = nn.MaxPool2d(2, 2) # Kernel size, stride
-        self.dropout = nn.Dropout(0.25)
-        self.fc1 = nn.Linear(86528, 128)
-        self.fc2 = nn.Linear(128, 1) 
-        self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        # Apply the convolutional layers with pooling and dropout
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
-        x = self.relu(self.conv3(x))
-        x = self.dropout(x)
-        x = torch.flatten(x, 1)
-        x = self.relu(self.fc1(x))
-        x = self.sigmoid(self.fc2(x))
-        return x
-
-# Load the trained model
-cnn = CNNet()
-cnn.load_state_dict(torch.load(PATH))
-cnn.to(device)
-cnn.eval()
-
 
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
@@ -124,8 +72,51 @@ sl = config_settings["stop_loss"]
 delta = config_settings["delta"]
 window_size = config_settings["window_size"]
 dataset_path = config_settings["dataset_path"]
+root_data_dir = config["paths"]["data_dir"]
+device = config["device"]
+ml_model_path = config["paths"]["model_39_dir"]
 
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
+
+# Set a random seed for reproducibility
+seed = 42
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.manual_seed(seed)
+transform = transforms.Compose( 
+    [transforms.Resize((64, 64)),
+     transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), 
+                          (0.5, 0.5, 0.5))]) 
+# Define the model
+class CNNet(nn.Module):
+    def __init__(self):
+        super(CNNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 16, 5)
+        self.conv2 = nn.Conv2d(16, 32, 5)
+        self.conv3 = nn.Conv2d(32, 32, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dropout = nn.Dropout(0.25)
+        self.fc1 = nn.Linear(86528, 128)
+        self.fc2 = nn.Linear(128, 1) 
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv2(x))
+        x = self.relu(self.conv3(x))
+        x = self.dropout(x)
+        x = torch.flatten(x, 1)
+        x = self.relu(self.fc1(x))
+        x = self.sigmoid(self.fc2(x))
+        return x
+
+# Load the trained model
+cnn = CNNet()
+cnn.load_state_dict(torch.load(ml_model_path))
+cnn.to(device)
+cnn.eval()
+
 
 df = pd.read_csv(f"{root_data_dir}/{dataset_path}", index_col=0)
 df['Index'] = df.index

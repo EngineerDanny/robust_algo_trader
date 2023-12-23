@@ -1,10 +1,11 @@
 {
   "paths": {
-    "data_dir": "data/",
-    "model_dir": "models/",
+    "data_dir": "/projects/genomic-ml/da2343/ml_project_2/data",
+    "model_39_dir": "/projects/genomic-ml/da2343/ml_project_2/models/model_39.pth",
     "log_dir": "logs/",
     "config_file": "config.json"
   },
+  "device": "cpu",
   "model_version": "0.1.0",
   "currency_pairs": [
     "EURUSD",
