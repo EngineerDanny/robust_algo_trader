@@ -22,8 +22,42 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 from PIL import Image
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import json
+import time
+import datetime as dt
+import requests
+import sys
+import re
+import itertools
+import os
+import talib
+import logging
+from decimal import Decimal
+import io
+import sys
+import torch
+import torchvision
+import torchvision.transforms as transforms
+import torch.nn as nn
+from PIL import Image
+import warnings
 
+warnings.filterwarnings('ignore')
+params_df = pd.read_csv("params.csv")
 
+if len(sys.argv) == 2:
+    prog_name, task_str = sys.argv
+    param_row = int(task_str)
+else:
+    print("len(sys.argv)=%d so trying first param" % len(sys.argv))
+    param_row = 0
+
+param_dict = dict(params_df.iloc[param_row, :])
+dataset_name = param_dict["dataset_name"]
+threshold = param_dict["threshold"]
 
 # Set a random seed for reproducibility
 seed = 42
@@ -77,13 +111,6 @@ cnn.load_state_dict(torch.load(PATH))
 cnn.to(device)
 cnn.eval()
 
-dataset_name = "EURUSD_H1"
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/EURUSD" 
-dataset_path = f"{root_data_dir}/EURUSD_H1_200702210000_202304242100_Update.csv"
-
-# dataset_name = "USDJPY_H1"
-# root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/USDJPY" 
-# dataset_path = f"{root_data_dir}/USDJPY_H1_200705290000_202307282300_Update.csv"
 
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
@@ -96,8 +123,11 @@ tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
 delta = config_settings["delta"]
 window_size = config_settings["window_size"]
+dataset_path = config_settings["dataset_path"]
 
-df = pd.read_csv(dataset_path, index_col=0)
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data" 
+
+df = pd.read_csv(f"{root_data_dir}/{dataset_path}", index_col=0)
 df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
@@ -110,6 +140,7 @@ def save_setup_graph(subset_df, position, index):
     red_df = subset_df[subset_df['Close'] < subset_df['Open']].copy()
     red_df["Height"] = red_df["Open"] - red_df["Close"]
     
+    plt.switch_backend("Agg")
     fig = plt.figure(figsize=(8,3))
     
     ##Grey Lines
@@ -137,9 +168,6 @@ def save_setup_graph(subset_df, position, index):
     
     close_price = subset_df["Close"].iloc[-1]
     
-    tp_eps = tp + delta
-    sl_eps = sl + delta
-    
     sl_eps = sl
     tp_eps = tp
     
@@ -152,11 +180,21 @@ def save_setup_graph(subset_df, position, index):
     plt.xticks([])
     plt.yticks([])
     plt.box(False)
-    
-    # name should be the index of the first row in the subset_df
-    plt.savefig(f"/projects/genomic-ml/da2343/ml_project_2/cnn/plot.png", dpi=128, bbox_inches="tight")
+
+    buf = io.BytesIO()
+    plt.savefig(buf, dpi=128, bbox_inches="tight", format="png")
+    buf.seek(0)
+    image = Image.open(buf).convert("RGB")
+    image = transform(image)
+    image = image.unsqueeze(0)
+    image = image.to(device)
+    # Get the model output
+    output = cnn(image)
+    output_item = output.item()
+    buf.close()
     # close the figure
     plt.close()
+    return output_item
     
 
 def create_trade_order(row, position, tp, sl):
@@ -185,8 +223,8 @@ def create_trade_order(row, position, tp, sl):
         "PSAR": row["PSAR"],
         "AD": row["AD"],
         "ADOSC": row["ADOSC"],
-        "VOLUME_RSI": row["VOLUME_RSI"],
-        "MFI": row["MFI"],
+        # "VOLUME_RSI": row["VOLUME_RSI"],
+        # "MFI": row["MFI"],
         "Date_Time": row["Date_Time"],
         "close_time": None,
         "label": None,
@@ -232,17 +270,7 @@ try:
 
             # TODO: ML
             subset_df = df.loc[(index-window_size+1):(index)]
-            save_setup_graph(subset_df, current_position, index)
-            # use the model to predict 1 or 0
-            image = Image.open("plot.png").convert("RGB")
-            image = transform(image)
-            image = image.unsqueeze(0)
-            image = image.to(device)
-            # Get the model output
-            output = cnn(image)
-            output_item = output.item()
-            # threshold = 0.5
-            threshold = 0.95
+            output_item = save_setup_graph(subset_df, current_position, index)
             pred = 1 if output_item > threshold else 0
             # use that to execute a trade order
             if pred == 1:
@@ -254,6 +282,6 @@ except Exception as e:
     
 trades_df = pd.DataFrame(trades)
 # save the trades dataframe to a csv file
-trades_df.to_csv(f"ml_2_trades_threshold_0.95_seq_fix_{dataset_name}_2007_2023.csv", index=False)
+trades_df.to_csv(f"ml_2_trades_threshold_{str(threshold)}_seq_fix_{dataset_name}_2007_2023.csv", index=False)
 # trades_df.to_csv(f"dummy_trades_seq_fix_{dataset_name}_2007_2023.csv", index=False)
 print("Done!")
