@@ -3,67 +3,92 @@
     "data_dir": "data/",
     "model_dir": "models/",
     "log_dir": "logs/",
-    "config_file": "config.json"        
+    "config_file": "config.json"
   },
   "model_version": "0.1.0",
-  "labels": {
-    "currency_pairs": [
-      "EURUSD",
-      "USDJPY",
-      "GBPUSD",
-      "AUDUSD",
-      "USDCAD",
-      "USDCHF",
-      "NZDUSD",
-      "EURJPY",
-      "GBPJPY",
-      "EURGBP"
-    ]
-  },
+  "currency_pairs": [
+    "EURUSD",
+    "USDJPY",
+    "GBPUSD",
+    "AUDUSD",
+    "USDCAD",
+    "USDCHF",
+    "NZDUSD",
+    "EURJPY",
+    "GBPJPY",
+    "EURGBP"
+  ],
   "trading_settings": {
     "EURUSD_H1": {
-      "take_profit": 0.0050,
+      "take_profit": 0.005,
       "stop_loss": 0.0025,
       "delta": 0.0025,
-      "window_size": 120
+      "window_size": 120,
+      "dataset_path": "EURUSD/EURUSD_H1_200702210000_202304242100_Update.csv"
     },
     "USDJPY_H1": {
       "take_profit": 1,
       "stop_loss": 0.5,
       "delta": 0.5,
-      "window_size": 120
+      "window_size": 120,
+      "dataset_path": "USDJPY/USDJPY_H1_200705290000_202307282300_Update.csv"
     },
     "GBPUSD_H1": {
-      "take_profit": 0.015,
-      "stop_loss": 0.01
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "GBPUSD/GBPUSD_H1_200704170000_202307282300_Update.csv"
     },
+
     "AUDUSD_H1": {
-      "take_profit": 0.015,
-      "stop_loss": 0.01
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "AUDUSD/AUDUSD_H1_200704170000_202307282300_Update.csv"
+    },
+    "AUDCAD_H1": {
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "AUDCAD/AUDCAD_H1_200705300000_202307282300_Update.csv"
+    },
+    "AUDCHF_H1": {
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "AUDCHF/AUDCHF_H1_200705080000_202307282300_Update.csv"
     },
     "USDCAD_H1": {
-      "take_profit": 0.015,
-      "stop_loss": 0.01
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "USDCAD/USDCAD_H1_200705300000_202307282300_Update.csv"
     },
     "USDCHF_H1": {
-      "take_profit": 0.015,
-      "stop_loss": 0.01
-    },
-    "NZDUSD_H1": {
-      "take_profit": 0.015,
-      "stop_loss": 0.01
-    },
-    "EURJPY_H1": {
-      "take_profit": 2,
-      "stop_loss": 1.33
-    },
-    "GBPJPY_H1": {
-      "take_profit": 2,
-      "stop_loss": 1.33
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "USDCHF/USDCHF_H1_200704170000_202307282300_Update.csv"
     },
     "EURGBP_H1": {
       "take_profit": 0.01,
-      "stop_loss": 0.0066
+      "stop_loss": 0.005,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "EURGBP/EURGBP_H1_200703270000_202307282300_Update.csv"
+    },
+    "EURJPY_H1": {
+      "take_profit": 1,
+      "stop_loss": 0.5,
+      "delta": 0.5,
+      "window_size": 120,
+      "dataset_path": "EURJPY/EURJPY_H1_200705300000_202307282300_Update.csv"
     }
   }
 }
