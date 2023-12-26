@@ -7,18 +7,6 @@
   },
   "device": "cpu",
   "model_version": "0.1.0",
-  "currency_pairs": [
-    "EURUSD",
-    "USDJPY",
-    "GBPUSD",
-    "AUDUSD",
-    "USDCAD",
-    "USDCHF",
-    "NZDUSD",
-    "EURJPY",
-    "GBPJPY",
-    "EURGBP"
-  ],
   "trading_settings": {
     "AUD_CAD_H1": {
       "take_profit": 0.005,
