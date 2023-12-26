@@ -8,7 +8,7 @@
   "device": "cpu",
   "model_version": "0.1.0",
   "window_size": 120,
-  "removed_instruments": ["EUR_DKK_H1"], 
+  "removed_instruments": ["EUR_DKK_H1", "USD_TRY_H1"], 
   "trading_settings": {
     "AUD_CAD_H1": {
       "take_profit": 0.0040,
@@ -128,15 +128,154 @@
       "stop_loss": 0.0025
     },
 
-    
+    "GBP_AUD_H1": {
+      "take_profit": 0.0100,
+      "stop_loss": 0.0050
+    },
+    "GBP_CAD_H1": {
+      "take_profit": 0.0100,
+      "stop_loss": 0.0050
+    },
+    "GBP_CHF_H1": {
+      "take_profit": 0.0100,
+      "stop_loss": 0.0050
+    },
+    "GBP_HKD_H1": {
+      "take_profit": 0.050,
+      "stop_loss": 0.025
+    },
+    "GBP_JPY_H1": {
+      "take_profit": 1,
+      "stop_loss": 0.5
+    },
+    "GBP_NZD_H1": {
+      "take_profit": 0.0100,
+      "stop_loss": 0.0050
+    },
+    "GBP_PLN_H1": {
+      "take_profit": 0.01,
+      "stop_loss": 0.0050
+    },
+    "GBP_SGD_H1": {
+      "take_profit": 0.0050,
+      "stop_loss": 0.0025
+    },
+    "GBP_USD_H1": {
+      "take_profit": 0.0050,
+      "stop_loss": 0.0025
+    },
+    "GBP_ZAR_H1": {
+      "take_profit": 0.2,
+      "stop_loss": 0.1
+    },
+    "HKD_JPY_H1": {
+      "take_profit": 0.10,
+      "stop_loss": 0.05
+    },
+    "NZD_CAD_H1": {
+      "take_profit": 0.0050,
+      "stop_loss": 0.0025
+    },
+    "NZD_CHF_H1": {
+      "take_profit": 0.001,
+      "stop_loss": 0.0005
+    },
+    "NZD_HKD_H1": {
+      "take_profit": 0.020,
+      "stop_loss": 0.010
+    },
+    "NZD_JPY_H1": {
+      "take_profit": 0.50,
+      "stop_loss": 0.25
+    },
+    "NZD_SGD_H1": {
+      "take_profit": 0.0025,
+      "stop_loss": 0.00125
+    },
+    "NZD_USD_H1": {
+      "take_profit": 0.0025,
+      "stop_loss": 0.00125
+    },
+    "SGD_CHF_H1": {
+      "take_profit": 0.00150,
+      "stop_loss": 0.00075
+    },
+    "SGD_HKD_H1": {
+      "take_profit": 0.020,
+      "stop_loss": 0.010
+    },
+    "SGD_JPY_H1": {
+      "take_profit": 0.50,
+      "stop_loss": 0.25
+    },
+    "TRY_JPY_H1": {
+      "take_profit": 0.050,
+      "stop_loss": 0.025
+    },
+
+    "USD_CAD_H1": {
+      "take_profit": 0.0050,
+      "stop_loss": 0.0025
+    },
+    "USD_CHF_H1": {
+      "take_profit": 0.0050,
+      "stop_loss": 0.0025
+    },
+    "USD_CNH_H1": {
+      "take_profit": 0.020,
+      "stop_loss": 0.010
+    },
+    "USD_CZK_H1": {
+      "take_profit": 0.20,
+      "stop_loss": 0.10
+    },
+    "USD_DKK_H1": {
+      "take_profit": 0.040,
+      "stop_loss": 0.020
+    },
+    "USD_HKD_H1": {
+      "take_profit": 0.010,
+      "stop_loss": 0.005
+    },
+    "USD_HUF_H1": {
+      "take_profit": 2.5,
+      "stop_loss": 1.25
+    },
     "USD_JPY_H1": {
       "take_profit": 1,
       "stop_loss": 0.5
     },
-    "GBP_USD_H1": {
-      "take_profit": 0.01,
+    "USD_MXN_H1": {
+      "take_profit": 0.010,
       "stop_loss": 0.005
+    },
+    "USD_NOK_H1": {
+      "take_profit": 0.2,
+      "stop_loss": 0.1
+    },
+    "USD_PLN_H1": {
+      "take_profit": 0.1,
+      "stop_loss": 0.05
+    },
+    "USD_SEK_H1": {
+      "take_profit": 0.2,
+      "stop_loss": 0.1
+    },
+    "USD_SGD_H1": {
+      "take_profit": 0.010,
+      "stop_loss": 0.005
+    },
+    "USD_THB_H1": {
+      "take_profit": 0.50,
+      "stop_loss": 0.25
+    },
+    "USD_ZAR_H1": {
+      "take_profit": 0.20,
+      "stop_loss": 0.10
+    },
+    "ZAR_JPY_H1": {
+      "take_profit": 0.050,
+      "stop_loss": 0.025
     }
-
   }
 }
