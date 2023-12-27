@@ -5,40 +5,105 @@ import numpy as np
 from datetime import date
 import talib
 from sklearn.linear_model import *
-from sktime.forecasting.base import ForecastingHorizon
-from sktime.utils.plotting import plot_series
-from sktime.performance_metrics.forecasting import mean_absolute_percentage_error, mean_squared_error
-from sklearn.metrics import accuracy_score
-from sktime.forecasting.model_selection import SlidingWindowSplitter
 from joblib import Parallel, delayed
 from itertools import islice
 import json
 import warnings
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import json
+import time
+import datetime as dt
+import requests
+import sys
+import re
+import itertools
+import os
+import talib
+import logging
+from decimal import Decimal
+import io
+import sys
+import torch
+import torchvision
+import torchvision.transforms as transforms
+import torch.nn as nn
+from PIL import Image
 
-# dataset_name = "EURUSD_H1"
-# root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/EURUSD" 
-# dataset_path = f"{root_data_dir}/EURUSD_H1_200702210000_202304242100_Update.csv"
 
-dataset_name = "USDJPY_H1"
-root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/USDJPY" 
-dataset_path = f"{root_data_dir}/USDJPY_H1_200705290000_202307282300_Update.csv"
+dataset_name = "AUD_CAD_H1"
+dataset_name = "EUR_USD_H1"
+root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data" 
+dataset_path = f"{root_data_dir}/{dataset_name}_processed_data.csv"
 
 
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
+# config_path = "/Users/newuser/Projects/robust-algo-trader/settings/config.json"
 with open(config_path) as f:
   config = json.load(f)  
 # Get the take_profit and stop_loss levels from the config file
 config_settings = config["trading_settings"][dataset_name]
+window_size = config["window_size"]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
-window_size = config_settings["window_size"]
+device = config["device"]
+model_path = config['paths']["model_39_dir"]
 
-df = pd.read_csv(dataset_path, index_col=0)
+df = pd.read_csv(dataset_path)
+df = df.rename(columns={'time': 'Time'})
+# filter only up to 2013
+df = df[df['Time'] < '2013-01-01 00:00:00']
 df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
+
+# Set a random seed for reproducibility
+seed = 42
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.manual_seed(seed)
+transform = transforms.Compose(
+    [
+        transforms.Resize((64, 64)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ]
+)
+# Define the model
+class CNNet(nn.Module):
+    def __init__(self):
+        super(CNNet, self).__init__()
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(3, 16, 5) 
+        self.conv2 = nn.Conv2d(16, 32, 5)
+        self.conv3 = nn.Conv2d(32, 32, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dropout = nn.Dropout(0.25)
+        self.fc1 = nn.Linear(86528, 128)
+        self.fc2 = nn.Linear(128, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # Apply the convolutional layers with pooling and dropout
+        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv2(x))
+        x = self.relu(self.conv3(x))
+        x = self.dropout(x)
+        x = torch.flatten(x, 1)
+        x = self.relu(self.fc1(x))
+        x = self.sigmoid(self.fc2(x))
+        return x
+# Load the trained model
+cnn = CNNet()
+cnn.load_state_dict(torch.load(model_path))
+cnn.to(device)
+cnn.eval()
+
+
 
 def save_setup_graph(subset_df, position, label, index):
     green_df = subset_df[subset_df['Close'] > subset_df['Open']].copy()
@@ -46,7 +111,9 @@ def save_setup_graph(subset_df, position, label, index):
     red_df = subset_df[subset_df['Close'] < subset_df['Open']].copy()
     red_df["Height"] = red_df["Open"] - red_df["Close"]
     
-    fig = plt.figure(figsize=(8,3))
+    # switch to "Agg" backend to prevent showing
+    plt.switch_backend("Agg")
+    fig = plt.figure(figsize=(8, 3))
     
     ##Grey Lines
     plt.vlines(x=green_df["Index"], 
@@ -85,9 +152,26 @@ def save_setup_graph(subset_df, position, label, index):
     plt.yticks([])
     plt.box(False)
     
-    save_path = f"{root_data_dir}/{label}"
-    # name should be the index of the first row in the subset_df
-    plt.savefig(f"{save_path}/{index}.png", dpi=128, bbox_inches="tight")
+    buf = io.BytesIO()
+    plt.savefig(buf, dpi=128, bbox_inches="tight", format="png")
+    buf.seek(0)
+    image = Image.open(buf).convert("RGB")
+    image = transform(image)
+    image = image.unsqueeze(0)
+    image = image.to(device)
+    # Get the model output
+    output = cnn(image)
+    output_item = output.item()
+    buf.close()
+    
+    pred_label = 1 if output_item > 0.5 else 0
+    if pred_label == label:
+        # name should be the index of the first row in the subset_df
+        # Check if the directory exists, if not, create it
+        directory_path = f"{root_data_dir}/{dataset_name}/{label}"
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
+        plt.savefig(f"{directory_path}/{index}.png", dpi=128, bbox_inches="tight")
     # close the figure
     plt.close()
     
@@ -126,7 +210,7 @@ for index in range(window_size, len(df)):
             "ADOSC": df.loc[i, "ADOSC"],
             "VOLUME_RSI": df.loc[i, "VOLUME_RSI"],
             "MFI": df.loc[i, "MFI"],
-            "Date_Time": df.loc[i, "Date_Time"],
+            "Time": df.loc[i, "Time"],
             "label": None,
         }
         # add a second loop to check if the current close price is greater than the take profit price
@@ -135,24 +219,20 @@ for index in range(window_size, len(df)):
             j = k + offset
             if df.loc[j, "Close"] >= tp_price:
                 local_order["label"] = 1
-                local_order["close_time"] = df.loc[j, "Date_Time"]
+                local_order["close_time"] = df.loc[j, "Time"]
                 break
             elif df.loc[j, "Close"] <= sl_price:
                 local_order["label"] = 0
-                local_order["close_time"] = df.loc[j, "Date_Time"]
+                local_order["close_time"] = df.loc[j, "Time"]
                 break
         
         if local_order["label"] is None:
             break    
-        
-        
         # create set-up graph for local_order
         # subset_df should be a df with window_size rows from i-window_size to i
         subset_df = df.loc[i-window_size:i]
         save_setup_graph(subset_df, current_position, local_order["label"], i)
         trades.append(local_order)
-        
-        
     elif df.loc[i, "MACD_Crossover_Change"] < 0:   
         ask_price = df.loc[i, "Close"]  
         tp_price = ask_price - tp
@@ -181,7 +261,7 @@ for index in range(window_size, len(df)):
             "ADOSC": df.loc[i, "ADOSC"],
             "VOLUME_RSI": df.loc[i, "VOLUME_RSI"],
             "MFI": df.loc[i, "MFI"],
-            "Date_Time": df.loc[i, "Date_Time"],
+            "Time": df.loc[i, "Time"],
             "label": None,
         }
         
@@ -189,16 +269,15 @@ for index in range(window_size, len(df)):
             j = k + offset
             if df.loc[j, "Close"] <= tp_price:
                 local_order["label"] = 1
-                local_order["close_time"] = df.loc[j, "Date_Time"]
+                local_order["close_time"] = df.loc[j, "Time"]
                 break
             elif df.loc[j, "Close"] >= sl_price:
                 local_order["label"] = 0
-                local_order["close_time"] = df.loc[j, "Date_Time"]
+                local_order["close_time"] = df.loc[j, "Time"]
                 break
         
         if local_order["label"] is None:
             break
-        
         subset_df = df.loc[i-window_size:i]
         save_setup_graph(subset_df, current_position, local_order["label"], i)
         trades.append(local_order)
