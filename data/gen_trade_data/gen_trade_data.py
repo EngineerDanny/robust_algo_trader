@@ -5,11 +5,6 @@ import numpy as np
 from datetime import date
 import talib
 from sklearn.linear_model import *
-from sktime.forecasting.base import ForecastingHorizon
-from sktime.utils.plotting import plot_series
-from sktime.performance_metrics.forecasting import mean_absolute_percentage_error, mean_squared_error
-from sklearn.metrics import accuracy_score
-from sktime.forecasting.model_selection import SlidingWindowSplitter
 from joblib import Parallel, delayed
 from itertools import islice
 import json
@@ -39,6 +34,7 @@ from PIL import Image
 
 
 dataset_name = "AUD_CAD_H1"
+dataset_name = "EUR_USD_H1"
 root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data" 
 dataset_path = f"{root_data_dir}/{dataset_name}_processed_data.csv"
 
@@ -53,13 +49,13 @@ config_settings = config["trading_settings"][dataset_name]
 window_size = config["window_size"]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
+device = config["device"]
+model_path = config['paths']["model_39_dir"]
 
 df = pd.read_csv(dataset_path)
 df = df.rename(columns={'time': 'Time'})
-
 # filter only up to 2013
 df = df[df['Time'] < '2013-01-01 00:00:00']
-
 df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
@@ -76,8 +72,6 @@ transform = transforms.Compose(
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ]
 )
-device = "cpu"
-PATH = f"{BASE_DIR}/ml_models/model_39.pth"
 # Define the model
 class CNNet(nn.Module):
     def __init__(self):
@@ -105,7 +99,7 @@ class CNNet(nn.Module):
         return x
 # Load the trained model
 cnn = CNNet()
-cnn.load_state_dict(torch.load(PATH))
+cnn.load_state_dict(torch.load(model_path))
 cnn.to(device)
 cnn.eval()
 
@@ -157,7 +151,6 @@ def save_setup_graph(subset_df, position, label, index):
     plt.xticks([])
     plt.yticks([])
     plt.box(False)
-    
     
     buf = io.BytesIO()
     plt.savefig(buf, dpi=128, bbox_inches="tight", format="png")
