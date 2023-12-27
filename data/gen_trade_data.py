@@ -33,7 +33,6 @@ with open(config_path) as f:
 config_settings = config["trading_settings"][dataset_name]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
-delta = config_settings["delta"]
 window_size = config_settings["window_size"]
 
 df = pd.read_csv(dataset_path, index_col=0)
@@ -73,10 +72,6 @@ def save_setup_graph(subset_df, position, label, index):
     plt.plot(subset_df["SMA_30"], label="SMA_30")
     
     close_price = subset_df["Close"].iloc[-1]
-    
-    tp_eps = tp + delta
-    sl_eps = sl + delta
-    
     sl_eps = sl
     tp_eps = tp
     

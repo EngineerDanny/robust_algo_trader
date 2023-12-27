@@ -69,7 +69,6 @@ with open(config_path) as f:
 config_settings = config["trading_settings"][dataset_name]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
-delta = config_settings["delta"]
 window_size = config_settings["window_size"]
 dataset_path = config_settings["dataset_path"]
 root_data_dir = config["paths"]["data_dir"]
