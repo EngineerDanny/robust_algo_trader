@@ -27,15 +27,28 @@ from decimal import Decimal
 import io
 import sys
 import torch
-import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
 from PIL import Image
+import warnings
+
+warnings.filterwarnings('ignore')
+params_df = pd.read_csv("params.csv")
+
+if len(sys.argv) == 2:
+    prog_name, task_str = sys.argv
+    param_row = int(task_str)
+else:
+    print("len(sys.argv)=%d so trying first param" % len(sys.argv))
+    param_row = 0
+param_dict = dict(params_df.iloc[param_row, :])
+dataset_name = param_dict["dataset_name"]
 
 
 # dataset_name = "AUD_CAD_H1"
-dataset_name = "EUR_USD_H1"
+# dataset_name = "EUR_USD_H1"
 root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data" 
+saved_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/saved_data" 
 dataset_path = f"{root_data_dir}/{dataset_name}_processed_data.csv"
 
 
@@ -112,6 +125,12 @@ def save_setup_graph(subset_df, position, label, index):
     red_df = subset_df[subset_df['Close'] < subset_df['Open']].copy()
     red_df["Height"] = red_df["Open"] - red_df["Close"]
     
+    # if green_df or red_df is empty, then return
+    # if the length of green_df and red_df is less than the window_size, then return
+    if (green_df.empty or red_df.empty or 
+        (len(green_df) + len(red_df)) < window_size):
+        return
+    
     # switch to "Agg" backend to prevent showing
     plt.switch_backend("Agg")
     fig = plt.figure(figsize=(8, 3))
@@ -169,7 +188,7 @@ def save_setup_graph(subset_df, position, label, index):
     if pred_label == label:
         # name should be the index of the first row in the subset_df
         # Check if the directory exists, if not, create it
-        directory_path = f"{root_data_dir}/{dataset_name}/{label}"
+        directory_path = f"{saved_data_dir}/{dataset_name}/{label}"
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
         plt.savefig(f"{directory_path}/{index}.png", dpi=128, bbox_inches="tight")
