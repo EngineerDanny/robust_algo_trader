@@ -136,8 +136,7 @@ def save_setup_graph(subset_df, position, index):
     
     # if green_df or red_df is empty, then return
     # if the length of green_df and red_df is less than the window_size, then return
-    if (green_df.empty or red_df.empty or 
-        (len(green_df) + len(red_df)) < window_size):
+    if (green_df.empty and red_df.empty):
         return 0
     
     plt.switch_backend("Agg")
