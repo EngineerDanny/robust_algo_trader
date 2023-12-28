@@ -191,7 +191,7 @@ def save_setup_graph(subset_df, position, label, index):
         directory_path = f"{saved_data_dir}/{dataset_name}/{label}"
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
-        plt.savefig(f"{directory_path}/{index}.png", dpi=128, bbox_inches="tight")
+        plt.savefig(f"{directory_path}/{dataset_name}_{index}.png", dpi=128, bbox_inches="tight")
     # close the figure
     plt.close()
     
