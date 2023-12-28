@@ -33,7 +33,7 @@ import torch.nn as nn
 from PIL import Image
 
 
-dataset_name = "AUD_CAD_H1"
+# dataset_name = "AUD_CAD_H1"
 dataset_name = "EUR_USD_H1"
 root_data_dir = "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data" 
 dataset_path = f"{root_data_dir}/{dataset_name}_processed_data.csv"
@@ -50,7 +50,7 @@ window_size = config["window_size"]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
 device = config["device"]
-model_path = config['paths']["model_39_dir"]
+model_path = config['paths']["model_80_dir"]
 
 df = pd.read_csv(dataset_path)
 df = df.rename(columns={'time': 'Time'})
@@ -81,7 +81,8 @@ class CNNet(nn.Module):
         self.conv2 = nn.Conv2d(16, 32, 5)
         self.conv3 = nn.Conv2d(32, 32, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        self.dropout = nn.Dropout(0.25)
+        # self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.5)
         self.fc1 = nn.Linear(86528, 128)
         self.fc2 = nn.Linear(128, 1)
         self.relu = nn.ReLU()
@@ -182,7 +183,9 @@ trades = []
 for index in range(window_size, len(df)):
     i = index + offset
 
-    if df.loc[i, "MACD_Crossover_Change"] > 0:
+    if ((df.loc[i, "MACD_Crossover_Change"] > 0) and
+       (df.loc[i, "Close"] > df.loc[i, "SMA_20"]) and 
+       (df.loc[i, "Close"] > df.loc[i, "SMA_30"])):
         ask_price = df.loc[i, "Close"]
         tp_price = ask_price + tp
         sl_price = ask_price - sl
@@ -233,7 +236,9 @@ for index in range(window_size, len(df)):
         subset_df = df.loc[i-window_size:i]
         save_setup_graph(subset_df, current_position, local_order["label"], i)
         trades.append(local_order)
-    elif df.loc[i, "MACD_Crossover_Change"] < 0:   
+    elif ((df.loc[i, "MACD_Crossover_Change"] < 0) and 
+          (df.loc[i, "Close"] < df.loc[i, "SMA_20"]) and 
+         (df.loc[i, "Close"] < df.loc[i, "SMA_30"])):   
         ask_price = df.loc[i, "Close"]  
         tp_price = ask_price - tp
         sl_price = ask_price + sl
