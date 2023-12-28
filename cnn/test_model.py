@@ -134,6 +134,12 @@ def save_setup_graph(subset_df, position, index):
     red_df = subset_df[subset_df['Close'] < subset_df['Open']].copy()
     red_df["Height"] = red_df["Open"] - red_df["Close"]
     
+    # if green_df or red_df is empty, then return
+    # if the length of green_df and red_df is less than the window_size, then return
+    if (green_df.empty or red_df.empty or 
+        (len(green_df) + len(red_df)) < window_size):
+        return 0
+    
     plt.switch_backend("Agg")
     fig = plt.figure(figsize=(8,3))
     
@@ -286,6 +292,12 @@ except Exception as e:
     
 trades_df = pd.DataFrame(trades)
 trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1", encoding='utf-8', index=False)
+print("Done!")
+
+"""
+trades_df = pd.DataFrame(trades)
+trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
 
@@ -316,3 +328,4 @@ trades_df['threshold'] = threshold
 out_file = f"results/{param_row}.csv"
 trades_df.to_csv(out_file, encoding='utf-8', index=False)
 print("Done!")
+"""
