@@ -70,10 +70,12 @@ config_settings = config["trading_settings"][dataset_name]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
 window_size = config["window_size"]
-dataset_path = config_settings["dataset_path"]
-root_data_dir = config["paths"]["data_dir"]
+
+# dataset_path = config_settings["dataset_path"]
+
+root_data_dir = config["paths"]["oanda_dir"]
 device = config["device"]
-ml_model_path = config["paths"]["model_39_dir"]
+ml_model_path = config["paths"]["model_80_dir"]
 
 
 # Set a random seed for reproducibility
@@ -94,7 +96,8 @@ class CNNet(nn.Module):
         self.conv2 = nn.Conv2d(16, 32, 5)
         self.conv3 = nn.Conv2d(32, 32, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        self.dropout = nn.Dropout(0.25)
+        # self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.5)
         self.fc1 = nn.Linear(86528, 128)
         self.fc2 = nn.Linear(128, 1) 
         self.relu = nn.ReLU()
@@ -117,7 +120,8 @@ cnn.to(device)
 cnn.eval()
 
 
-df = pd.read_csv(f"{root_data_dir}/{dataset_path}", index_col=0)
+df = pd.read_csv(f"{root_data_dir}/{dataset_name}_processed_data.csv")
+df = df.rename(columns={'time': 'Time'})
 df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
@@ -215,7 +219,7 @@ def create_trade_order(row, position, tp, sl):
         "ADOSC": row["ADOSC"],
         # "VOLUME_RSI": row["VOLUME_RSI"],
         # "MFI": row["MFI"],
-        "Date_Time": row["Date_Time"],
+        "Time": row["Time"],
         "close_time": None,
         "label": None,
     }
@@ -231,20 +235,20 @@ try:
             if prev_trade["position"] == 1:
                 if row["Close"] >= prev_trade["take_profit_price"] and prev_trade["label"] == None:
                     prev_trade["label"] = 1
-                    prev_trade["close_time"] = row["Date_Time"]
+                    prev_trade["close_time"] = row["Time"]
                     continue
                 elif row["Close"] <= prev_trade["stop_loss_price"] and prev_trade["label"] == None:
                     prev_trade["label"] = 0
-                    prev_trade["close_time"] = row["Date_Time"]
+                    prev_trade["close_time"] = row["Time"]
                     continue
             else:
                 if row["Close"] <= prev_trade["take_profit_price"] and prev_trade["label"] == None:
                     prev_trade["label"] = 1
-                    prev_trade["close_time"] = row["Date_Time"]
+                    prev_trade["close_time"] = row["Time"]
                     continue
                 elif row["Close"] >= prev_trade["stop_loss_price"] and prev_trade["label"] == None:
                     prev_trade["label"] = 0
-                    prev_trade["close_time"] = row["Date_Time"]
+                    prev_trade["close_time"] = row["Time"]
                     continue
                     
             if prev_trade["label"] == None:
@@ -253,7 +257,17 @@ try:
         # if there are no open trades, check if there is a crossover
         macd_crossover_change = row["MACD_Crossover_Change"]
         if macd_crossover_change > 0 or macd_crossover_change < 0:
-            current_position = 1 if macd_crossover_change > 0 else 0
+            if ((row["MACD_Crossover_Change"] > 0) and
+                (row["Close"] > row["SMA_20"]) and 
+                (row["Close"] > row["SMA_30"])):
+                current_position = 1 # long
+            elif ((row["MACD_Crossover_Change"] < 0) and
+                  (row["Close"] < row["SMA_20"]) and 
+                  (row["Close"] < row["SMA_30"])):
+                current_position = 0 # short
+            else:
+                continue
+            
             # TODO: Dummy
             # local_order = create_trade_order(row, current_position, tp, sl)
             # trades.append(local_order) 
@@ -271,8 +285,8 @@ except Exception as e:
     print(e)
     
 trades_df = pd.DataFrame(trades)
-trades_df['Date_Time'] = pd.to_datetime(trades_df['Date_Time'])
-trades_df['Year'] = trades_df['Date_Time'].dt.year
+trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
 
 # Create Max Drawdown column
