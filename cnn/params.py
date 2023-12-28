@@ -8,9 +8,7 @@ import sys
 import pandas as pd
 
 params_df_list = []
-dataset_list = ["EURUSD_H1", "USDJPY_H1", "GBPUSD_H1", 
-                "AUDUSD_H1", "AUDCAD_H1", "AUDCHF_H1",
-                "USDCAD_H1", "USDCHF_H1", "EURGBP_H1", "EURJPY_H1"]
+dataset_list = ["EUR_USD_H1", "USD_JPY_H1", "GBP_USD_H1"]
 threshold = [0.5, 0.8, 0.9, 0.95]
 params_dict = {
     'dataset_name': dataset_list,
