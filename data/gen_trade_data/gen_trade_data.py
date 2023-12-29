@@ -67,8 +67,8 @@ model_path = config['paths']["model_80_dir"]
 
 df = pd.read_csv(dataset_path)
 df = df.rename(columns={'time': 'Time'})
-# filter only up to 2013
-df = df[df['Time'] < '2013-01-01 00:00:00']
+# filter only up to 2015
+df = df[df['Time'] < '2015-01-01 00:00:00']
 df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
@@ -127,8 +127,7 @@ def save_setup_graph(subset_df, position, label, index):
     
     # if green_df or red_df is empty, then return
     # if the length of green_df and red_df is less than the window_size, then return
-    if (green_df.empty or red_df.empty or 
-        (len(green_df) + len(red_df)) < window_size):
+    if green_df.empty and red_df.empty:
         return
     
     # switch to "Agg" backend to prevent showing
