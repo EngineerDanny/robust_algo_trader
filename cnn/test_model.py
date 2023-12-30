@@ -75,7 +75,8 @@ window_size = config["window_size"]
 
 root_data_dir = config["paths"]["oanda_dir"]
 device = config["device"]
-ml_model_path = config["paths"]["model_80_dir"]
+# ml_model_path = config["paths"]["model_80_dir"]
+ml_model_path = config["paths"]["model_90_dir"]
 
 
 # Set a random seed for reproducibility
@@ -291,7 +292,7 @@ except Exception as e:
     
 trades_df = pd.DataFrame(trades)
 trades_df['Time'] = pd.to_datetime(trades_df['Time'])
-trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1", encoding='utf-8', index=False)
+trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1.csv", encoding='utf-8', index=False)
 print("Done!")
 
 """
