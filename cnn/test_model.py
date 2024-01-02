@@ -295,12 +295,12 @@ try:
 except Exception as e:
     print(e)
     
-trades_df = pd.DataFrame(trades)
-trades_df['Time'] = pd.to_datetime(trades_df['Time'])
-trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1_dummy.csv", encoding='utf-8', index=False)
-print("Done!")
+# trades_df = pd.DataFrame(trades)
+# trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+# trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1_dummy.csv", encoding='utf-8', index=False)
+# print("Done!")
 
-"""
+# """
 trades_df = pd.DataFrame(trades)
 trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 trades_df['Year'] = trades_df['Time'].dt.year
@@ -325,12 +325,13 @@ trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'})
 trades_df['trades'] = trades_df['label']
 trades_df.drop(['label'], axis=1, inplace=True)
 trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
-trades_df['Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
-trades_df['dataset_name'] = dataset_name
-trades_df['threshold'] = threshold
+trades_df[f'{dataset_name} Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
+# trades_df['dataset_name'] = dataset_name
+# trades_df['threshold'] = threshold
 
 # Save dataframe as a csv to output directory
 out_file = f"results/{param_row}.csv"
+trades_df = trades_df[['Year', f'{dataset_name} Percent Return']]
 trades_df.to_csv(out_file, encoding='utf-8', index=False)
 print("Done!")
-"""
+# """

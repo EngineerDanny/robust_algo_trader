@@ -6,11 +6,23 @@ import os
 import shutil
 import sys
 import pandas as pd
+import json
+
+# Load the config file
+config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
+with open(config_path) as f:
+  config = json.load(f) 
+config_settings = config["trading_settings"]
+
+dataset_list = []
+for key, value in config_settings.items():
+    dataset_list.append(key)
 
 params_df_list = []
-# dataset_list = ["EUR_USD_H1", "USD_JPY_H1", "GBP_USD_H1"]
+# dataset_list = ["EUR_USD_H1", "USD_JPY_H1", "GBP_USD_H1", "AUD_CAD_H1", 
+#                 "AUD_CHF_H1", "CAD_SGD_H1", "CHF_HKD_H1"]
 # threshold = [0.5, 0.8, 0.9, 0.95]
-dataset_list = ["EUR_USD_H1"]
+# dataset_list = ["EUR_USD_H1"]
 threshold = [0.5]
 params_dict = {
     'dataset_name': dataset_list,
