@@ -10,7 +10,7 @@
   },
   "device": "cpu",
   "model_version": "0.1.0",
-  "window_size": 120,
+  "window_size": 48,
   "removed_instruments": ["EUR_DKK_H1", "USD_TRY_H1"], 
   "trading_settings": {
     "AUD_CAD_H1": {

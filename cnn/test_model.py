@@ -127,6 +127,7 @@ df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
 
+df['Time'] = pd.to_datetime(df['Time'])
 trades = []
 
 def save_setup_graph(subset_df, position, index):
@@ -262,7 +263,10 @@ try:
         
         # if there are no open trades, check if there is a crossover
         macd_crossover_change = row["MACD_Crossover_Change"]
-        if macd_crossover_change > 0 or macd_crossover_change < 0:
+        current_time = row["Time"]
+        
+        # check if the time is between 9am and 5pm
+        if (macd_crossover_change > 0 or macd_crossover_change < 0) and (current_time.hour >= 13 and current_time.hour <= 17):
             if ((row["MACD_Crossover_Change"] > 0) and
                 (row["Close"] > row["SMA_20"]) and 
                 (row["Close"] > row["SMA_30"])):
@@ -280,7 +284,8 @@ try:
 
             # TODO: ML
             subset_df = df.loc[(index-window_size+1):(index)]
-            output_item = save_setup_graph(subset_df, current_position, index)
+            # output_item = save_setup_graph(subset_df, current_position, index)
+            output_item = 0.99
             pred = 1 if output_item > threshold else 0
             # use that to execute a trade order
             if pred == 1:
@@ -292,7 +297,7 @@ except Exception as e:
     
 trades_df = pd.DataFrame(trades)
 trades_df['Time'] = pd.to_datetime(trades_df['Time'])
-trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1.csv", encoding='utf-8', index=False)
+trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1_dummy.csv", encoding='utf-8', index=False)
 print("Done!")
 
 """
