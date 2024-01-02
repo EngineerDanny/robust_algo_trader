@@ -122,7 +122,8 @@
     },
     "EUR_USD_H1": {
       "take_profit": 0.0050,
-      "stop_loss": 0.0025
+      "stop_loss": 0.0025,
+      "units": 800
     },
     "GBP_AUD_H1": {
       "take_profit": 0.0100,
