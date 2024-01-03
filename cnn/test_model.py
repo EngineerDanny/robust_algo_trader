@@ -5,13 +5,6 @@ import numpy as np
 from datetime import date
 import talib
 from sklearn.linear_model import *
-from sktime.forecasting.base import ForecastingHorizon
-from sktime.utils.plotting import plot_series
-from sktime.performance_metrics.forecasting import mean_absolute_percentage_error, mean_squared_error
-from sklearn.metrics import accuracy_score
-from sktime.forecasting.model_selection import SlidingWindowSplitter
-from joblib import Parallel, delayed
-from itertools import islice
 import json
 import warnings
 import torch
