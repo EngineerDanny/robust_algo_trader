@@ -124,7 +124,9 @@
       "take_profit": 0.0050,
       "stop_loss": 0.0025,
       "units": 1100,
-      "margin" : 37
+      "margin" : 37,
+      "start_hour": 22,
+      "end_hour": 6
     },
     "EUR_CAD_H1": {
       "take_profit": 0.0050,
@@ -429,25 +431,33 @@
       "take_profit": 0.0200,
       "stop_loss": 0.0100,
       "units": 1400,
-      "margin" : 70
+      "margin" : 70,
+      "start_hour": 13,
+      "end_hour": 21
     },
     "USD_CZK_H1": {
       "take_profit": 0.20,
       "stop_loss": 0.10,
       "units": 400,
-      "margin" : 20
+      "margin" : 20,
+      "start_hour": 7,
+      "end_hour": 15
     },
     "USD_DKK_H1": {
       "take_profit": 0.040,
       "stop_loss": 0.020,
       "units": 700,
-      "margin" : 14
+      "margin" : 14,
+      "start_hour": 7,
+      "end_hour": 15
     },
     "USD_HUF_H1": {
       "take_profit": 2.5,
       "stop_loss": 1.2,
       "units": 600,
-      "margin" : 30
+      "margin" : 30,
+      "start_hour": 7,
+      "end_hour": 15
     },
     "USD_JPY_H1": {
       "take_profit": 1,

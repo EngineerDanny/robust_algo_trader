@@ -289,7 +289,6 @@ try:
             pred = 1 if output_item > threshold else 0
             # use that to execute a trade order
             if pred == 1:
-                print("output_item: ", output_item)
                 local_order = create_trade_order(row, current_position, tp, sl)
                 trades.append(local_order) 
 except Exception as e:
