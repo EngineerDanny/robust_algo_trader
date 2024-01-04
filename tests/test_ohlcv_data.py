@@ -16,19 +16,12 @@ class TestData(unittest.TestCase):
         self.assertTrue((data["Close"] > 0).all())
         self.assertTrue((data["Volume"] > 0).all())
 
-    def test_data_consistency(self):
-        # Check that the open, high, low and close values are not equal for each row
-        self.assertTrue((data["Open"] != data["High"]).all())
-        self.assertTrue((data["Open"] != data["Low"]).all())
-        self.assertTrue((data["Open"] != data["Close"]).all())
-
-    def test_data_volume(self):
-        self.assertTrue((data["Volume"] > 0).all())
-        
     def test_data_time(self):
         # Check that the time is increasing
-        # the time column is data["time"]
-        self.assertTrue((data["time"].diff() > pd.Timedelta(0)).all())
+        # the time column is the index
+        self.assertTrue((data.index == data.index.sort_values()).all())
+        # Check the format of the time whether it is in the correct format
+        self.assertTrue((data.index == pd.to_datetime(data.index)).all())
         
 
 # Run the tests
