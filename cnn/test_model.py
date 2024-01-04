@@ -62,10 +62,11 @@ with open(config_path) as f:
 config_settings = config["trading_settings"][dataset_name]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
+start_hr = config_settings["start_hour"]
+end_hr = config_settings["end_hour"]
 window_size = config["window_size"]
 
 # dataset_path = config_settings["dataset_path"]
-
 root_data_dir = config["paths"]["oanda_dir"]
 device = config["device"]
 # ml_model_path = config["paths"]["model_80_dir"]
@@ -259,7 +260,7 @@ try:
         current_time = row["Time"]
         
         # check if the time is between 9am and 5pm
-        if (macd_crossover_change > 0 or macd_crossover_change < 0) and (current_time.hour >= 13 and current_time.hour <= 17):
+        if (macd_crossover_change > 0 or macd_crossover_change < 0) and (current_time.hour >= start_hr and current_time.hour <= end_hr):
             if ((row["MACD_Crossover_Change"] > 0) and
                 (row["Close"] > row["SMA_20"]) and 
                 (row["Close"] > row["SMA_30"])):
@@ -324,6 +325,7 @@ except Exception as e:
 
 
 trades_df = pd.DataFrame(trades)
+##TODO: Check if the trades_df is empty
 trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Month'] = trades_df['Time'].dt.month
