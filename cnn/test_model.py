@@ -226,6 +226,12 @@ def create_trade_order(row, position, tp, sl):
     }
     return trade_order
 
+def is_time_between(start_time, end_time, check_time):
+  if start_time < end_time:
+    return start_time <= check_time <= end_time
+  else: # crosses midnight
+    return check_time >= start_time or check_time <= end_time
+
 try:
     # loop through all rows in the dataframe
     for index, row in df.iloc[window_size:].iterrows():
@@ -260,7 +266,7 @@ try:
         current_time = row["Time"]
         
         # check if the time is between 9am and 5pm
-        if (macd_crossover_change > 0 or macd_crossover_change < 0) and (current_time.hour >= start_hr and current_time.hour <= end_hr):
+        if (macd_crossover_change > 0 or macd_crossover_change < 0) and is_time_between(start_hr, end_hr, current_time.hour):
             if ((row["MACD_Crossover_Change"] > 0) and
                 (row["Close"] > row["SMA_20"]) and 
                 (row["Close"] > row["SMA_30"])):
