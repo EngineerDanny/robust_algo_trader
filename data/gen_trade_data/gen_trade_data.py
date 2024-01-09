@@ -63,7 +63,7 @@ window_size = config["window_size"]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
 device = config["device"]
-model_path = config['paths']["model_80_dir"]
+model_path = config['paths']["model_39_dir"]
 
 df = pd.read_csv(dataset_path)
 df = df.rename(columns={'time': 'Time'})

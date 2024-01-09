@@ -5,13 +5,6 @@ import numpy as np
 from datetime import date
 import talib
 from sklearn.linear_model import *
-from sktime.forecasting.base import ForecastingHorizon
-from sktime.utils.plotting import plot_series
-from sktime.performance_metrics.forecasting import mean_absolute_percentage_error, mean_squared_error
-from sklearn.metrics import accuracy_score
-from sktime.forecasting.model_selection import SlidingWindowSplitter
-from joblib import Parallel, delayed
-from itertools import islice
 import json
 import warnings
 import torch
@@ -69,10 +62,11 @@ with open(config_path) as f:
 config_settings = config["trading_settings"][dataset_name]
 tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
+start_hr = config_settings["start_hour"]
+end_hr = config_settings["end_hour"]
 window_size = config["window_size"]
 
 # dataset_path = config_settings["dataset_path"]
-
 root_data_dir = config["paths"]["oanda_dir"]
 device = config["device"]
 # ml_model_path = config["paths"]["model_80_dir"]
@@ -127,6 +121,7 @@ df['Index'] = df.index
 y = df[['Close']]
 offset = y.index[0]
 
+df['Time'] = pd.to_datetime(df['Time'])
 trades = []
 
 def save_setup_graph(subset_df, position, index):
@@ -231,6 +226,12 @@ def create_trade_order(row, position, tp, sl):
     }
     return trade_order
 
+def is_time_between(start_time, end_time, check_time):
+  if start_time < end_time:
+    return start_time <= check_time <= end_time
+  else: # crosses midnight
+    return check_time >= start_time or check_time <= end_time
+
 try:
     # loop through all rows in the dataframe
     for index, row in df.iloc[window_size:].iterrows():
@@ -262,7 +263,10 @@ try:
         
         # if there are no open trades, check if there is a crossover
         macd_crossover_change = row["MACD_Crossover_Change"]
-        if macd_crossover_change > 0 or macd_crossover_change < 0:
+        current_time = row["Time"]
+        
+        # check if the time is between 9am and 5pm
+        if (macd_crossover_change > 0 or macd_crossover_change < 0) and is_time_between(start_hr, end_hr, current_time.hour):
             if ((row["MACD_Crossover_Change"] > 0) and
                 (row["Close"] > row["SMA_20"]) and 
                 (row["Close"] > row["SMA_30"])):
@@ -280,52 +284,67 @@ try:
 
             # TODO: ML
             subset_df = df.loc[(index-window_size+1):(index)]
-            output_item = save_setup_graph(subset_df, current_position, index)
+            # output_item = save_setup_graph(subset_df, current_position, index)
+            output_item = 0.99
             pred = 1 if output_item > threshold else 0
             # use that to execute a trade order
             if pred == 1:
-                print("output_item: ", output_item)
                 local_order = create_trade_order(row, current_position, tp, sl)
                 trades.append(local_order) 
 except Exception as e:
     print(e)
     
-trades_df = pd.DataFrame(trades)
-trades_df['Time'] = pd.to_datetime(trades_df['Time'])
-trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1.csv", encoding='utf-8', index=False)
-print("Done!")
+# trades_df = pd.DataFrame(trades)
+# trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+# trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1_dummy.csv", encoding='utf-8', index=False)
+# print("Done!")
 
-"""
+# # """
+# trades_df = pd.DataFrame(trades)
+# trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+# trades_df['Year'] = trades_df['Time'].dt.year
+# trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
+
+# # Create Max Drawdown column
+# max_drawdown_df = trades_df.copy() 
+# max_drawdown_df = max_drawdown_df[['Year', 'Return', 'label']]
+# max_drawdown = 0
+# max_drawdown_column = []
+# for index, row in max_drawdown_df.iterrows():
+#     if row['Return'] == 2:
+#         max_drawdown = 0
+#     elif row['Return'] == -1:
+#         max_drawdown += 1
+#     max_drawdown_column.append(max_drawdown)
+# max_drawdown_df['Max Drawdown'] = max_drawdown_column
+# max_drawdown_df = max_drawdown_df.groupby(['Year']).agg({'Max Drawdown': 'max'}).reset_index()
+
+# # for each year, sum the returns and count the number of labels as trades
+# trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'}).reset_index()
+# trades_df['trades'] = trades_df['label']
+# trades_df.drop(['label'], axis=1, inplace=True)
+# trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
+# trades_df[f'{dataset_name} Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
+# # trades_df['dataset_name'] = dataset_name
+# # trades_df['threshold'] = threshold
+
+
 trades_df = pd.DataFrame(trades)
+##TODO: Check if the trades_df is empty
 trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 trades_df['Year'] = trades_df['Time'].dt.year
-trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
+trades_df['Month'] = trades_df['Time'].dt.month
+trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
+trades_df = trades_df[trades_df['Year'] == 2010].copy()
+trades_df = trades_df[['Month', f'{dataset_name} Return']]
+trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
 
-# Create Max Drawdown column
-max_drawdown_df = trades_df.copy() 
-max_drawdown_df = max_drawdown_df[['Year', 'Return', 'label']]
-max_drawdown = 0
-max_drawdown_column = []
-for index, row in max_drawdown_df.iterrows():
-    if row['Return'] == 2:
-        max_drawdown = 0
-    elif row['Return'] == -1:
-        max_drawdown += 1
-    max_drawdown_column.append(max_drawdown)
-max_drawdown_df['Max Drawdown'] = max_drawdown_column
-max_drawdown_df = max_drawdown_df.groupby(['Year']).agg({'Max Drawdown': 'max'}).reset_index()
-
-# for each year, sum the returns and count the number of labels as trades
-trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'}).reset_index()
-trades_df['trades'] = trades_df['label']
-trades_df.drop(['label'], axis=1, inplace=True)
-trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
-trades_df['Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
-trades_df['dataset_name'] = dataset_name
-trades_df['threshold'] = threshold
+# fill NaN values with 0
+trades_df.fillna(0, inplace=True)
 
 # Save dataframe as a csv to output directory
 out_file = f"results/{param_row}.csv"
+# trades_df = trades_df[['Year', f'{dataset_name} Percent Return']]
 trades_df.to_csv(out_file, encoding='utf-8', index=False)
 print("Done!")
-"""
+# """
