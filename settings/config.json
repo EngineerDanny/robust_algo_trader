@@ -38,6 +38,46 @@
       "margin": 985,
       "start_hour": 7,
       "end_hour": 15
+    },
+    "EUR_ZAR_H1": {
+      "take_profit": 0.05,
+      "stop_loss": 0.025,
+      "delta": 0.001,
+      "display_precision": 5,
+      "units": 1400,
+      "margin": 108,
+      "start_hour": 7,
+      "end_hour": 15
+    },
+    "EUR_TRY_H1": {
+      "take_profit": 0.1,
+      "stop_loss": 0.05,
+      "delta": 0.001,
+      "display_precision": 5,
+      "units": 1200,
+      "margin": 330,
+      "start_hour": 7,
+      "end_hour": 15
+    },
+    "GBP_PLN_H1": {
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
+      "delta": 0.0001,
+      "display_precision": 3,
+      "units": 1600,
+      "margin": 102,
+      "start_hour": 7,
+      "end_hour": 15
+    },
+    "NZD_HKD_H1": {
+      "take_profit": 0.02,
+      "stop_loss": 0.01,
+      "delta": 0.001,
+      "display_precision": 5,
+      "units": 1600,
+      "margin": 101,
+      "start_hour": 1,
+      "end_hour": 9
     }
   },
   "trading_settings": {
@@ -111,7 +151,6 @@
       "start_hour": 22,
       "end_hour": 6
     },
-
     "CAD_CHF_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
@@ -282,16 +321,6 @@
       "start_hour": 1,
       "end_hour": 9
     },
-    "EUR_TRY_H1": {
-      "take_profit": 0.1,
-      "stop_loss": 0.05,
-      "delta": 0.001,
-      "display_precision": 5,
-      "units": 1200,
-      "margin": 330,
-      "start_hour": 7,
-      "end_hour": 15
-    },
     "EUR_USD_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
@@ -301,16 +330,6 @@
       "margin": 18,
       "start_hour": 13,
       "end_hour": 17
-    },
-    "EUR_ZAR_H1": {
-      "take_profit": 0.05,
-      "stop_loss": 0.025,
-      "delta": 0.001,
-      "display_precision": 5,
-      "units": 1400,
-      "margin": 108,
-      "start_hour": 7,
-      "end_hour": 15
     },
     "GBP_AUD_H1": {
       "take_profit": 0.01,
@@ -362,7 +381,6 @@
       "start_hour": 23,
       "end_hour": 7
     },
-
     "GBP_NZD_H1": {
       "take_profit": 0.01,
       "stop_loss": 0.005,
@@ -372,17 +390,6 @@
       "margin": 38,
       "start_hour": 22,
       "end_hour": 6
-    },
-
-    "GBP_PLN_H1": {
-      "take_profit": 0.01,
-      "stop_loss": 0.005,
-      "delta": 0.0001,
-      "display_precision": 3,
-      "units": 1600,
-      "margin": 102,
-      "start_hour": 7,
-      "end_hour": 15
     },
     "GBP_SGD_H1": {
       "take_profit": 0.005,
@@ -444,16 +451,6 @@
       "start_hour": 22,
       "end_hour": 6
     },
-    "NZD_HKD_H1": {
-      "take_profit": 0.02,
-      "stop_loss": 0.01,
-      "delta": 0.001,
-      "display_precision": 5,
-      "units": 1600,
-      "margin": 101,
-      "start_hour": 1,
-      "end_hour": 9
-    },
     "NZD_JPY_H1": {
       "take_profit": 0.5,
       "stop_loss": 0.25,
@@ -514,7 +511,6 @@
       "start_hour": 6,
       "end_hour": 9
     },
-
     "USD_CAD_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
