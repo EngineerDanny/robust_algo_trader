@@ -1,7 +1,6 @@
 # Robust Algo Trader
 
 - Robust Algo Trader is a Python-based project that aims to create a statistically robust process for trading financial time series markets using machine learning techniques. 
-
 - The project focuses on forex data, which consists of open, high, low and close (OHLC) prices, as well as technical indicators such as simple moving average (SMA) and Bollinger bands (BB).
 
 ## [Experiment 1 - Using ML to Forecast Close Prices](https://github.com/EngineerDanny/robust_algo_trader/tree/main/forecast)
