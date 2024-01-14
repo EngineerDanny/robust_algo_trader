@@ -19,8 +19,6 @@ for key, value in config_settings.items():
     dataset_list.append(key)
 
 params_df_list = []
-# dataset_list = ["EUR_USD_H1", "USD_JPY_H1", "GBP_USD_H1"]
-# threshold = [0.5, 0.8, 0.9, 0.95]
 dataset_list = ["EUR_USD_H1", "GBP_USD_H1", "USD_JPY_H1", 
                 "EUR_SEK_H1", "AUD_SGD_H1", "CHF_ZAR_H1",
                 "AUD_NZD_H1", "GBP_ZAR_H1", "NZD_CAD_H1",
