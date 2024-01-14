@@ -335,7 +335,7 @@ trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Month'] = trades_df['Time'].dt.month
 trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
-trades_df = trades_df[trades_df['Year'] == 2010].copy()
+trades_df = trades_df[trades_df['Year'] == 2019].copy()
 trades_df = trades_df[['Month', f'{dataset_name} Return']]
 trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
 
