@@ -294,60 +294,59 @@ try:
 except Exception as e:
     print(e)
     
-# trades_df = pd.DataFrame(trades)
+trades_df = pd.DataFrame(trades)
+
 # trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 # trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1_dummy.csv", encoding='utf-8', index=False)
 # print("Done!")
 
-trades_df = pd.DataFrame(trades)
-trades_df['Time'] = pd.to_datetime(trades_df['Time'])
-trades_df['Year'] = trades_df['Time'].dt.year
-trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
-# Create Max Drawdown column
-max_drawdown_df = trades_df.copy() 
-max_drawdown_df = max_drawdown_df[['Year', 'Return', 'label']]
-max_drawdown = 0
-max_drawdown_column = []
-for index, row in max_drawdown_df.iterrows():
-    if row['Return'] == 2:
-        max_drawdown = 0
-    elif row['Return'] == -1:
-        max_drawdown += 1
-    max_drawdown_column.append(max_drawdown)
-max_drawdown_df['Max Drawdown'] = max_drawdown_column
-max_drawdown_df = max_drawdown_df.groupby(['Year']).agg({'Max Drawdown': 'max'}).reset_index()
-# for each year, sum the returns and count the number of labels as trades
-trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'}).reset_index()
-trades_df['trades'] = trades_df['label']
-trades_df.drop(['label'], axis=1, inplace=True)
-trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
-trades_df[f'{dataset_name} Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
-trades_df = trades_df[trades_df['Year'] > 2007].copy()
-# make a new portfolio df 
-portfolio_df = pd.DataFrame()
-portfolio_df['Mean Return'] = [trades_df['Return'].mean()]
-portfolio_df['Mean Trades'] = [trades_df['trades'].mean()]
-portfolio_df['Mean Max Drawdown'] = [trades_df['Max Drawdown'].mean()]
-portfolio_df['Mean Percent Return'] = [trades_df[f'{dataset_name} Percent Return'].mean()]
-portfolio_df['Take Profit'] = tp
-portfolio_df['Stop Loss'] = sl
-portfolio_df['Dataset'] = dataset_name
-portfolio_df.to_csv( f"results/{param_row}.csv", encoding='utf-8', index=False)
-
-
-# trades_df = pd.DataFrame(trades)
-# ##TODO: Check if the trades_df is empty
 # trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 # trades_df['Year'] = trades_df['Time'].dt.year
-# trades_df['Month'] = trades_df['Time'].dt.month
-# trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
-# trades_df = trades_df[trades_df['Year'] == 2020].copy()
-# trades_df = trades_df[['Month', f'{dataset_name} Return']]
-# trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
-# trades_df.fillna(0, inplace=True)
-# # Save dataframe as a csv to output directory
-# out_file = f"results/{param_row}.csv"
-# # trades_df = trades_df[['Year', f'{dataset_name} Percent Return']]
-# trades_df.to_csv(out_file, encoding='utf-8', index=False)
-# print("Done!")
-# # """
+# trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
+# # Create Max Drawdown column
+# max_drawdown_df = trades_df.copy() 
+# max_drawdown_df = max_drawdown_df[['Year', 'Return', 'label']]
+# max_drawdown = 0
+# max_drawdown_column = []
+# for index, row in max_drawdown_df.iterrows():
+#     if row['Return'] == 2:
+#         max_drawdown = 0
+#     elif row['Return'] == -1:
+#         max_drawdown += 1
+#     max_drawdown_column.append(max_drawdown)
+# max_drawdown_df['Max Drawdown'] = max_drawdown_column
+# max_drawdown_df = max_drawdown_df.groupby(['Year']).agg({'Max Drawdown': 'max'}).reset_index()
+# # for each year, sum the returns and count the number of labels as trades
+# trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'}).reset_index()
+# trades_df['trades'] = trades_df['label']
+# trades_df.drop(['label'], axis=1, inplace=True)
+# trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
+# trades_df[f'{dataset_name} Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
+# trades_df = trades_df[trades_df['Year'] > 2007].copy()
+# # make a new portfolio df 
+# portfolio_df = pd.DataFrame()
+# portfolio_df['Mean Return'] = [trades_df['Return'].mean()]
+# portfolio_df['Mean Trades'] = [trades_df['trades'].mean()]
+# portfolio_df['Mean Max Drawdown'] = [trades_df['Max Drawdown'].mean()]
+# portfolio_df['Mean Percent Return'] = [trades_df[f'{dataset_name} Percent Return'].mean()]
+# portfolio_df['Take Profit'] = tp
+# portfolio_df['Stop Loss'] = sl
+# portfolio_df['Dataset'] = dataset_name
+# portfolio_df.to_csv( f"results/{param_row}.csv", encoding='utf-8', index=False)
+
+
+##TODO: Check if the trades_df is empty
+trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+trades_df['Year'] = trades_df['Time'].dt.year
+trades_df['Month'] = trades_df['Time'].dt.month
+trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
+trades_df = trades_df[trades_df['Year'] == 2007].copy()
+trades_df = trades_df[['Month', f'{dataset_name} Return']]
+trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
+trades_df.fillna(0, inplace=True)
+# Save dataframe as a csv to output directory
+out_file = f"results/{param_row}.csv"
+# trades_df = trades_df[['Year', f'{dataset_name} Percent Return']]
+trades_df.to_csv(out_file, encoding='utf-8', index=False)
+print("Done!")
+# """
