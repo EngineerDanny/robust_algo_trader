@@ -273,8 +273,8 @@
       "end_hour": 15
     },
     "EUR_SEK_H1": {
-      "take_profit": 0.08,
-      "stop_loss": 0.04,
+      "take_profit": 0.04,
+      "stop_loss": 0.02,
       "delta": 0.0001,
       "display_precision": 5,
       "units": 800,
@@ -453,8 +453,8 @@
       "end_hour": 6
     },
     "SGD_CHF_H1": {
-      "take_profit": 0.005,
-      "stop_loss": 0.0025,
+      "take_profit": 0.002,
+      "stop_loss": 0.001,
       "delta": 0.0001,
       "display_precision": 5,
       "units": 700,
@@ -503,8 +503,8 @@
       "end_hour": 15
     },
     "USD_CNH_H1": {
-      "take_profit": 0.02,
-      "stop_loss": 0.01,
+      "take_profit": 0.01,
+      "stop_loss": 0.005,
       "delta": 0.001,
       "display_precision": 5,
       "units": 1400,
@@ -583,8 +583,8 @@
       "end_hour": 15
     },
     "USD_SEK_H1": {
-      "take_profit": 0.2,
-      "stop_loss": 0.1,
+      "take_profit": 0.02,
+      "stop_loss": 0.01,
       "delta": 0.01,
       "display_precision": 5,
       "units": 200,
@@ -603,8 +603,8 @@
       "end_hour": 9
     },
     "USD_THB_H1": {
-      "take_profit": 0.5,
-      "stop_loss": 0.25,
+      "take_profit": 0.2,
+      "stop_loss": 0.1,
       "delta": 0.01,
       "display_precision": 3,
       "units": 270,
@@ -613,8 +613,8 @@
       "end_hour": 10
     },
     "USD_ZAR_H1": {
-      "take_profit": 0.2,
-      "stop_loss": 0.1,
+      "take_profit": 0.04,
+      "stop_loss": 0.02,
       "delta": 0.01,
       "display_precision": 5,
       "units": 400,
