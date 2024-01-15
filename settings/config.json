@@ -174,7 +174,6 @@
       "start_hour": 22,
       "end_hour": 6
     },
-
     "CAD_JPY_H1": {
       "take_profit": 0.5,
       "stop_loss": 0.25,
@@ -185,7 +184,6 @@
       "start_hour": 13,
       "end_hour": 21
     },
-
     "CHF_JPY_H1": {
       "take_profit": 0.5,
       "stop_loss": 0.25,
@@ -226,7 +224,6 @@
       "start_hour": 13,
       "end_hour": 21
     },
-
     "EUR_GBP_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
@@ -297,7 +294,6 @@
       "start_hour": 7,
       "end_hour": 15
     },
-
     "EUR_SGD_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
