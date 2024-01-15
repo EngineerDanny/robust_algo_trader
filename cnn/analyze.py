@@ -6,6 +6,11 @@ date_time = "2023-12-28_04:39"
 date_time = "2024-01-01_19:13"
 date_time = "2024-01-01_19:36"
 date_time = "2024-01-02_08:30"
+date_time = "2024-01-14_18:37"
+
+date_time = "2024-01-14_18:19"
+date_time = "2024-01-14_19:06"
+date_time = "2024-01-14_19:11"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{date_time}/results/*.csv"):
