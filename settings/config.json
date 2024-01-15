@@ -39,7 +39,7 @@
       "start_hour": 7,
       "end_hour": 15
     },
-  
+
     "EUR_TRY_H1": {
       "take_profit": 0.1,
       "stop_loss": 0.05,
@@ -51,7 +51,47 @@
       "end_hour": 15
     }
   },
-  "trading_settings": {
+  "unprofitable_instruments": {
+    "CAD_CHF_H1": {
+      "take_profit": 0.005,
+      "stop_loss": 0.0025,
+      "delta": 0.0001,
+      "display_precision": 5,
+      "units": 700,
+      "margin": 20,
+      "start_hour": 7,
+      "end_hour": 15
+    },
+    "EUR_CHF_H1": {
+      "take_profit": 0.005,
+      "stop_loss": 0.0025,
+      "delta": 0.0001,
+      "display_precision": 5,
+      "units": 700,
+      "margin": 31,
+      "start_hour": 7,
+      "end_hour": 15
+    },
+    "CAD_SGD_H1": {
+      "take_profit": 0.005,
+      "stop_loss": 0.0025,
+      "delta": 0.0001,
+      "display_precision": 5,
+      "units": 1000,
+      "margin": 38,
+      "start_hour": 1,
+      "end_hour": 9
+    },
+    "EUR_SEK_H1": {
+      "take_profit": 0.04,
+      "stop_loss": 0.02,
+      "delta": 0.0001,
+      "display_precision": 5,
+      "units": 800,
+      "margin": 27,
+      "start_hour": 7,
+      "end_hour": 15
+    },
     "AUD_CAD_H1": {
       "take_profit": 0.004,
       "stop_loss": 0.002,
@@ -62,6 +102,18 @@
       "start_hour": 13,
       "end_hour": 21
     },
+    "NZD_CAD_H1": {
+      "take_profit": 0.005,
+      "stop_loss": 0.0025,
+      "delta": 0.0001,
+      "display_precision": 5,
+      "units": 1100,
+      "margin": 21,
+      "start_hour": 13,
+      "end_hour": 21
+    }
+  },
+  "trading_settings": {
     "AUD_CHF_H1": {
       "take_profit": 0.004,
       "stop_loss": 0.002,
@@ -122,16 +174,7 @@
       "start_hour": 22,
       "end_hour": 6
     },
-    "CAD_CHF_H1": {
-      "take_profit": 0.005,
-      "stop_loss": 0.0025,
-      "delta": 0.0001,
-      "display_precision": 5,
-      "units": 700,
-      "margin": 20,
-      "start_hour": 7,
-      "end_hour": 15
-    },
+
     "CAD_JPY_H1": {
       "take_profit": 0.5,
       "stop_loss": 0.25,
@@ -142,16 +185,7 @@
       "start_hour": 13,
       "end_hour": 21
     },
-    "CAD_SGD_H1": {
-      "take_profit": 0.005,
-      "stop_loss": 0.0025,
-      "delta": 0.0001,
-      "display_precision": 5,
-      "units": 1000,
-      "margin": 38,
-      "start_hour": 1,
-      "end_hour": 9
-    },
+
     "CHF_JPY_H1": {
       "take_profit": 0.5,
       "stop_loss": 0.25,
@@ -192,16 +226,7 @@
       "start_hour": 13,
       "end_hour": 21
     },
-    "EUR_CHF_H1": {
-      "take_profit": 0.005,
-      "stop_loss": 0.0025,
-      "delta": 0.0001,
-      "display_precision": 5,
-      "units": 700,
-      "margin": 31,
-      "start_hour": 7,
-      "end_hour": 15
-    },
+
     "EUR_GBP_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
@@ -272,16 +297,7 @@
       "start_hour": 7,
       "end_hour": 15
     },
-    "EUR_SEK_H1": {
-      "take_profit": 0.04,
-      "stop_loss": 0.02,
-      "delta": 0.0001,
-      "display_precision": 5,
-      "units": 800,
-      "margin": 27,
-      "start_hour": 7,
-      "end_hour": 15
-    },
+
     "EUR_SGD_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
@@ -402,16 +418,7 @@
       "start_hour": 1,
       "end_hour": 9
     },
-    "NZD_CAD_H1": {
-      "take_profit": 0.005,
-      "stop_loss": 0.0025,
-      "delta": 0.0001,
-      "display_precision": 5,
-      "units": 1100,
-      "margin": 21,
-      "start_hour": 13,
-      "end_hour": 21
-    },
+
     "NZD_CHF_H1": {
       "take_profit": 0.005,
       "stop_loss": 0.0025,
