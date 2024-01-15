@@ -11,7 +11,7 @@
   "device": "cpu",
   "model_version": "0.1.0",
   "window_size": 48,
-  "removed_instruments": [
+  "low_volatility_instruments": [
     "EUR_DKK_H1",
     "USD_TRY_H1",
     "USD_HKD_H1",
