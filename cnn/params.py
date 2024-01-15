@@ -1,4 +1,3 @@
-
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -24,6 +23,7 @@ dataset_list = ["EUR_USD_H1", "GBP_USD_H1", "USD_JPY_H1",
                 "AUD_NZD_H1", "GBP_ZAR_H1", "NZD_CAD_H1",
                 "GBP_NZD_H1", "EUR_ZAR_H1", "EUR_ZAR_H1"
                 ]
+dataset_list = ["EUR_SEK_H1"]
 threshold = [0.5]
 params_dict = {
     'dataset_name': dataset_list,
