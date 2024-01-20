@@ -272,32 +272,38 @@ try:
                     or row["Low"] >= prev_trade["take_profit_price"]
                     or row["Open"] >= prev_trade["take_profit_price"]
                 )
-                if (
-                    row["Close"] >= prev_trade["take_profit_price"]
-                    and prev_trade["label"] == None
-                ):
+                stop_loss_hit = (
+                    row["Close"] <= prev_trade["stop_loss_price"]
+                    or row["High"] <= prev_trade["stop_loss_price"]
+                    or row["Low"] <= prev_trade["stop_loss_price"]
+                    or row["Open"] <= prev_trade["stop_loss_price"]
+                )
+                if take_profit_hit and prev_trade["label"] == None:
                     prev_trade["label"] = 1
                     prev_trade["close_time"] = row["Time"]
                     continue
-                elif (
-                    row["Close"] <= prev_trade["stop_loss_price"]
-                    and prev_trade["label"] == None
-                ):
+                elif stop_loss_hit and prev_trade["label"] == None:
                     prev_trade["label"] = 0
                     prev_trade["close_time"] = row["Time"]
                     continue
             else:
-                if (
+                take_profit_hit = (
                     row["Close"] <= prev_trade["take_profit_price"]
-                    and prev_trade["label"] == None
-                ):
+                    or row["High"] <= prev_trade["take_profit_price"]
+                    or row["Low"] <= prev_trade["take_profit_price"]
+                    or row["Open"] <= prev_trade["take_profit_price"]
+                )
+                stop_loss_hit = (
+                    row["Close"] >= prev_trade["stop_loss_price"]
+                    or row["High"] >= prev_trade["stop_loss_price"]
+                    or row["Low"] >= prev_trade["stop_loss_price"]
+                    or row["Open"] >= prev_trade["stop_loss_price"]
+                )
+                if take_profit_hit and prev_trade["label"] == None:
                     prev_trade["label"] = 1
                     prev_trade["close_time"] = row["Time"]
                     continue
-                elif (
-                    row["Close"] >= prev_trade["stop_loss_price"]
-                    and prev_trade["label"] == None
-                ):
+                elif stop_loss_hit and prev_trade["label"] == None:
                     prev_trade["label"] = 0
                     prev_trade["close_time"] = row["Time"]
                     continue
