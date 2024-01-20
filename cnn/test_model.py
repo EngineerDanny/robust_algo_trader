@@ -52,16 +52,17 @@ param_dict = dict(params_df.iloc[param_row, :])
 dataset_name = param_dict["dataset_name"]
 threshold = param_dict["threshold"]
 
-
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
 with open(config_path) as f:
   config = json.load(f)
   
 # Get the take_profit and stop_loss levels from the config file
+rr_ratio = config["risk_reward_ratio"]
 config_settings = config["trading_settings"][dataset_name]
-tp = config_settings["take_profit"]
 sl = config_settings["stop_loss"]
+tp = rr_ratio * sl
+# tp = config_settings["take_profit"]
 start_hr = config_settings["start_hour"]
 end_hr = config_settings["end_hour"]
 window_size = config["window_size"]
@@ -279,18 +280,18 @@ try:
                 continue
             
             # TODO: Dummy
-            # local_order = create_trade_order(row, current_position, tp, sl)
-            # trades.append(local_order) 
+            local_order = create_trade_order(row, current_position, tp, sl)
+            trades.append(local_order) 
 
-            # TODO: ML
-            subset_df = df.loc[(index-window_size+1):(index)]
-            # output_item = save_setup_graph(subset_df, current_position, index)
-            output_item = 0.99
-            pred = 1 if output_item > threshold else 0
-            # use that to execute a trade order
-            if pred == 1:
-                local_order = create_trade_order(row, current_position, tp, sl)
-                trades.append(local_order) 
+            # # TODO: ML
+            # subset_df = df.loc[(index-window_size+1):(index)]
+            # # output_item = save_setup_graph(subset_df, current_position, index)
+            # output_item = 0.99
+            # pred = 1 if output_item > threshold else 0
+            # # use that to execute a trade order
+            # if pred == 1:
+            #     local_order = create_trade_order(row, current_position, tp, sl)
+            #     trades.append(local_order) 
 except Exception as e:
     print(e)
     
@@ -340,7 +341,7 @@ trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Month'] = trades_df['Time'].dt.month
 trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
-trades_df = trades_df[trades_df['Year'] == 2007].copy()
+trades_df = trades_df[trades_df['Year'] == 2020].copy()
 trades_df = trades_df[['Month', f'{dataset_name} Return']]
 trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
 trades_df.fillna(0, inplace=True)
