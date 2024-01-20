@@ -38,7 +38,7 @@ import torch.nn as nn
 from PIL import Image
 import warnings
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 params_df = pd.read_csv("params.csv")
 
 if len(sys.argv) == 2:
@@ -55,14 +55,13 @@ threshold = param_dict["threshold"]
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
 with open(config_path) as f:
-  config = json.load(f)
-  
+    config = json.load(f)
+
 # Get the take_profit and stop_loss levels from the config file
 rr_ratio = config["risk_reward_ratio"]
 config_settings = config["trading_settings"][dataset_name]
 sl = config_settings["stop_loss"]
 tp = rr_ratio * sl
-# tp = config_settings["take_profit"]
 start_hr = config_settings["start_hour"]
 end_hr = config_settings["end_hour"]
 window_size = config["window_size"]
@@ -79,11 +78,15 @@ seed = 42
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.manual_seed(seed)
-transform = transforms.Compose( 
-    [transforms.Resize((64, 64)),
-     transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), 
-                          (0.5, 0.5, 0.5))]) 
+transform = transforms.Compose(
+    [
+        transforms.Resize((64, 64)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ]
+)
+
+
 # Define the model
 class CNNet(nn.Module):
     def __init__(self):
@@ -95,7 +98,7 @@ class CNNet(nn.Module):
         # self.dropout = nn.Dropout(0.25)
         self.dropout = nn.Dropout(0.5)
         self.fc1 = nn.Linear(86528, 128)
-        self.fc2 = nn.Linear(128, 1) 
+        self.fc2 = nn.Linear(128, 1)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
 
@@ -109,6 +112,7 @@ class CNNet(nn.Module):
         x = self.sigmoid(self.fc2(x))
         return x
 
+
 # Load the trained model
 cnn = CNNet()
 cnn.load_state_dict(torch.load(ml_model_path))
@@ -117,62 +121,81 @@ cnn.eval()
 
 
 df = pd.read_csv(f"{root_data_dir}/{dataset_name}_processed_data.csv")
-df = df.rename(columns={'time': 'Time'})
-df['Index'] = df.index
-y = df[['Close']]
+df = df.rename(columns={"time": "Time"})
+df["Index"] = df.index
+y = df[["Close"]]
 offset = y.index[0]
 
-df['Time'] = pd.to_datetime(df['Time'])
+df["Time"] = pd.to_datetime(df["Time"])
 trades = []
 
+
 def save_setup_graph(subset_df, position, index):
-    green_df = subset_df[subset_df['Close'] > subset_df['Open']].copy()
+    green_df = subset_df[subset_df["Close"] > subset_df["Open"]].copy()
     green_df["Height"] = green_df["Close"] - green_df["Open"]
-    red_df = subset_df[subset_df['Close'] < subset_df['Open']].copy()
+    red_df = subset_df[subset_df["Close"] < subset_df["Open"]].copy()
     red_df["Height"] = red_df["Open"] - red_df["Close"]
-    
+
     # if green_df or red_df is empty, then return
     # if the length of green_df and red_df is less than the window_size, then return
-    if (green_df.empty and red_df.empty):
+    if green_df.empty and red_df.empty:
         return 0
-    
+
     plt.switch_backend("Agg")
-    fig = plt.figure(figsize=(8,3))
-    
+    fig = plt.figure(figsize=(8, 3))
+
     ##Grey Lines
-    plt.vlines(x=green_df["Index"], 
-            ymin=green_df["Low"], 
-            ymax=green_df["High"],
-            color="green")
-    plt.vlines(x=red_df["Index"], 
-            ymin=red_df["Low"], 
-            ymax=red_df["High"],
-            color="orangered")
+    plt.vlines(
+        x=green_df["Index"], ymin=green_df["Low"], ymax=green_df["High"], color="green"
+    )
+    plt.vlines(
+        x=red_df["Index"], ymin=red_df["Low"], ymax=red_df["High"], color="orangered"
+    )
     ##Green Candles
-    plt.bar(x=green_df["Index"], 
-            height=green_df["Height"], 
-            bottom=green_df["Open"], 
-            color="green")
+    plt.bar(
+        x=green_df["Index"],
+        height=green_df["Height"],
+        bottom=green_df["Open"],
+        color="green",
+    )
     ##Red Candles
-    plt.bar(x=red_df["Index"], 
-            height=red_df["Height"], 
-            bottom=red_df["Close"], 
-            color="orangered")
-    
+    plt.bar(
+        x=red_df["Index"],
+        height=red_df["Height"],
+        bottom=red_df["Close"],
+        color="orangered",
+    )
+
     plt.plot(subset_df["SMA_20"], label="SMA_20")
     plt.plot(subset_df["SMA_30"], label="SMA_30")
-    
+
     close_price = subset_df["Close"].iloc[-1]
-    
+
     sl_eps = sl
     tp_eps = tp
-    
+
     if position == 1:
-        plt.axhspan(close_price, close_price + tp_eps, facecolor="green", xmin= 0.96, alpha=0.9) 
-        plt.axhspan(close_price - sl_eps, close_price, facecolor="orangered", xmin= 0.96, alpha=0.9)
+        plt.axhspan(
+            close_price, close_price + tp_eps, facecolor="green", xmin=0.96, alpha=0.9
+        )
+        plt.axhspan(
+            close_price - sl_eps,
+            close_price,
+            facecolor="orangered",
+            xmin=0.96,
+            alpha=0.9,
+        )
     else:
-        plt.axhspan(close_price, close_price + sl_eps, facecolor="orangered", xmin= 0.96, alpha=0.9) 
-        plt.axhspan(close_price - tp_eps, close_price, facecolor="green", xmin= 0.96, alpha=0.9)
+        plt.axhspan(
+            close_price,
+            close_price + sl_eps,
+            facecolor="orangered",
+            xmin=0.96,
+            alpha=0.9,
+        )
+        plt.axhspan(
+            close_price - tp_eps, close_price, facecolor="green", xmin=0.96, alpha=0.9
+        )
     plt.xticks([])
     plt.yticks([])
     plt.box(False)
@@ -191,7 +214,7 @@ def save_setup_graph(subset_df, position, index):
     # close the figure
     plt.close()
     return output_item
-    
+
 
 def create_trade_order(row, position, tp, sl):
     ask_price = row["Close"]
@@ -208,7 +231,7 @@ def create_trade_order(row, position, tp, sl):
         "MACD": row["MACD"],
         "MACD_Signal": row["MACD_Signal"],
         "MACD_Hist": row["MACD_Hist"],
-        "MACD_Crossover_Change" : row["MACD_Crossover_Change"],
+        "MACD_Crossover_Change": row["MACD_Crossover_Change"],
         "RSI": row["RSI"],
         "ATR": row["ATR"],
         "ADX": row["ADX"],
@@ -227,11 +250,13 @@ def create_trade_order(row, position, tp, sl):
     }
     return trade_order
 
+
 def is_time_between(start_time, end_time, check_time):
-  if start_time < end_time:
-    return start_time <= check_time <= end_time
-  else: # crosses midnight
-    return check_time >= start_time or check_time <= end_time
+    if start_time < end_time:
+        return start_time <= check_time <= end_time
+    else:  # crosses midnight
+        return check_time >= start_time or check_time <= end_time
+
 
 try:
     # loop through all rows in the dataframe
@@ -241,47 +266,69 @@ try:
             prev_trade = trades[-1]
             # check if the previous trade was a long trade
             if prev_trade["position"] == 1:
-                if row["Close"] >= prev_trade["take_profit_price"] and prev_trade["label"] == None:
+                take_profit_hit = (
+                    row["Close"] >= prev_trade["take_profit_price"]
+                    or row["High"] >= prev_trade["take_profit_price"]
+                    or row["Low"] >= prev_trade["take_profit_price"]
+                    or row["Open"] >= prev_trade["take_profit_price"]
+                )
+                if (
+                    row["Close"] >= prev_trade["take_profit_price"]
+                    and prev_trade["label"] == None
+                ):
                     prev_trade["label"] = 1
                     prev_trade["close_time"] = row["Time"]
                     continue
-                elif row["Close"] <= prev_trade["stop_loss_price"] and prev_trade["label"] == None:
+                elif (
+                    row["Close"] <= prev_trade["stop_loss_price"]
+                    and prev_trade["label"] == None
+                ):
                     prev_trade["label"] = 0
                     prev_trade["close_time"] = row["Time"]
                     continue
             else:
-                if row["Close"] <= prev_trade["take_profit_price"] and prev_trade["label"] == None:
+                if (
+                    row["Close"] <= prev_trade["take_profit_price"]
+                    and prev_trade["label"] == None
+                ):
                     prev_trade["label"] = 1
                     prev_trade["close_time"] = row["Time"]
                     continue
-                elif row["Close"] >= prev_trade["stop_loss_price"] and prev_trade["label"] == None:
+                elif (
+                    row["Close"] >= prev_trade["stop_loss_price"]
+                    and prev_trade["label"] == None
+                ):
                     prev_trade["label"] = 0
                     prev_trade["close_time"] = row["Time"]
                     continue
-                    
+
             if prev_trade["label"] == None:
                 continue
-        
+
         # if there are no open trades, check if there is a crossover
         macd_crossover_change = row["MACD_Crossover_Change"]
         current_time = row["Time"]
-        
-        # check if the time is between 9am and 5pm
-        if (macd_crossover_change > 0 or macd_crossover_change < 0) and is_time_between(start_hr, end_hr, current_time.hour):
-            if ((row["MACD_Crossover_Change"] > 0) and
-                (row["Close"] > row["SMA_20"]) and 
-                (row["Close"] > row["SMA_30"])):
-                current_position = 1 # long
-            elif ((row["MACD_Crossover_Change"] < 0) and
-                  (row["Close"] < row["SMA_20"]) and 
-                  (row["Close"] < row["SMA_30"])):
-                current_position = 0 # short
+        if (macd_crossover_change > 0 or macd_crossover_change < 0) and is_time_between(
+            start_hr, end_hr, current_time.hour
+        ):
+            if (
+                (row["MACD_Crossover_Change"] > 0)
+                and (row["Close"] > row["SMA_20"])
+                and (row["Close"] > row["SMA_30"])
+            ):
+                current_position = 1  # long
+            elif (
+                (row["MACD_Crossover_Change"] < 0)
+                and (row["Close"] < row["SMA_20"])
+                and (row["Close"] < row["SMA_30"])
+            ):
+                current_position = 0  # short
             else:
                 continue
-            
+
             # TODO: Dummy
             local_order = create_trade_order(row, current_position, tp, sl)
-            trades.append(local_order) 
+            trades.append(local_order)
 
             # # TODO: ML
             # subset_df = df.loc[(index-window_size+1):(index)]
@@ -291,63 +338,70 @@ try:
             # # use that to execute a trade order
             # if pred == 1:
             #     local_order = create_trade_order(row, current_position, tp, sl)
-            #     trades.append(local_order) 
+            #     trades.append(local_order)
 except Exception as e:
     print(e)
-    
+
 trades_df = pd.DataFrame(trades)
 
 # trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 # trades_df.to_csv("/projects/genomic-ml/da2343/ml_project_2/cnn/results/1_dummy.csv", encoding='utf-8', index=False)
 # print("Done!")
 
+trades_df["Time"] = pd.to_datetime(trades_df["Time"])
+trades_df["Year"] = trades_df["Time"].dt.year
+trades_df["Return"] = np.where(trades_df["label"] == 1, 2, -1)
+# Create Max Drawdown column
+max_drawdown_df = trades_df.copy()
+max_drawdown_df = max_drawdown_df[["Year", "Return", "label"]]
+max_drawdown = 0
+max_drawdown_column = []
+for index, row in max_drawdown_df.iterrows():
+    if row["Return"] == 2:
+        max_drawdown = 0
+    elif row["Return"] == -1:
+        max_drawdown += 1
+    max_drawdown_column.append(max_drawdown)
+max_drawdown_df["Max Drawdown"] = max_drawdown_column
+max_drawdown_df = (
+    max_drawdown_df.groupby(["Year"]).agg({"Max Drawdown": "max"}).reset_index()
+)
+# for each year, sum the returns and count the number of labels as trades
+trades_df = (
+    trades_df.groupby(["Year"]).agg({"Return": "sum", "label": "count"}).reset_index()
+)
+trades_df["trades"] = trades_df["label"]
+trades_df.drop(["label"], axis=1, inplace=True)
+trades_df = pd.merge(trades_df, max_drawdown_df, on="Year")
+trades_df[f"{dataset_name} Percent Return"] = (
+    trades_df["Return"] / trades_df["trades"]
+) * 100
+trades_df = trades_df[trades_df["Year"] > 2007].copy()
+# make a new portfolio df
+portfolio_df = pd.DataFrame()
+portfolio_df["Mean Return"] = [trades_df["Return"].mean()]
+portfolio_df["Mean Trades"] = [trades_df["trades"].mean()]
+portfolio_df["Mean Max Drawdown"] = [trades_df["Max Drawdown"].mean()]
+portfolio_df["Mean Percent Return"] = [
+    trades_df[f"{dataset_name} Percent Return"].mean()
+]
+portfolio_df["Take Profit"] = tp
+portfolio_df["Stop Loss"] = sl
+portfolio_df["Dataset"] = dataset_name
+portfolio_df.to_csv(f"results/{param_row}.csv", encoding="utf-8", index=False)
+
+
+# ##TODO: Check if the trades_df is empty
 # trades_df['Time'] = pd.to_datetime(trades_df['Time'])
 # trades_df['Year'] = trades_df['Time'].dt.year
-# trades_df['Return'] = np.where(trades_df['label'] == 1, 2, -1)
-# # Create Max Drawdown column
-# max_drawdown_df = trades_df.copy() 
-# max_drawdown_df = max_drawdown_df[['Year', 'Return', 'label']]
-# max_drawdown = 0
-# max_drawdown_column = []
-# for index, row in max_drawdown_df.iterrows():
-#     if row['Return'] == 2:
-#         max_drawdown = 0
-#     elif row['Return'] == -1:
-#         max_drawdown += 1
-#     max_drawdown_column.append(max_drawdown)
-# max_drawdown_df['Max Drawdown'] = max_drawdown_column
-# max_drawdown_df = max_drawdown_df.groupby(['Year']).agg({'Max Drawdown': 'max'}).reset_index()
-# # for each year, sum the returns and count the number of labels as trades
-# trades_df = trades_df.groupby(['Year']).agg({'Return': 'sum', 'label': 'count'}).reset_index()
-# trades_df['trades'] = trades_df['label']
-# trades_df.drop(['label'], axis=1, inplace=True)
-# trades_df = pd.merge(trades_df, max_drawdown_df, on='Year')
-# trades_df[f'{dataset_name} Percent Return'] = (trades_df['Return'] / trades_df['trades']) * 100
-# trades_df = trades_df[trades_df['Year'] > 2007].copy()
-# # make a new portfolio df 
-# portfolio_df = pd.DataFrame()
-# portfolio_df['Mean Return'] = [trades_df['Return'].mean()]
-# portfolio_df['Mean Trades'] = [trades_df['trades'].mean()]
-# portfolio_df['Mean Max Drawdown'] = [trades_df['Max Drawdown'].mean()]
-# portfolio_df['Mean Percent Return'] = [trades_df[f'{dataset_name} Percent Return'].mean()]
-# portfolio_df['Take Profit'] = tp
-# portfolio_df['Stop Loss'] = sl
-# portfolio_df['Dataset'] = dataset_name
-# portfolio_df.to_csv( f"results/{param_row}.csv", encoding='utf-8', index=False)
-
-
-##TODO: Check if the trades_df is empty
-trades_df['Time'] = pd.to_datetime(trades_df['Time'])
-trades_df['Year'] = trades_df['Time'].dt.year
-trades_df['Month'] = trades_df['Time'].dt.month
-trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
-trades_df = trades_df[trades_df['Year'] == 2020].copy()
-trades_df = trades_df[['Month', f'{dataset_name} Return']]
-trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
-trades_df.fillna(0, inplace=True)
-# Save dataframe as a csv to output directory
-out_file = f"results/{param_row}.csv"
-# trades_df = trades_df[['Year', f'{dataset_name} Percent Return']]
-trades_df.to_csv(out_file, encoding='utf-8', index=False)
-print("Done!")
-# """
+# trades_df['Month'] = trades_df['Time'].dt.month
+# trades_df[f'{dataset_name} Return'] = np.where(trades_df['label'] == 1, 2, -1)
+# trades_df = trades_df[trades_df['Year'] == 2020].copy()
+# trades_df = trades_df[['Month', f'{dataset_name} Return']]
+# trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
+# trades_df.fillna(0, inplace=True)
+# # Save dataframe as a csv to output directory
+# out_file = f"results/{param_row}.csv"
+# # trades_df = trades_df[['Year', f'{dataset_name} Percent Return']]
+# trades_df.to_csv(out_file, encoding='utf-8', index=False)
+# print("Done!")
