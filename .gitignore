@@ -16,3 +16,4 @@ dnn/data/FashionMNIST/raw/*
 !experiments/*
 *.err
 *.out
+.env
