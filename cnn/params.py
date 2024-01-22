@@ -23,7 +23,7 @@ params_df_list = []
 #                 "NZD_HKD_H1", "NZD_SGD_H1", "EUR_AUD_H1",
 #                 "EUR_NZD_H1", "NZD_JPY_H1", "GBP_JPY_H1"
 #                 ]
-# dataset_list = ["EUR_ZAR_H1", ""]
+dataset_list = ["EUR_USD_H1"]
 threshold = [0.5]
 params_dict = {
     'dataset_name': dataset_list,
