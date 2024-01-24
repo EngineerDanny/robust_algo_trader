@@ -28,6 +28,7 @@ else:
     print("len(sys.argv)=%d so trying first param" % len(sys.argv))
     param_row = 0
 
+# Get the parameters for this task
 param_dict = dict(params_df.iloc[param_row, :])
 dataset_name = param_dict["dataset_name"]
 strategy = param_dict["strategy"]
@@ -37,9 +38,20 @@ atr_delta = param_dict["atr_delta"]
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
 with open(config_path) as f:
     config = json.load(f)
-
 config_settings = config["trading_settings"][dataset_name]
 start_hr = config_settings["start_hour"]
 end_hr = config_settings["end_hour"]
-
 root_data_dir = config["paths"]["oanda_dir"]
+
+df = pd.read_csv(f"{root_data_dir}/{dataset_name}_processed_data.csv")
+df = df.rename(columns={"time": "Time"})
+df["Index"] = df.index
+df["Time"] = pd.to_datetime(df["Time"])
+df['EMA_100'] = ta.EMA(df['Close'], timeperiod=100)
+df = df.dropna()
+
+trades = []
+
+
+def macd_adaptive_profit_strategy():
+    pass
