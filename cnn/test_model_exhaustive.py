@@ -1,22 +1,9 @@
 import sys
-import os
 import pandas as pd
 import numpy as np
-from datetime import date
-import talib
-import json
+import talib as ta
 import warnings
-import matplotlib.pyplot as plt
 import json
-import time
-import datetime as dt
-import requests
-import re
-import itertools
-import talib
-import logging
-from decimal import Decimal
-import io
 
 warnings.filterwarnings("ignore")
 params_df = pd.read_csv("params.csv")
@@ -49,7 +36,6 @@ df["Index"] = df.index
 df["Time"] = pd.to_datetime(df["Time"])
 df["EMA_100"] = ta.EMA(df["Close"], timeperiod=100)
 df = df.dropna()
-
 
 
 def is_time_between(start_time, end_time, check_time):
@@ -189,9 +175,9 @@ strategy_dict = {
     "MACD_Fixed_Profit": macd_fixed_profit_strategy,
     "Reverse_MACD_Fixed_Profit": lambda: macd_fixed_profit_strategy(reverse=True),
 }
-
 trades_df = strategy_dict[strategy]()
-# out_df should have the following columns: dataset_name, strategy, atr_delta, accuracy(from PnL_label), num_trades
+# out_df should have the following columns: 
+# dataset_name, strategy, atr_delta, accuracy(from PnL_label), num_trades
 out_df = pd.DataFrame(
     {
         "dataset_name": dataset_name,
