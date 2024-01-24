@@ -21,6 +21,7 @@ params_dict = {
     'dataset_name': dataset_list,
     'strategy': ['MACD_Adaptive_Profit', "Reverse_MACD_Adaptive_Profit", "MACD_Fixed_Profit", "Reverse_MACD_Fixed_Profit"],
     'atr_delta': [0.5, 1.0, 1.5, 2, 2.5, 3],
+    'train_end_date': ['2015-01-01 00:00:00'],
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
