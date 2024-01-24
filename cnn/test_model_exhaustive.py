@@ -51,6 +51,7 @@ df["EMA_100"] = ta.EMA(df["Close"], timeperiod=100)
 df = df.dropna()
 
 
+
 def is_time_between(start_time, end_time, check_time):
     if start_time < end_time:
         return start_time <= check_time <= end_time
@@ -180,3 +181,26 @@ def macd_fixed_profit_strategy(reverse=False):
     trades_df = pd.DataFrame(trades, columns=["Action", "Date", "Price", "PnL"])
     trades_df["PnL_label"] = np.where(trades_df["PnL"] >= 0, 1, 0)
     return trades_df
+
+
+strategy_dict = {
+    "MACD_Adaptive_Profit": macd_adaptive_profit_strategy,
+    "Reverse_MACD_Adaptive_Profit": lambda: macd_adaptive_profit_strategy(reverse=True),
+    "MACD_Fixed_Profit": macd_fixed_profit_strategy,
+    "Reverse_MACD_Fixed_Profit": lambda: macd_fixed_profit_strategy(reverse=True),
+}
+
+trades_df = strategy_dict[strategy]()
+# out_df should have the following columns: dataset_name, strategy, atr_delta, accuracy(from PnL_label), num_trades
+out_df = pd.DataFrame(
+    {
+        "dataset_name": dataset_name,
+        "strategy": strategy,
+        "atr_delta": atr_delta,
+        "accuracy": trades_df["PnL_label"].mean(),
+        "num_trades": trades_df.shape[0],
+    },
+    index=[0],
+)
+out_df.to_csv(f"results/{param_row}.csv", encoding='utf-8', index=False)
+print("Done!")
