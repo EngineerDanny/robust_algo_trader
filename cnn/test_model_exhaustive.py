@@ -20,6 +20,7 @@ param_dict = dict(params_df.iloc[param_row, :])
 dataset_name = param_dict["dataset_name"]
 strategy = param_dict["strategy"]
 atr_delta = param_dict["atr_delta"]
+train_end_date = param_dict["train_end_date"]
 
 # Load the config file
 config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
@@ -34,6 +35,7 @@ df = pd.read_csv(f"{root_data_dir}/{dataset_name}_processed_data.csv")
 df = df.rename(columns={"time": "Time"})
 df["Index"] = df.index
 df["Time"] = pd.to_datetime(df["Time"])
+df = df[df["Time"] < train_end_date]
 df["EMA_100"] = ta.EMA(df["Close"], timeperiod=100)
 df = df.dropna()
 
