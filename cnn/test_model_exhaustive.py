@@ -53,5 +53,12 @@ df = df.dropna()
 trades = []
 
 
+def is_time_between(start_time, end_time, check_time):
+    if start_time < end_time:
+        return start_time <= check_time <= end_time
+    else: 
+        return check_time >= start_time or check_time <= end_time
+    
+
 def macd_adaptive_profit_strategy():
     pass
