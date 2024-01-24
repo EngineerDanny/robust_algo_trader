@@ -186,6 +186,7 @@ out_df = pd.DataFrame(
         "strategy": strategy,
         "atr_delta": atr_delta,
         "accuracy": trades_df["PnL_label"].mean(),
+        "cummulative_pnl": trades_df["PnL"].sum(),
         "num_trades": trades_df.shape[0],
     },
     index=[0],
