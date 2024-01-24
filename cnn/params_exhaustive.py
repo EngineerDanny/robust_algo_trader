@@ -17,7 +17,6 @@ dataset_list = []
 for key, value in config_settings.items():
     dataset_list.append(key)
 params_df_list = []
-
 params_dict = {
     'dataset_name': dataset_list,
     'strategy': ['MACD_Adaptive_Profit', "Reverse_MACD_Adaptive_Profit", "MACD_Fixed_Profit", "Reverse_MACD_Fixed_Profit"],
