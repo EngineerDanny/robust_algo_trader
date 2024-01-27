@@ -172,7 +172,9 @@
       "units": 800,
       "margin": 22,
       "start_hour": 23,
-      "end_hour": 7
+      "end_hour": 7,
+      "strategy": "MACD_Fixed_Profit",
+      "atr_delta": 1.5
     },
     "AUD_HKD_H1": {
       "take_profit": 0.035,
@@ -182,7 +184,9 @@
       "units": 900,
       "margin": 60,
       "start_hour": 1,
-      "end_hour": 9
+      "end_hour": 9,
+      "strategy": "MACD_Adaptive_Profit",
+      "atr_delta": 2
     },
     "AUD_JPY_H1": {
       "take_profit": 0.5,
@@ -192,7 +196,9 @@
       "units": 1100,
       "margin": 34,
       "start_hour": 23,
-      "end_hour": 7
+      "end_hour": 7,
+      "strategy": "MACD_Fixed_Profit",
+      "atr_delta": 2
     },
     "AUD_NZD_H1": {
       "take_profit": 0.005,
@@ -202,7 +208,9 @@
       "units": 1200,
       "margin": 24,
       "start_hour": 22,
-      "end_hour": 6
+      "end_hour": 6,
+      "strategy": "MACD_Fixed_Profit",
+      "atr_delta": 2.5
     },
     "AUD_USD_H1": {
       "take_profit": 0.005,
@@ -212,7 +220,9 @@
       "units": 800,
       "margin": 17,
       "start_hour": 22,
-      "end_hour": 6
+      "end_hour": 6,
+      "strategy": "MACD_Adaptive_Profit",
+      "atr_delta": 1.5
     },
     "CAD_JPY_H1": {
       "take_profit": 0.5,
@@ -222,7 +232,9 @@
       "units": 1100,
       "margin": 41,
       "start_hour": 13,
-      "end_hour": 21
+      "end_hour": 21,
+      "strategy": "Reverse_MACD_Adaptive_Profit",
+      "atr_delta": 3
     },
     "CHF_JPY_H1": {
       "take_profit": 0.5,
@@ -232,7 +244,9 @@
       "units": 1100,
       "margin": 65,
       "start_hour": 23,
-      "end_hour": 7
+      "end_hour": 7,
+      "strategy": "Reverse_MACD_Adaptive_Profit",
+      "atr_delta": 1.5
     },
     "CHF_ZAR_H1": {
       "take_profit": 0.2,
