@@ -18,8 +18,8 @@ else:
 # Get the parameters for this task
 param_dict = dict(params_df.iloc[param_row, :])
 dataset_name = param_dict["dataset_name"]
-strategy = param_dict["strategy"]
-atr_delta = param_dict["atr_delta"]
+# strategy = param_dict["strategy"]
+# atr_delta = param_dict["atr_delta"]
 train_end_date = param_dict["train_end_date"]
 
 # Load the config file
@@ -29,6 +29,9 @@ with open(config_path) as f:
 config_settings = config["trading_settings"][dataset_name]
 start_hr = config_settings["start_hour"]
 end_hr = config_settings["end_hour"]
+strategy = config_settings["strategy"]
+atr_delta = config_settings["atr_delta"]
+
 root_data_dir = config["paths"]["oanda_dir"]
 
 df = pd.read_csv(f"{root_data_dir}/{dataset_name}_processed_data.csv")
@@ -71,13 +74,13 @@ def macd_adaptive_profit_strategy(reverse=False):
                 entry_price = row["Close"]
                 stop_loss = entry_price - atr_delta * row["ATR"]
                 init_stop_loss = stop_loss
-                trades.append(["Buy", i, entry_price, 0])
+                trades.append(["Buy", current_time, entry_price, 0])
             elif condition_sell:
                 position = -1
                 entry_price = row["Close"]
                 stop_loss = entry_price + atr_delta * row["ATR"]
                 init_stop_loss = stop_loss
-                trades.append(["Sell", i, entry_price, 0])
+                trades.append(["Sell", current_time, entry_price, 0])
         elif position == 1:
             if row["Low"] < stop_loss:
                 position = 0
@@ -85,7 +88,7 @@ def macd_adaptive_profit_strategy(reverse=False):
                 target_profit = exit_price - entry_price
                 target_loss = entry_price - init_stop_loss
                 risk_reward = target_profit / target_loss
-                trades[-1] = ["Buy", i, exit_price, risk_reward]
+                trades[-1] = ["Buy", current_time, exit_price, risk_reward]
             else:
                 stop_loss = max(stop_loss, row["Close"] - atr_delta * row["ATR"])
         elif position == -1:
@@ -95,7 +98,7 @@ def macd_adaptive_profit_strategy(reverse=False):
                 target_profit = entry_price - exit_price
                 target_loss = init_stop_loss - entry_price
                 risk_reward = target_profit / target_loss
-                trades[-1] = ["Sell", i, exit_price, risk_reward]
+                trades[-1] = ["Sell", current_time, exit_price, risk_reward]
             else:
                 stop_loss = min(stop_loss, row["Close"] + atr_delta * row["ATR"])
     trades_df = pd.DataFrame(trades, columns=["Action", "Date", "Price", "PnL"])
@@ -128,14 +131,14 @@ def macd_fixed_profit_strategy(reverse=False):
                 stop_loss = entry_price - atr_delta * row["ATR"]
                 take_profit = entry_price + atr_delta * row["ATR"]
                 init_stop_loss = stop_loss
-                trades.append(["Buy", i, entry_price, 0])
+                trades.append(["Buy", current_time, entry_price, 0])
             elif condition_sell:
                 position = -1
                 entry_price = row["Close"]
                 stop_loss = entry_price + atr_delta * row["ATR"]
                 take_profit = entry_price - atr_delta * row["ATR"]
                 init_stop_loss = stop_loss
-                trades.append(["Sell", i, entry_price, 0])
+                trades.append(["Sell", current_time, entry_price, 0])
         elif position == 1:
             if row["Low"] < stop_loss:
                 position = 0
@@ -143,14 +146,14 @@ def macd_fixed_profit_strategy(reverse=False):
                 target_profit = exit_price - entry_price
                 target_loss = entry_price - init_stop_loss
                 risk_reward = target_profit / target_loss
-                trades[-1] = ["Buy", i, exit_price, risk_reward]
+                trades[-1] = ["Buy", current_time, exit_price, risk_reward]
             elif row["High"] > take_profit:
                 position = 0
                 exit_price = take_profit
                 target_profit = exit_price - entry_price
                 target_loss = entry_price - init_stop_loss
                 risk_reward = target_profit / target_loss
-                trades[-1] = ["Buy", i, exit_price, risk_reward]
+                trades[-1] = ["Buy", current_time, exit_price, risk_reward]
         elif position == -1:
             if row["High"] > stop_loss:
                 position = 0
@@ -158,14 +161,14 @@ def macd_fixed_profit_strategy(reverse=False):
                 target_profit = entry_price - exit_price
                 target_loss = init_stop_loss - entry_price
                 risk_reward = target_profit / target_loss
-                trades[-1] = ["Sell", i, exit_price, risk_reward]
+                trades[-1] = ["Sell", current_time, exit_price, risk_reward]
             elif row["Low"] < take_profit:
                 position = 0
                 exit_price = take_profit
                 target_profit = entry_price - exit_price
                 target_loss = init_stop_loss - entry_price
                 risk_reward = target_profit / target_loss
-                trades[-1] = ["Sell", i, exit_price, risk_reward]
+                trades[-1] = ["Sell", current_time, exit_price, risk_reward]
     trades_df = pd.DataFrame(trades, columns=["Action", "Date", "Price", "PnL"])
     trades_df["PnL_label"] = np.where(trades_df["PnL"] >= 0, 1, 0)
     return trades_df
