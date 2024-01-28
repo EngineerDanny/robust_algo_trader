@@ -38,7 +38,7 @@ df = pd.read_csv(f"{root_data_dir}/{dataset_name}_processed_data.csv")
 df = df.rename(columns={"time": "Time"})
 df["Index"] = df.index
 df["Time"] = pd.to_datetime(df["Time"])
-df = df[df["Time"] < train_end_date]
+# df = df[df["Time"] < train_end_date]
 df["EMA_100"] = ta.EMA(df["Close"], timeperiod=100)
 df = df.dropna()
 
@@ -101,7 +101,7 @@ def macd_adaptive_profit_strategy(reverse=False):
                 trades[-1] = ["Sell", current_time, exit_price, risk_reward]
             else:
                 stop_loss = min(stop_loss, row["Close"] + atr_delta * row["ATR"])
-    trades_df = pd.DataFrame(trades, columns=["Action", "Date", "Price", "PnL"])
+    trades_df = pd.DataFrame(trades, columns=["Action", "Time", "Price", "PnL"])
     trades_df["PnL_label"] = np.where(trades_df["PnL"] >= 0, 1, 0)
     return trades_df
 
@@ -169,7 +169,7 @@ def macd_fixed_profit_strategy(reverse=False):
                 target_loss = init_stop_loss - entry_price
                 risk_reward = target_profit / target_loss
                 trades[-1] = ["Sell", current_time, exit_price, risk_reward]
-    trades_df = pd.DataFrame(trades, columns=["Action", "Date", "Price", "PnL"])
+    trades_df = pd.DataFrame(trades, columns=["Action", "Time", "Price", "PnL"])
     trades_df["PnL_label"] = np.where(trades_df["PnL"] >= 0, 1, 0)
     return trades_df
 
@@ -194,5 +194,15 @@ out_df = pd.DataFrame(
     },
     index=[0],
 )
-out_df.to_csv(f"results/{param_row}.csv", encoding='utf-8', index=False)
+trades_df['Time'] = pd.to_datetime(trades_df['Time'])
+trades_df['Year'] = trades_df['Time'].dt.year
+trades_df['Month'] = trades_df['Time'].dt.month
+
+trades_df[f'{dataset_name} Return'] = trades_df['PnL']
+trades_df = trades_df[trades_df['Year'] == 2014].copy()
+trades_df = trades_df[['Month', f'{dataset_name} Return']]
+trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
+trades_df.fillna(0, inplace=True)
+out_file = f"results/{param_row}.csv"
+trades_df.to_csv(out_file, encoding='utf-8', index=False)
 print("Done!")
