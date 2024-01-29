@@ -375,7 +375,7 @@
       "display_precision": 5,
       "units": 800,
       "margin": 18,
-      "start_hour": 13,
+      "start_hour": 12,
       "end_hour": 17,
       "strategy": "Reverse_MACD_Adaptive_Profit",
       "atr_delta": 1.5
