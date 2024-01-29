@@ -17,6 +17,8 @@ dataset_list = []
 for key, value in config_settings.items():
     dataset_list.append(key)
 params_df_list = []
+dataset_list = ["EUR_USD_H1", "EUR_JPY_H1", "GBP_JPY_H1", "USD_MXN_H1", "NZD_JPY_H1" ]
+
 params_dict = {
     'dataset_name': dataset_list,
     # 'strategy': ['MACD_Adaptive_Profit', "Reverse_MACD_Adaptive_Profit", "MACD_Fixed_Profit", "Reverse_MACD_Fixed_Profit"],

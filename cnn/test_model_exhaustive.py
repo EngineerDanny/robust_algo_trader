@@ -30,7 +30,9 @@ config_settings = config["trading_settings"][dataset_name]
 start_hr = config_settings["start_hour"]
 end_hr = config_settings["end_hour"]
 strategy = config_settings["strategy"]
-atr_delta = config_settings["atr_delta"]
+# atr_delta = config_settings["atr_delta"]
+strategy = "MACD_Adaptive_Profit"
+atr_delta = 1.5
 
 root_data_dir = config["paths"]["oanda_dir"]
 
@@ -40,6 +42,7 @@ df["Index"] = df.index
 df["Time"] = pd.to_datetime(df["Time"])
 # df = df[df["Time"] < train_end_date]
 df["EMA_100"] = ta.EMA(df["Close"], timeperiod=100)
+# df["ATR"] = ta.ATR(df["High"], df["Low"], df["Close"], timeperiod=1)
 df = df.dropna()
 
 
@@ -55,6 +58,21 @@ def macd_adaptive_profit_strategy(reverse=False):
     stop_loss = 0
     trades = []
     for i, row in df.iterrows():
+        # try:
+        #     is_bullish = ( 
+        #         (df.iloc[i-1]['Close'] > df.iloc[i-1]['Open']) and
+        #         (df.iloc[i-2]['Close'] > df.iloc[i-2]['Open']) and
+        #         (df.iloc[i-2]['Close'] > df.iloc[i-3]['Open'])
+        #     )
+        #     is_bearish = (
+        #         (df.iloc[i-1]['Close'] < df.iloc[i-1]['Open']) and
+        #         (df.iloc[i-2]['Close'] < df.iloc[i-2]['Open']) and 
+        #         (df.iloc[i-2]['Close'] < df.iloc[i-3]['Open'])
+        #     )
+        # except IndexError as e:
+        #     is_bullish = False
+        #     is_bearish = False
+            
         current_time = row["Time"]
         condition_one = (
             (row["MACD_Crossover_Change"] > 0)
@@ -81,7 +99,7 @@ def macd_adaptive_profit_strategy(reverse=False):
                 stop_loss = entry_price + atr_delta * row["ATR"]
                 init_stop_loss = stop_loss
                 trades.append(["Sell", current_time, entry_price, 0])
-        elif position == 1:
+        elif position == 1 :
             if row["Low"] < stop_loss:
                 position = 0
                 exit_price = stop_loss
@@ -199,10 +217,12 @@ trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Month'] = trades_df['Time'].dt.month
 
 trades_df[f'{dataset_name} Return'] = trades_df['PnL']
-trades_df = trades_df[trades_df['Year'] == 2014].copy()
+trades_df = trades_df[trades_df['Year'] == 2010].copy()
 trades_df = trades_df[['Month', f'{dataset_name} Return']]
 trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
 trades_df.fillna(0, inplace=True)
 out_file = f"results/{param_row}.csv"
+
+
 trades_df.to_csv(out_file, encoding='utf-8', index=False)
 print("Done!")
