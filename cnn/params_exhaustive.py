@@ -17,7 +17,7 @@ dataset_list = []
 for key, value in config_settings.items():
     dataset_list.append(key)
 params_df_list = []
-dataset_list = ["EUR_USD_H1", "EUR_JPY_H1", "GBP_JPY_H1", "USD_MXN_H1", "NZD_JPY_H1" ]
+dataset_list = ["EUR_USD_H1", "EUR_JPY_H1", "GBP_JPY_H1", "USD_MXN_H1", "NZD_JPY_H1", "AUD_HKD_H1", "EUR_GBP_H1" ]
 
 params_dict = {
     'dataset_name': dataset_list,
