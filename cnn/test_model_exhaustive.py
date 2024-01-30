@@ -31,7 +31,7 @@ start_hr = config_settings["start_hour"]
 end_hr = config_settings["end_hour"]
 strategy = config_settings["strategy"]
 # atr_delta = config_settings["atr_delta"]
-strategy = "MACD_Adaptive_Profit"
+# strategy = "MACD_Adaptive_Profit"
 atr_delta = 1.5
 
 root_data_dir = config["paths"]["oanda_dir"]
@@ -217,7 +217,7 @@ trades_df['Year'] = trades_df['Time'].dt.year
 trades_df['Month'] = trades_df['Time'].dt.month
 
 trades_df[f'{dataset_name} Return'] = trades_df['PnL']
-trades_df = trades_df[trades_df['Year'] == 2010].copy()
+trades_df = trades_df[trades_df['Year'] == 2016].copy()
 trades_df = trades_df[['Month', f'{dataset_name} Return']]
 trades_df = trades_df.groupby(['Month']).agg({f'{dataset_name} Return': 'sum'}).reset_index()
 trades_df.fillna(0, inplace=True)
