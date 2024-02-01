@@ -10,8 +10,6 @@
   },
   "device": "cpu",
   "model_version": "0.1.0",
-  "window_size": 48,
-  "risk_reward_ratio": 2,
   "risk_amount": 10,
   "low_volatility_instruments": [
     "EUR_DKK_H1",
