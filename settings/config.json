@@ -187,7 +187,9 @@
       "start_hour": 1,
       "end_hour": 9,
       "strategy": "MACD_Fixed_Profit",
-      "atr_delta": 2
+      "atr_delta": 2,
+      "units_calculation": "Type_3",
+      "sister_instrument": "AUD_USD"
     },
     "AUD_JPY_H1": {
       "take_profit": 0.5,
@@ -283,7 +285,9 @@
       "start_hour": 7,
       "end_hour": 15,
       "strategy": "MACD_Fixed_Profit",
-      "atr_delta": 2.5
+      "atr_delta": 2.5,
+      "units_calculation": "Type_3",
+      "sister_instrument": "EUR_USD"
     },
     "EUR_HKD_H1": {
       "take_profit": 0.05,
@@ -319,7 +323,9 @@
       "start_hour": 23,
       "end_hour": 7,
       "strategy": "MACD_Adaptive_Profit",
-      "atr_delta": 2
+      "atr_delta": 2,
+      "units_calculation": "Type_3",
+      "sister_instrument": "EUR_USD"
     },
     "EUR_NOK_H1": {
       "take_profit": 0.05,
@@ -379,7 +385,8 @@
       "start_hour": 12,
       "end_hour": 17,
       "strategy": "MACD_Adaptive_Profit",
-      "atr_delta": 1.5
+      "atr_delta": 1.5,
+      "units_calculation": "Type_2"
     },
     "GBP_AUD_H1": {
       "take_profit": 0.01,
@@ -439,7 +446,9 @@
       "start_hour": 23,
       "end_hour": 7,
       "strategy": "MACD_Adaptive_Profit",
-      "atr_delta": 1.5
+      "atr_delta": 1.5,
+      "units_calculation": "Type_3",
+      "sister_instrument": "GBP_USD"
     },
     "GBP_SGD_H1": {
       "take_profit": 0.005,
@@ -499,7 +508,9 @@
       "start_hour": 23,
       "end_hour": 7,
       "strategy": "MACD_Adaptive_Profit",
-      "atr_delta": 3
+      "atr_delta": 1.5,
+      "units_calculation": "Type_3",
+      "sister_instrument": "NZD_USD"
     },
     "NZD_SGD_H1": {
       "take_profit": 0.0025,
@@ -643,7 +654,8 @@
       "start_hour": 13,
       "end_hour": 21,
       "strategy": "MACD_Adaptive_Profit",
-      "atr_delta": 2.5
+      "atr_delta": 2.5,
+      "units_calculation": "Type_1"
     },
     "USD_NOK_H1": {
       "take_profit": 0.1,
