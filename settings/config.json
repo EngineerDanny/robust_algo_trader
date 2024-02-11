@@ -3,8 +3,6 @@
     "data_dir": "/projects/genomic-ml/da2343/ml_project_2/data",
     "oanda_dir": "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data",
     "model_39_dir": "/projects/genomic-ml/da2343/ml_project_2/models/model_39.pth",
-    "model_80_dir": "/projects/genomic-ml/da2343/ml_project_2/models/model_80.pth",
-    "model_90_dir": "/projects/genomic-ml/da2343/ml_project_2/models/model_90.pth",
     "log_dir": "logs/",
     "config_file": "config.json"
   },
