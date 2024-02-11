@@ -2,12 +2,8 @@
   "paths": {
     "data_dir": "/projects/genomic-ml/da2343/ml_project_2/data",
     "oanda_dir": "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data",
-    "model_39_dir": "/projects/genomic-ml/da2343/ml_project_2/models/model_39.pth",
-    "log_dir": "logs/",
     "config_file": "config.json"
   },
-  "device": "cpu",
-  "model_version": "0.1.0",
   "risk_amount": 10,
   "low_volatility_instruments": [
     "EUR_DKK_H1",
