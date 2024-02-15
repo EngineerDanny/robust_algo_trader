@@ -58,21 +58,6 @@ def macd_adaptive_profit_strategy(reverse=False):
     stop_loss = 0
     trades = []
     for i, row in df.iterrows():
-        # try:
-        #     is_bullish = ( 
-        #         (df.iloc[i-1]['Close'] > df.iloc[i-1]['Open']) and
-        #         (df.iloc[i-2]['Close'] > df.iloc[i-2]['Open']) and
-        #         (df.iloc[i-2]['Close'] > df.iloc[i-3]['Open'])
-        #     )
-        #     is_bearish = (
-        #         (df.iloc[i-1]['Close'] < df.iloc[i-1]['Open']) and
-        #         (df.iloc[i-2]['Close'] < df.iloc[i-2]['Open']) and 
-        #         (df.iloc[i-2]['Close'] < df.iloc[i-3]['Open'])
-        #     )
-        # except IndexError as e:
-        #     is_bullish = False
-        #     is_bearish = False
-            
         current_time = row["Time"]
         condition_one = (
             (row["MACD_Crossover_Change"] > 0)
