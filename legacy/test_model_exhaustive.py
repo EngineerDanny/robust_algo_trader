@@ -32,7 +32,8 @@ end_hr = config_settings["end_hour"]
 strategy = config_settings["strategy"]
 # atr_delta = config_settings["atr_delta"]
 # strategy = "MACD_Adaptive_Profit"
-atr_delta = 1.5
+# atr_delta = 1.5
+atr_delta = 5
 
 root_data_dir = config["paths"]["oanda_dir"]
 
