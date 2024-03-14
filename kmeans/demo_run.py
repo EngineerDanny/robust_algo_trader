@@ -4,8 +4,6 @@ import numpy as np
 import talib as ta
 import warnings
 import json
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import bisect
 from sklearn.preprocessing import *
@@ -13,7 +11,6 @@ import mpl_toolkits.mplot3d
 from sklearn.cluster import KMeans
 import ffn as ffn
 import empyrical as ep
-import ffn as ffn
 from sktime.forecasting.model_selection import SlidingWindowSplitter
 
 warnings.filterwarnings("ignore")
