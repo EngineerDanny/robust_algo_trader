@@ -1,7 +1,7 @@
 import pandas as pd
 from glob import glob
 
-date_time = "2024-03-14_14:14"
+date_time = "2024-03-14_14:51"
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{date_time}/results/*.csv"):
     out_df_list.append(pd.read_csv(out_csv))

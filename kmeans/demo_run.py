@@ -314,10 +314,11 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
             "test_avg_calmar_ratio": test_best_k_labels_df["calmar_ratio"].mean(),
         }
     )
-    if i >= 50:
+    if i >= 5:
         break
 
 return_df = pd.DataFrame(return_df_list)
+return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 return_df["n_close_pts"] = N_CLOSE_PTS
 return_df["n_perc_pts"] = N_PERC_PTS
 return_df["dist_measure"] = DIST_MEASURE
@@ -328,6 +329,7 @@ return_df["calmar_ratio_threshold"] = CALMAR_RATIO_THRESHOLD
 return_df["train_size"] = train_size
 return_df["test_size"] = test_size
 return_df["random_state"] = random_state
+
 
 out_file = f"results/{param_row}.csv"
 return_df.to_csv(out_file, encoding="utf-8", index=False)
