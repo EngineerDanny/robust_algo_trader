@@ -27,19 +27,22 @@ else:
 param_dict = dict(params_df.iloc[param_row, :])
 
 ONE_DAY = 4 * 24
-N_CLOSE_PTS = param_dict["n_close_pts"]
-N_PERC_PTS = param_dict["n_perc_pts"]
-DIST_MEASURE = param_dict["dist_measure"]
-FUTURE_CANDLES = param_dict["future_candles"]
-N_CLUSTERS = param_dict["n_clusters"]
+N_CLOSE_PTS = int(param_dict["n_close_pts"])
+N_PERC_PTS = int(param_dict["n_perc_pts"])
+DIST_MEASURE = int(param_dict["dist_measure"])
+FUTURE_CANDLES = int(param_dict["future_candles"])
+N_CLUSTERS = int(param_dict["n_clusters"])
 LOG_RETURN_THRESHOLD = param_dict["log_return_threshold"]
 CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
 
-train_size = param_dict["train_size"] * ONE_DAY
-test_size = param_dict["test_size"] * ONE_DAY
-val_test_horizon = test_size * 2
-random_state = param_dict["random_state"]
+train_size = int(param_dict["train_size"] * ONE_DAY)
+test_size = int(param_dict["test_size"] * ONE_DAY)
+val_test_horizon = int(test_size * 2)
+random_state = int(param_dict["random_state"])
 
+# check the type of train_size and test_size
+# print(f"train_size: {train_size}, test_size: {test_size}")
+# print(type(train_size), type(test_size))
 INIT_CAPITAL = 1000
 RETURNS_CONSTANT = 2500
 
@@ -49,12 +52,11 @@ def m_ulcer_index(series):
     squared_average = (drawdown**2).mean()
     return squared_average**0.5
 
-
 # DIST_MEASURE
 # 1 = Euclidean Distance
 # 2 = Perpendicular Distance
 # 3 = Vertical Distance
-def find_pips(data, n_pips, DIST_MEASURE):
+def find_pips(data, n_pips):
     pips_x = [0, len(data) - 1]  # Index
     pips_y = [data[0], data[-1]]  # Price
     for curr_point in range(2, n_pips):
@@ -66,7 +68,7 @@ def find_pips(data, n_pips, DIST_MEASURE):
             left_adj = bisect.bisect_right(pips_x, i) - 1
             right_adj = left_adj + 1
             # Calculate the distance from the point to the line segment
-            d = distance(data, pips_x, pips_y, i, left_adj, right_adj, DIST_MEASURE)
+            d = distance(data, pips_x, pips_y, i, left_adj, right_adj)
             # Update the maximum distance and the insert index
             if d > md:
                 md = d
@@ -78,7 +80,7 @@ def find_pips(data, n_pips, DIST_MEASURE):
     return pips_x, pips_y
 
 # Define a helper function to calculate the distance
-def distance(data, pips_x, pips_y, i, left_adj, right_adj, DIST_MEASURE):
+def distance(data, pips_x, pips_y, i, left_adj, right_adj):
     time_diff = pips_x[right_adj] - pips_x[left_adj]
     price_diff = pips_y[right_adj] - pips_y[left_adj]
     slope = price_diff / time_diff
@@ -98,7 +100,7 @@ def get_pips_df(sub_df):
     for index in range(N_CLOSE_PTS, len(sub_df)):
         try:
             x_close = sub_df["close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
-            pips_x, pips_y = find_pips(x_close, N_PERC_PTS, DIST_MEASURE)
+            pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
             scaled_pips_y = (
                 StandardScaler()
                 .fit_transform(np.array(pips_y).reshape(-1, 1))
@@ -234,7 +236,8 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, kmeans, is_val=True):
 
 
 ohlcv_data = pd.read_csv(
-    "/Users/newuser/Projects/robust_algo_trader/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
+    # "/Users/newuser/Projects/robust_algo_trader/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
+    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
     parse_dates=["time"],
 )
 ohlcv_data = ohlcv_data.set_index("time")
@@ -311,6 +314,8 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
             "test_avg_calmar_ratio": test_best_k_labels_df["calmar_ratio"].mean(),
         }
     )
+    if i >= 50:
+        break
 
 return_df = pd.DataFrame(return_df_list)
 return_df["n_close_pts"] = N_CLOSE_PTS
@@ -325,5 +330,5 @@ return_df["test_size"] = test_size
 return_df["random_state"] = random_state
 
 out_file = f"results/{param_row}.csv"
-trades_df.to_csv(out_file, encoding="utf-8", index=False)
+return_df.to_csv(out_file, encoding="utf-8", index=False)
 print("Done!")
