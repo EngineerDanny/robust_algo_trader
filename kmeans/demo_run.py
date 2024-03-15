@@ -318,8 +318,9 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
         break
 
 return_df = pd.DataFrame(return_df_list)
-return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
+return_df["val_cumsum_annualized_return"] = return_df["val_sum_annualized_return"].cumsum()
+return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
 # return_df["dist_measure"] = DIST_MEASURE

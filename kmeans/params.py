@@ -23,8 +23,8 @@ params_dict = {
     'log_return_threshold': [0.01],
     'calmar_ratio_threshold': [2],
     'train_size': [150], # days
-    'test_size': [10], # days
-    'random_state': [1, 2, 5, 10, 20, 25, 35, 42],
+    'test_size': [20], # days
+    'random_state': np.arange(0, 100),
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),

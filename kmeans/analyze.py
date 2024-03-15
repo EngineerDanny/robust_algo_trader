@@ -4,6 +4,8 @@ from glob import glob
 time = "2024-03-14_14:51"
 time = "2024-03-14_17:26"
 time = "2024-03-14_18:18"
+time = "2024-03-14_19:00"
+time = "2024-03-14_20:08"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
