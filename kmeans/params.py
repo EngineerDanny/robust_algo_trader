@@ -17,14 +17,14 @@ params_df_list = []
 params_dict = {
     'n_close_pts': [24],
     'n_perc_pts': [5],
-    'dist_measure': [1, 2],
-    'future_candles': [5, 10],
-    'n_clusters': [100, 150, 200],
-    'log_return_threshold': [0.01, 0.02, 0.03],
-    'calmar_ratio_threshold': [1, 2, 3],
-    'train_size': [150, 200 ], # days
+    'dist_measure': [1],
+    'future_candles': [10],
+    'n_clusters': [100],
+    'log_return_threshold': [0.01],
+    'calmar_ratio_threshold': [2],
+    'train_size': [150, 200], # days
     'test_size': [10 , 20], # days
-    'random_state': [1, 10, 42],
+    'random_state': [10, 42],
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
