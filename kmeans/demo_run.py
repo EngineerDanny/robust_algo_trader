@@ -39,6 +39,7 @@ train_size = int(param_dict["train_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
 val_test_horizon = int(test_size * 2)
 random_state = int(param_dict["random_state"])
+max_iter = int(param_dict["max_iter"])
 
 # check the type of train_size and test_size
 # print(f"train_size: {train_size}, test_size: {test_size}")
@@ -131,7 +132,7 @@ def cluster_and_filter_pips_df(pips_y_df):
     pips_y_df_np = pips_y_df[
         ["pip_0", "pip_1", "pip_2", "pip_3", "pip_4", "day_of_week", "hour", "minute"]
     ].to_numpy()
-    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=random_state)
+    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=random_state, max_iter=max_iter)
     kmeans.fit(pips_y_df_np)
     pips_y_df["k_label"] = kmeans.labels_
     k_label_returns_df = (
@@ -331,6 +332,7 @@ return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_retu
 return_df["train_size"] = train_size
 return_df["test_size"] = test_size
 return_df["random_state"] = random_state
+return_df["max_iter"] = max_iter
 
 
 out_file = f"results/{param_row}.csv"
