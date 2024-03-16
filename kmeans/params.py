@@ -25,8 +25,8 @@ params_dict = {
     'train_size': [150], # days
     'test_size': [20], # days
     # 'random_state': np.arange(0, 100),
-    'random_state': [39, 42, 45],
-    'max_iter': [300, 1000, 2000, 3000],
+    'random_state': [39, 42, 45, 100, 500, 1000],
+    'k_means_algo': ["lloyd", "elkan"],
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
