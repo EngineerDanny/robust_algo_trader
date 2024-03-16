@@ -24,9 +24,10 @@ params_dict = {
     'calmar_ratio_threshold': [2],
     'train_size': [150], # days
     'test_size': [20], # days
-    # 'random_state': np.arange(0, 100),
-    'random_state': [39, 42, 45, 100, 500, 1000],
-    'k_means_algo': ["lloyd", "elkan"],
+    'random_state': np.arange(0, 200),
+    # 'random_state': [39, 42, 45, 100, 500, 1000],
+    'first_train_size': [150],
+    'second_train_size': [100]
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
@@ -45,7 +46,7 @@ params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 
 run_one_contents = f"""#!/bin/bash
 #SBATCH --array=0-{n_tasks-1}
-#SBATCH --time=1:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=4GB
 #SBATCH --cpus-per-task=1
 #SBATCH --error={job_dir}/slurm-%A_%a.out
