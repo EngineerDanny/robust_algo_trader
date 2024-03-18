@@ -35,7 +35,7 @@ FUTURE_CANDLES = int(param_dict["future_candles"])
 N_CLUSTERS = int(param_dict["n_clusters"])
 LOG_RETURN_THRESHOLD = param_dict["log_return_threshold"]
 CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
-ATR_MULTIPLIER = param_dict["atr_multiplier"]
+ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 
 first_train_size = int(param_dict["first_train_size"] * ONE_DAY)
 second_train_size = int(param_dict["second_train_size"] * ONE_DAY)
@@ -363,7 +363,6 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
         pips_test_df[["day_of_week", "hour", "minute"]]
     )
     test_best_k_labels_df = filter_pips_df(pips_test_df, val_best_k_labels_df, kmeans)
-    # check if val_best_k_labels_df or test_best_k_labels_df is not empty
     if test_best_k_labels_df.empty:
         continue
 

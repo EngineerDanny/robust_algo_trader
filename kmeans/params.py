@@ -20,14 +20,14 @@ params_dict = {
     'dist_measure': [1],
     'future_candles': [10],
     'n_clusters': [100],
-    'log_return_threshold': [0.01],
-    'calmar_ratio_threshold': [2],
-    'train_size': [150], # days
-    'test_size': [20], # days
+    'log_return_threshold': [0.1],
+    'calmar_ratio_threshold': [1],
     'random_state': np.arange(0, 200),
     # 'random_state': [39, 42, 45, 100, 500, 1000],
-    'first_train_size': [150],
-    'second_train_size': [100]
+    'first_train_size': [150], # days
+    'second_train_size': [100], # days
+    'test_size': [10], # days
+    'atr_multiplier': [10],
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
@@ -46,7 +46,7 @@ params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 
 run_one_contents = f"""#!/bin/bash
 #SBATCH --array=0-{n_tasks-1}
-#SBATCH --time=4:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=4GB
 #SBATCH --cpus-per-task=1
 #SBATCH --error={job_dir}/slurm-%A_%a.out
