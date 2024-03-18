@@ -1,7 +1,7 @@
 import sys
 import pandas as pd
 import numpy as np
-import talib as ta
+import talib
 import warnings
 import json
 import matplotlib.pyplot as plt
@@ -27,6 +27,7 @@ else:
 param_dict = dict(params_df.iloc[param_row, :])
 
 ONE_DAY = 4 * 24
+INIT_CAPITAL = 100
 N_CLOSE_PTS = int(param_dict["n_close_pts"])
 N_PERC_PTS = int(param_dict["n_perc_pts"])
 DIST_MEASURE = int(param_dict["dist_measure"])
@@ -34,6 +35,7 @@ FUTURE_CANDLES = int(param_dict["future_candles"])
 N_CLUSTERS = int(param_dict["n_clusters"])
 LOG_RETURN_THRESHOLD = param_dict["log_return_threshold"]
 CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
+ATR_MULTIPLIER = param_dict["atr_multiplier"]
 
 first_train_size = int(param_dict["first_train_size"] * ONE_DAY)
 second_train_size = int(param_dict["second_train_size"] * ONE_DAY)
@@ -42,11 +44,6 @@ test_size = int(param_dict["test_size"] * ONE_DAY)
 val_test_horizon = int(test_size * 2)
 random_state = int(param_dict["random_state"])
 
-# check the type of train_size and test_size
-# print(f"train_size: {train_size}, test_size: {test_size}")
-# print(type(train_size), type(test_size))
-INIT_CAPITAL = 1000
-RETURNS_CONSTANT = 2500
 
 # Define a function to calculate the ulcer index
 def m_ulcer_index(series):
@@ -101,7 +98,7 @@ def get_pips_df(sub_df):
     # loop through the data
     for index in range(N_CLOSE_PTS, len(sub_df)):
         try:
-            x_close = sub_df["close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
+            x_close = sub_df["log_close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
             pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
             scaled_pips_y = (
                 StandardScaler()
@@ -115,32 +112,46 @@ def get_pips_df(sub_df):
             pips_y_dict["day_of_week"] = sub_df["day_of_week"].iloc[j]
             pips_y_dict["hour"] = sub_df["hour"].iloc[j]
             pips_y_dict["minute"] = sub_df["minute"].iloc[j]
-            pips_y_dict["close"] = sub_df["close"].iloc[j]
             # future features
-            pips_y_dict["future_close"] = sub_df["close"].iloc[j + FUTURE_CANDLES]
-            pips_y_dict["future_return"] = (
-                pips_y_dict["future_close"] - pips_y_dict["close"]
+            tp = sub_df["log_close"].iloc[j] + (
+                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
             )
-            pips_y_dict["future_log_ratio"] = RETURNS_CONSTANT * np.log(
-                pips_y_dict["future_close"] / pips_y_dict["close"]
+            sl = sub_df["log_close"].iloc[j] - (
+                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
             )
+            for k in range(index, len(sub_df)):
+                if sub_df["log_close"].iloc[k] >= tp:
+                    pips_y_dict["future_return"] = 1
+                    break
+                elif sub_df["log_close"].iloc[k] <= sl:
+                    pips_y_dict["future_return"] = -1
+                    break
+                else:
+                    pips_y_dict["future_return"] = 0
             pips_y_list.append(pips_y_dict)
         except Exception as e:
             break
-    return pd.DataFrame(pips_y_list)
+    pips_y_df = pd.DataFrame(pips_y_list)
+    return pips_y_df
 
-def cluster_and_filter_pips_df(pips_y_df, pips_second_train_df):
-    pips_y_df_np = pips_y_df[
-        ["pip_0", "pip_1", "pip_2", "pip_3", "pip_4", "day_of_week", "hour", "minute"]
-    ].to_numpy()
+
+def cluster_and_filter_pips_df(pips_first_train_df, pips_second_train_df):
     kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=random_state)
-    kmeans.fit(pips_y_df_np)
-    pips_y_df["k_label"] = kmeans.labels_
-    k_label_returns_df = (
-        pips_y_df.groupby("k_label")["future_log_ratio"]
-        .sum()
-        .sort_values(ascending=False)
+    kmeans.fit(
+        pips_first_train_df[
+            [
+                "pip_0",
+                "pip_1",
+                "pip_2",
+                "pip_3",
+                "pip_4",
+                "day_of_week",
+                "hour",
+                "minute",
+            ]
+        ].to_numpy()
     )
+    pips_first_train_df["k_label"] = kmeans.labels_
 
     pips_second_train_df["k_label"] = kmeans.predict(
         pips_second_train_df[
@@ -156,29 +167,32 @@ def cluster_and_filter_pips_df(pips_y_df, pips_second_train_df):
             ]
         ].to_numpy()
     )
-
+ 
     best_k_labels_list = []
-    for k_label in k_label_returns_df.index:
-        pips_y_sub_df = pips_y_df[(pips_y_df["k_label"] == k_label)]
-        k_label_cumsum = (
-            pips_y_sub_df["future_log_ratio"].cumsum().reset_index(drop=True)
-        )
+    for k_label in np.arange(N_CLUSTERS):
+        pips_y_sub_df = pips_first_train_df[(pips_first_train_df["k_label"] == k_label)]
+        k_label_cumsum = pips_y_sub_df["future_return"].cumsum().reset_index(drop=True)
         if k_label_cumsum.iloc[-1] > 0:
             signal = 1
         else:
             signal = 0
             k_label_cumsum = -k_label_cumsum
+
         # Add a constant value to the series
-        k_label_cumsum = k_label_cumsum + INIT_CAPITAL
-        if not k_label_cumsum.empty:
-            start_k_label_cumsum = k_label_cumsum.iloc[0]
-            end_k_label_cumsum = k_label_cumsum.iloc[-1]
+        # Put INIT_CAPITAL as the first value
+        start_portfolio = pd.concat(
+            [pd.Series([INIT_CAPITAL]), (k_label_cumsum + INIT_CAPITAL)]
+        ).reset_index(drop=True)
+        
+        if not start_portfolio.empty:
+            start_k_label_cumsum = start_portfolio.iloc[0]
+            end_k_label_cumsum = start_portfolio.iloc[-1]
         else:
             continue
 
         annualized_return = (end_k_label_cumsum / start_k_label_cumsum) - 1
-        ulcer_index = m_ulcer_index(k_label_cumsum)
-        max_drawdown = abs(ffn.calc_max_drawdown(k_label_cumsum)) + 0.001
+        ulcer_index = m_ulcer_index(start_portfolio)
+        max_drawdown = abs(ffn.calc_max_drawdown(start_portfolio)) + 0.001
         calmar_ratio = annualized_return / max_drawdown
         if (
             True
@@ -186,25 +200,27 @@ def cluster_and_filter_pips_df(pips_y_df, pips_second_train_df):
             and annualized_return > LOG_RETURN_THRESHOLD
         ):
 
-            pips_second_train_df = pips_second_train_df[
+            pips_second_train_sub_df = pips_second_train_df[
                 pips_second_train_df["k_label"] == k_label
             ]
             k_label_cumsum = (
-                pips_second_train_df["future_log_ratio"].cumsum().reset_index(drop=True)
+                pips_second_train_sub_df["future_return"].cumsum().reset_index(drop=True)
             )
             if signal == 0:
                 k_label_cumsum = -k_label_cumsum
-            # Add a constant value to the series
-            k_label_cumsum = k_label_cumsum + INIT_CAPITAL
-            
-            if not k_label_cumsum.empty:
-                start_k_label_cumsum = k_label_cumsum.iloc[0]
-                end_k_label_cumsum = k_label_cumsum.iloc[-1]
+
+            end_portfolio = pd.concat(
+                [pd.Series([INIT_CAPITAL]), (k_label_cumsum + INIT_CAPITAL)]
+            ).reset_index(drop=True)
+
+            if not end_portfolio.empty:
+                start_k_label_cumsum = end_portfolio.iloc[0]
+                end_k_label_cumsum = end_portfolio.iloc[-1]
             else:
                 continue
             annualized_return = (end_k_label_cumsum / start_k_label_cumsum) - 1
-            ulcer_index = m_ulcer_index(k_label_cumsum)
-            max_drawdown = abs(ffn.calc_max_drawdown(k_label_cumsum)) + 0.001
+            ulcer_index = m_ulcer_index(end_portfolio)
+            max_drawdown = abs(ffn.calc_max_drawdown(end_portfolio)) + 0.001
             calmar_ratio = annualized_return / max_drawdown
             if (
                 True
@@ -221,14 +237,13 @@ def cluster_and_filter_pips_df(pips_y_df, pips_second_train_df):
                         "max_drawdown": max_drawdown,
                     }
                 )
-    return pd.DataFrame(best_k_labels_list), kmeans
-
+    best_k_labels_df = pd.DataFrame(best_k_labels_list)
+    return best_k_labels_df, kmeans
 
 def filter_pips_df(pips_y_df, train_best_k_labels_df, kmeans):
-    pips_y_df_np = pips_y_df[
+    pips_y_df["k_label"] = kmeans.predict(pips_y_df[
         ["pip_0", "pip_1", "pip_2", "pip_3", "pip_4", "day_of_week", "hour", "minute"]
-    ].to_numpy()
-    pips_y_df["k_label"] = kmeans.predict(pips_y_df_np)
+    ].to_numpy())
 
     val_best_k_labels_list = []
 
@@ -236,23 +251,25 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, kmeans):
         k_label = train_best_k_labels_df.iloc[i]["k_label"]
         signal = train_best_k_labels_df.iloc[i]["signal"]
         pips_y_copy_df = pips_y_df[(pips_y_df["k_label"] == k_label)]
-        val_k_label_cumsum = pips_y_copy_df["future_log_ratio"].cumsum()
-        val_k_label_cumsum = val_k_label_cumsum.reset_index(drop=True)
+        val_k_label_cumsum = pips_y_copy_df["future_return"].cumsum().reset_index(drop=True)
         if signal == 0:
             val_k_label_cumsum = -val_k_label_cumsum
         # Add a constant value to the series
-        val_k_label_cumsum = val_k_label_cumsum + INIT_CAPITAL
+        val_portfolio = pd.concat(
+            [pd.Series([INIT_CAPITAL]), (val_k_label_cumsum + INIT_CAPITAL)]
+        ).reset_index(drop=True)
 
-        if not val_k_label_cumsum.empty:
-            start_val_k_label_cumsum = val_k_label_cumsum.iloc[0]
-            end_val_k_label_cumsum = val_k_label_cumsum.iloc[-1]
+        if not val_portfolio.empty:
+            start_val_k_label_cumsum = val_portfolio.iloc[0]
+            end_val_k_label_cumsum = val_portfolio.iloc[-1]
         else:
             continue
 
         annualized_return = (end_val_k_label_cumsum / start_val_k_label_cumsum) - 1
-        ulcer_index = m_ulcer_index(val_k_label_cumsum)
-        max_drawdown = abs(ffn.calc_max_drawdown(val_k_label_cumsum)) + 0.001
+        ulcer_index = m_ulcer_index(val_portfolio)
+        max_drawdown = abs(ffn.calc_max_drawdown(val_portfolio)) + 0.001
         calmar_ratio = annualized_return / max_drawdown
+
         val_best_k_labels_list.append(
             {
                 "signal": signal,
@@ -277,6 +294,10 @@ ohlcv_data["month"] = ohlcv_data.index.month
 ohlcv_data["day_of_week"] = ohlcv_data.index.dayofweek
 ohlcv_data["hour"] = ohlcv_data.index.hour
 ohlcv_data["minute"] = ohlcv_data.index.minute
+ohlcv_data["log_close"] = np.log(ohlcv_data["close"])
+ohlcv_data["log_high"] = np.log(ohlcv_data["high"])
+ohlcv_data["log_low"] = np.log(ohlcv_data["low"])
+ohlcv_data["log_atr"] = talib.ATR(ohlcv_data["log_high"], ohlcv_data["log_low"], ohlcv_data["log_close"], timeperiod=1)
 start_date = "2007-01-01"
 end_date = "2015-01-01"
 ohlcv_data = ohlcv_data[start_date:end_date]
@@ -288,7 +309,6 @@ splitter = SlidingWindowSplitter(
     step_length=test_size,
 )
 
-return_df_list = []
 return_df_list = []
 for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
     val_idx = val_test_idx[:test_size]
@@ -302,21 +322,24 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
     df_val = df.iloc[val_idx, :]
     df_test = df.iloc[test_idx, :]
 
-    # FIRST TRAINING
+    # FIRST & SECOND TRAINING
     pips_first_train_df = get_pips_df(df_first_train)
-    ts_scaler = StandardScaler().fit(pips_first_train_df[["day_of_week", "hour", "minute"]])
+    ts_scaler = StandardScaler().fit(
+        pips_first_train_df[["day_of_week", "hour", "minute"]]
+    )
     pips_first_train_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
         pips_first_train_df[["day_of_week", "hour", "minute"]]
     )
-
     pips_second_train_df = get_pips_df(df_second_train)
     pips_second_train_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
         pips_second_train_df[["day_of_week", "hour", "minute"]]
     )
-
     train_best_k_labels_df, kmeans = cluster_and_filter_pips_df(
         pips_first_train_df, pips_second_train_df
     )
+    # ACCEPT OR REJECT THE TRAIN MODEL
+    if train_best_k_labels_df.empty:
+        continue
 
     # VALIDATION
     pips_val_df = get_pips_df(df_val)
@@ -324,11 +347,9 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
         pips_val_df[["day_of_week", "hour", "minute"]]
     )
     val_best_k_labels_df = filter_pips_df(pips_val_df, train_best_k_labels_df, kmeans)
-
-    # ACCEPT OR REJECT THE MODEL
+    # ACCEPT OR REJECT THE VAL MODEL
     if val_best_k_labels_df.empty:
         continue
-    
     if (
         val_best_k_labels_df["annualized_return"].sum() < 0
         # or val_best_k_labels_df["max_drawdown"].sum() > 0.1
@@ -342,9 +363,8 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
         pips_test_df[["day_of_week", "hour", "minute"]]
     )
     test_best_k_labels_df = filter_pips_df(pips_test_df, val_best_k_labels_df, kmeans)
-
     # check if val_best_k_labels_df or test_best_k_labels_df is not empty
-    if val_best_k_labels_df.empty or test_best_k_labels_df.empty:
+    if test_best_k_labels_df.empty:
         continue
 
     return_df_list.append(
@@ -365,14 +385,8 @@ for i, (train_idx, val_test_idx) in enumerate(splitter.split(df)):
             "test_avg_calmar_ratio": test_best_k_labels_df["calmar_ratio"].mean(),
         }
     )
-    # print(f"Window: {i}")
-    # print(test_best_k_labels_df)
     if i >= 100:
         break
-    # print(f"Train: {df_train.shape[0]}")
-    # print(f"Val: {df_val.shape[0]}")
-    # print(f"Test: {df_test.shape[0]}")
-    # print()
 return_df = pd.DataFrame(return_df_list)
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
 return_df["val_cumsum_annualized_return"] = return_df["val_sum_annualized_return"].cumsum()
