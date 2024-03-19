@@ -21,11 +21,11 @@ params_dict = {
     'future_candles': [10],
     'n_clusters': [100],
     'log_return_threshold': [0.1],
-    'calmar_ratio_threshold': [1],
-    'random_state': np.arange(0, 200),
+    'calmar_ratio_threshold': [2],
+    'random_state': np.arange(0, 100),
     # 'random_state': [39, 42, 45, 100, 500, 1000],
-    'first_train_size': [150], # days
-    'second_train_size': [100], # days
+    'first_train_size': [100], # days
+    'second_train_size': [10], # days
     'test_size': [10], # days
     'atr_multiplier': [10],
 }
