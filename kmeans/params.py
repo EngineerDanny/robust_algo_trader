@@ -22,7 +22,7 @@ params_dict = {
     'n_clusters': [100],
     'log_return_threshold': [0.1],
     'calmar_ratio_threshold': [2],
-    'random_state': np.arange(0, 100),
+    'random_state': np.arange(0, 200),
     # 'random_state': [39, 42, 45, 100, 500, 1000],
     'first_train_size': [50], # days
     'second_train_size': [50], # days
