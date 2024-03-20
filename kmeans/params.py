@@ -24,9 +24,9 @@ params_dict = {
     'calmar_ratio_threshold': [2],
     'random_state': np.arange(0, 100),
     # 'random_state': [39, 42, 45, 100, 500, 1000],
-    'first_train_size': [100], # days
-    'second_train_size': [10], # days
-    'test_size': [10], # days
+    'first_train_size': [50], # days
+    'second_train_size': [50], # days
+    'test_size': [20], # days
     'atr_multiplier': [10],
 }
 params_df = pd.MultiIndex.from_product(
