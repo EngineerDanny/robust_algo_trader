@@ -26,7 +26,9 @@ params_dict = {
     # 'random_state': [39, 42, 45, 100, 500, 1000],
     'first_train_size': [50], # days
     'second_train_size': [50], # days
-    'test_size': [20], # days
+    'train_size': [50], # days   
+    'val_size': [10], # days
+    'test_size': [10], # days
     'atr_multiplier': [10],
 }
 params_df = pd.MultiIndex.from_product(
@@ -59,7 +61,8 @@ run_one_sh = os.path.join(job_dir, "run_one.sh")
 with open(run_one_sh, "w") as run_one_f:
     run_one_f.write(run_one_contents)
 
-run_orig_py = "demo_run.py"
+# run_orig_py = "demo_run.py"
+run_orig_py = "demo_run_train_test.py"
 run_one_py = os.path.join(job_dir, "run_one.py")
 shutil.copyfile(run_orig_py, run_one_py)
 orig_dir = os.path.dirname(run_orig_py)
