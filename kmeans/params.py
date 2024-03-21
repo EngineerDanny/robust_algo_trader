@@ -22,13 +22,13 @@ params_dict = {
     'n_clusters': [100],
     'log_return_threshold': [0.1],
     'calmar_ratio_threshold': [2],
-    'random_state': np.arange(0, 200),
+    'random_state': np.arange(0, 100),
     # 'random_state': [39, 42, 45, 100, 500, 1000],
     'first_train_size': [50], # days
     'second_train_size': [50], # days
-    'train_size': [50], # days   
+    'train_size': [30, 40, 50], # days   
+    'test_size': [20, 30], # days
     'val_size': [10], # days
-    'test_size': [10], # days
     'atr_multiplier': [10],
 }
 params_df = pd.MultiIndex.from_product(
