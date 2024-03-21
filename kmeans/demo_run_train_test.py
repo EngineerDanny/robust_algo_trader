@@ -213,23 +213,23 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, kmeans):
         k_label = train_best_k_labels_df.iloc[i]["k_label"]
         signal = train_best_k_labels_df.iloc[i]["signal"]
         pips_y_copy_df = pips_y_df[(pips_y_df["k_label"] == k_label)]
-        val_k_label_cumsum = pips_y_copy_df["future_return"].cumsum().reset_index(drop=True)
+        k_label_cumsum = pips_y_copy_df["future_return"].cumsum().reset_index(drop=True)
         if signal == 0:
-            val_k_label_cumsum = -val_k_label_cumsum
+            k_label_cumsum = -k_label_cumsum
         # Add a constant value to the series
-        test_portfolio = pd.concat(
-            [pd.Series([INIT_CAPITAL]), (val_k_label_cumsum + INIT_CAPITAL)]
+        portfolio = pd.concat(
+            [pd.Series([INIT_CAPITAL]), (k_label_cumsum + INIT_CAPITAL)]
         ).reset_index(drop=True)
 
-        if not test_portfolio.empty:
-            start_val_k_label_cumsum = test_portfolio.iloc[0]
-            end_val_k_label_cumsum = test_portfolio.iloc[-1]
+        if not portfolio.empty:
+            start_k_label_cumsum = portfolio.iloc[0]
+            end_k_label_cumsum = portfolio.iloc[-1]
         else:
             continue
 
-        annualized_return = (end_val_k_label_cumsum / start_val_k_label_cumsum) - 1
-        ulcer_index = m_ulcer_index(test_portfolio)
-        max_drawdown = abs(ffn.calc_max_drawdown(test_portfolio)) + 0.001
+        annualized_return = (end_k_label_cumsum / start_k_label_cumsum) - 1
+        ulcer_index = m_ulcer_index(portfolio)
+        max_drawdown = abs(ffn.calc_max_drawdown(portfolio)) + 0.001
         calmar_ratio = annualized_return / max_drawdown
 
         test_k_labels_list.append(
@@ -303,17 +303,25 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
             "window": i,
             "train_sum_annualized_return": train_best_k_labels_df["annualized_return"].sum(),
             "train_sum_actual_return": train_best_k_labels_df["actual_return"].sum(),
+            "train_n_trades": train_best_k_labels_df["n_trades"].sum(),
+            
             "test_sum_annualized_return": test_k_labels_df["annualized_return"].sum(),
             "test_sum_actual_return": test_k_labels_df["actual_return"].sum(),
+            "test_n_trades": test_k_labels_df["n_trades"].sum(),
         }
     )
     if i >= 300:
         break
 return_df = pd.DataFrame(return_df_list)
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
-return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 return_df["train_cumsum_actual_return"] = return_df["train_sum_actual_return"].cumsum()
+return_df["train_cumsum_n_trades"] = return_df["train_n_trades"].cumsum()
+
+return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 return_df["test_cumsum_actual_return"] = return_df["test_sum_actual_return"].cumsum()
+return_df["test_cumsum_n_trades"] = return_df["test_n_trades"].cumsum()
+
+
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
 # return_df["dist_measure"] = DIST_MEASURE
