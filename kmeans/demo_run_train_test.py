@@ -36,15 +36,11 @@ LOG_RETURN_THRESHOLD = param_dict["log_return_threshold"]
 CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 random_state = int(param_dict["random_state"])
-
 # first_train_size = int(param_dict["first_train_size"] * ONE_DAY)
 # second_train_size = int(param_dict["second_train_size"] * ONE_DAY)
 # train_size = first_train_size + second_train_size
-
 train_size = int(param_dict["train_size"] * ONE_DAY)
-val_size = int(param_dict["val_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
-val_test_horizon = val_size + test_size
 
 
 # Define a function to calculate the ulcer index
