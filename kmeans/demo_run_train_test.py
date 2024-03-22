@@ -150,7 +150,6 @@ def cluster_and_filter_pips_df(pips_train_df):
     )
     pips_train_df["k_label"] = kmeans.labels_
 
- 
     best_k_labels_list = []
     for k_label in np.arange(N_CLUSTERS):
         pips_y_sub_df = pips_train_df[(pips_train_df["k_label"] == k_label)]
@@ -182,7 +181,6 @@ def cluster_and_filter_pips_df(pips_train_df):
             and calmar_ratio > CALMAR_RATIO_THRESHOLD
             and annualized_return > LOG_RETURN_THRESHOLD
         ):
-
             best_k_labels_list.append(
                 {
                     "signal": signal,
@@ -306,7 +304,7 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
             "test_n_trades": test_k_labels_df["n_trades"].sum(),
         }
     )
-    if i >= 300:
+    if i >= 100:
         break
 return_df = pd.DataFrame(return_df_list)
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
