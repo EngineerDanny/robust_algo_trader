@@ -43,6 +43,7 @@ train_size = int(param_dict["train_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
 
 
+
 # Define a function to calculate the ulcer index
 def m_ulcer_index(series):
     drawdown = (series - series.cummax()) / series.cummax()
@@ -149,9 +150,18 @@ def cluster_and_filter_pips_df(pips_train_df):
         ].to_numpy()
     )
     pips_train_df["k_label"] = kmeans.labels_
+    # group by k_label and calculate the cumulative sum of future returns
+    filter_k_labels_df = (
+        pips_train_df.groupby("k_label")["future_return"]
+        .sum()
+        .reset_index()
+        .abs()
+        .sort_values(by="future_return", ascending=False)
+        .head(5)
+    )
 
     best_k_labels_list = []
-    for k_label in np.arange(N_CLUSTERS):
+    for k_label in filter_k_labels_df["k_label"]:
         pips_y_sub_df = pips_train_df[(pips_train_df["k_label"] == k_label)]
         k_label_cumsum = pips_y_sub_df["future_return"].cumsum().reset_index(drop=True)
         if k_label_cumsum.iloc[-1] > 0:
@@ -162,37 +172,33 @@ def cluster_and_filter_pips_df(pips_train_df):
 
         # Add a constant value to the series
         # Put INIT_CAPITAL as the first value
-        start_portfolio = pd.concat(
+        portfolio = pd.concat(
             [pd.Series([INIT_CAPITAL]), (k_label_cumsum + INIT_CAPITAL)]
         ).reset_index(drop=True)
         
-        if not start_portfolio.empty:
-            start_k_label_cumsum = start_portfolio.iloc[0]
-            end_k_label_cumsum = start_portfolio.iloc[-1]
+        if not portfolio.empty:
+            start_k_label_cumsum = portfolio.iloc[0]
+            end_k_label_cumsum = portfolio.iloc[-1]
         else:
             continue
 
         annualized_return = (end_k_label_cumsum / start_k_label_cumsum) - 1
-        ulcer_index = m_ulcer_index(start_portfolio)
-        max_drawdown = abs(ffn.calc_max_drawdown(start_portfolio)) + 0.001
+        ulcer_index = m_ulcer_index(portfolio)
+        max_drawdown = abs(ffn.calc_max_drawdown(portfolio)) + 0.001
         calmar_ratio = annualized_return / max_drawdown
-        if (
-            True
-            and calmar_ratio > CALMAR_RATIO_THRESHOLD
-            and annualized_return > LOG_RETURN_THRESHOLD
-        ):
-            best_k_labels_list.append(
-                {
-                    "signal": signal,
-                    "k_label": k_label,
-                    "calmar_ratio": calmar_ratio,
-                    "ulcer_index": ulcer_index,
-                    "annualized_return": annualized_return,
-                    "max_drawdown": max_drawdown,
-                    "actual_return": end_k_label_cumsum - start_k_label_cumsum,
-                    "n_trades": len(k_label_cumsum),
-                }
-            )
+      
+        best_k_labels_list.append(
+            {
+                "signal": signal,
+                "k_label": k_label,
+                "calmar_ratio": calmar_ratio,
+                "ulcer_index": ulcer_index,
+                "annualized_return": annualized_return,
+                "max_drawdown": max_drawdown,
+                "actual_return": end_k_label_cumsum - start_k_label_cumsum,
+                "n_trades": len(k_label_cumsum),
+            }
+        )
     best_k_labels_df = pd.DataFrame(best_k_labels_list)
     return best_k_labels_df, kmeans
 
@@ -309,12 +315,9 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
 return_df = pd.DataFrame(return_df_list)
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
 return_df["train_cumsum_actual_return"] = return_df["train_sum_actual_return"].cumsum()
-return_df["train_cumsum_n_trades"] = return_df["train_n_trades"].cumsum()
 
 return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 return_df["test_cumsum_actual_return"] = return_df["test_sum_actual_return"].cumsum()
-return_df["test_cumsum_n_trades"] = return_df["test_n_trades"].cumsum()
-
 
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
@@ -325,7 +328,6 @@ return_df["test_cumsum_n_trades"] = return_df["test_n_trades"].cumsum()
 return_df["train_size"] = train_size
 return_df["test_size"] = test_size
 return_df["random_state"] = random_state
-
 out_file = f"results/{param_row}.csv"
 return_df.to_csv(out_file, encoding="utf-8", index=False)
 print("Done!")
