@@ -41,8 +41,25 @@ random_state = int(param_dict["random_state"])
 # train_size = first_train_size + second_train_size
 train_size = int(param_dict["train_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
+risk_free_rate = 0.02
 
+def calc_sharpe_ratio(portfolio_returns):
+    excess_returns = np.array(portfolio_returns) - risk_free_rate
+    standard_deviation = np.std(portfolio_returns)
+    sharpe_ratio = np.mean(excess_returns) / standard_deviation
+    return sharpe_ratio
 
+def calc_sortino_ratio(portfolio_returns):
+    excess_returns = np.array(portfolio_returns) - risk_free_rate
+    downside_returns = excess_returns[excess_returns < 0]
+    downside_std = np.std(downside_returns)
+    sortino_ratio = np.mean(excess_returns) / downside_std
+    return sortino_ratio
+
+def calc_calmar_ratio(portfolio_returns):
+    max_drawdown = ep.max_drawdown(portfolio_returns) + 0.001
+    calmar_ratio = np.mean(portfolio_returns) / max_drawdown
+    return calmar_ratio
 
 # Define a function to calculate the ulcer index
 def m_ulcer_index(series):
@@ -301,11 +318,11 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     return_df_list.append(
         {
             "window": i,
-            "train_sum_annualized_return": train_best_k_labels_df["annualized_return"].sum(),
+            "train_mean_annualized_return": train_best_k_labels_df["annualized_return"].mean(),
             "train_sum_actual_return": train_best_k_labels_df["actual_return"].sum(),
             "train_n_trades": train_best_k_labels_df["n_trades"].sum(),
             
-            "test_sum_annualized_return": test_k_labels_df["annualized_return"].sum(),
+            "test_mean_annualized_return": test_k_labels_df["annualized_return"].mean(),
             "test_sum_actual_return": test_k_labels_df["actual_return"].sum(),
             "test_n_trades": test_k_labels_df["n_trades"].sum(),
         }
@@ -313,21 +330,33 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     if i >= 100:
         break
 return_df = pd.DataFrame(return_df_list)
-return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
+return_df["train_cumsum_annualized_return"] = return_df["train_mean_annualized_return"].cumsum()
 return_df["train_cumsum_actual_return"] = return_df["train_sum_actual_return"].cumsum()
+return_df["train_sharpe_ratio"] = calc_sharpe_ratio(return_df["train_mean_annualized_return"].to_numpy())
+return_df["train_sortino_ratio"] = calc_sortino_ratio(return_df["train_mean_annualized_return"].to_numpy())
+return_df["train_calmar_ratio"] = calc_calmar_ratio(return_df["train_mean_annualized_return"].to_numpy())
 
-return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
+return_df["test_cumsum_annualized_return"] = return_df["test_mean_annualized_return"].cumsum()
 return_df["test_cumsum_actual_return"] = return_df["test_sum_actual_return"].cumsum()
+
+return_df["test_sharpe_ratio"] = calc_sharpe_ratio(return_df["test_mean_annualized_return"].to_numpy())
+return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1* return_df["test_mean_annualized_return"].to_numpy())
+
+return_df["test_sortino_ratio"] = calc_sortino_ratio(return_df["test_mean_annualized_return"].to_numpy())
+return_df["test_negative_sortino_ratio"] = calc_sortino_ratio(-1* return_df["test_mean_annualized_return"].to_numpy())
+return_df["test_calmar_ratio"] = calc_calmar_ratio(return_df["test_mean_annualized_return"].to_numpy())
+return_df["test_negative_calmar_ratio"] = calc_calmar_ratio(-1* return_df["test_mean_annualized_return"].to_numpy())
 
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
 # return_df["dist_measure"] = DIST_MEASURE
-return_df["n_clusters"] = N_CLUSTERS
+# return_df["n_clusters"] = N_CLUSTERS
 # return_df["log_return_threshold"] = LOG_RETURN_THRESHOLD
 # return_df["calmar_ratio_threshold"] = CALMAR_RATIO_THRESHOLD
 return_df["train_size"] = train_size
 return_df["test_size"] = test_size
 return_df["random_state"] = random_state
+
 out_file = f"results/{param_row}.csv"
 return_df.to_csv(out_file, encoding="utf-8", index=False)
 print("Done!")
