@@ -27,6 +27,8 @@ time = "2024-03-23_02:14"
 time = "2024-03-23_07:49"
 time = "2024-03-25_01:47"
 
+time = "2024-03-29_04:53"
+
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
     out_df_list.append(pd.read_csv(out_csv))
