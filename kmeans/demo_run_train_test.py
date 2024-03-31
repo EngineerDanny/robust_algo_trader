@@ -35,22 +35,26 @@ N_CLUSTERS = int(param_dict["n_clusters"])
 LOG_RETURN_THRESHOLD = param_dict["log_return_threshold"]
 CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
+RISK_FREE_RATE = 0.01
+MAX_K_LABELS = 5
+MAX_WINDOW_ITER = 7
+
+
 random_state = int(param_dict["random_state"])
 # first_train_size = int(param_dict["first_train_size"] * ONE_DAY)
 # second_train_size = int(param_dict["second_train_size"] * ONE_DAY)
 # train_size = first_train_size + second_train_size
 train_size = int(param_dict["train_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
-risk_free_rate = 0.02
 
 def calc_sharpe_ratio(portfolio_returns):
-    excess_returns = np.array(portfolio_returns) - risk_free_rate
+    excess_returns = np.array(portfolio_returns) - RISK_FREE_RATE
     standard_deviation = np.std(portfolio_returns)
     sharpe_ratio = np.mean(excess_returns) / standard_deviation
     return sharpe_ratio
 
 def calc_sortino_ratio(portfolio_returns):
-    excess_returns = np.array(portfolio_returns) - risk_free_rate
+    excess_returns = np.array(portfolio_returns) - RISK_FREE_RATE
     downside_returns = excess_returns[excess_returns < 0]
     downside_std = np.std(downside_returns)
     sortino_ratio = np.mean(excess_returns) / downside_std
@@ -174,7 +178,7 @@ def cluster_and_filter_pips_df(pips_train_df):
         .reset_index()
         .abs()
         .sort_values(by="future_return", ascending=False)
-        .head(5)
+        .head(MAX_K_LABELS)
     )
 
     best_k_labels_list = []
@@ -327,32 +331,32 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
             "test_n_trades": test_k_labels_df["n_trades"].sum(),
         }
     )
-    if i >= 100:
+    if i >= MAX_WINDOW_ITER:
         break
 return_df = pd.DataFrame(return_df_list)
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
 return_df["train_cumsum_actual_return"] = return_df["train_sum_actual_return"].cumsum()
 return_df["train_sharpe_ratio"] = calc_sharpe_ratio(return_df["train_sum_annualized_return"].to_numpy())
-return_df["train_sortino_ratio"] = calc_sortino_ratio(return_df["train_sum_annualized_return"].to_numpy())
-return_df["train_calmar_ratio"] = calc_calmar_ratio(return_df["train_sum_annualized_return"].to_numpy())
 
 return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
 return_df["test_cumsum_actual_return"] = return_df["test_sum_actual_return"].cumsum()
 
 return_df["test_sharpe_ratio"] = calc_sharpe_ratio(return_df["test_sum_annualized_return"].to_numpy())
-return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
+return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1 * return_df["test_sum_annualized_return"].to_numpy())
 
-return_df["test_sortino_ratio"] = calc_sortino_ratio(return_df["test_sum_annualized_return"].to_numpy())
-return_df["test_negative_sortino_ratio"] = calc_sortino_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
-return_df["test_calmar_ratio"] = calc_calmar_ratio(return_df["test_sum_annualized_return"].to_numpy())
-return_df["test_negative_calmar_ratio"] = calc_calmar_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
+# return_df["train_sortino_ratio"] = calc_sortino_ratio(return_df["train_sum_annualized_return"].to_numpy())
+# return_df["train_calmar_ratio"] = calc_calmar_ratio(return_df["train_sum_annualized_return"].to_numpy())
+# return_df["test_sortino_ratio"] = calc_sortino_ratio(return_df["test_sum_annualized_return"].to_numpy())
+# return_df["test_negative_sortino_ratio"] = calc_sortino_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
+# return_df["test_calmar_ratio"] = calc_calmar_ratio(return_df["test_sum_annualized_return"].to_numpy())
+# return_df["test_negative_calmar_ratio"] = calc_calmar_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
 
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
 # return_df["dist_measure"] = DIST_MEASURE
-# return_df["n_clusters"] = N_CLUSTERS
 # return_df["log_return_threshold"] = LOG_RETURN_THRESHOLD
 # return_df["calmar_ratio_threshold"] = CALMAR_RATIO_THRESHOLD
+return_df["n_clusters"] = N_CLUSTERS
 return_df["train_size"] = train_size
 return_df["test_size"] = test_size
 return_df["random_state"] = random_state
