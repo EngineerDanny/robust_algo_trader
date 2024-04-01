@@ -37,7 +37,9 @@ CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 RISK_FREE_RATE = 0.01
 MAX_K_LABELS = 5
-MAX_WINDOW_ITER = 20
+
+START_WINDOW_ITER = 20
+MAX_WINDOW_ITER = 50
 
 
 random_state = int(param_dict["random_state"])
@@ -295,7 +297,10 @@ splitter = SlidingWindowSplitter(
 )
 
 return_df_list = []
-for i, (train_idx, test_idx) in enumerate(splitter.split(df)):        
+for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
+    if i < START_WINDOW_ITER:
+        continue
+            
     df_train = df.iloc[train_idx, :]
     df_test = df.iloc[test_idx, :]
 
