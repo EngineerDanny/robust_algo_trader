@@ -37,7 +37,7 @@ CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 RISK_FREE_RATE = 0.01
 MAX_K_LABELS = 5
-MAX_WINDOW_ITER = 7
+MAX_WINDOW_ITER = 20
 
 
 random_state = int(param_dict["random_state"])
