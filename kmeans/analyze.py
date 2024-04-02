@@ -32,6 +32,9 @@ time = "2024-03-29_07:23"
 time = "2024-03-31_15:54"
 time = "2024-03-31_16:37"
 time = "2024-03-31_17:12"
+time = "2024-04-01_15:42"
+time = "2024-04-01_17:06"
+time = "2024-04-01_18:11"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
