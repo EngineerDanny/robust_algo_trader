@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 import bisect
 from sklearn.preprocessing import *
 import mpl_toolkits.mplot3d
-from sklearn.cluster import KMeans
+from sklearn.cluster import *
+from sklearn.mixture import *
 import ffn as ffn
 import empyrical as ep
 from sktime.forecasting.model_selection import SlidingWindowSplitter
@@ -28,26 +29,29 @@ param_dict = dict(params_df.iloc[param_row, :])
 
 ONE_DAY = 4 * 24
 INIT_CAPITAL = 100
+MAX_K_LABELS = 5
+RISK_FREE_RATE = 0.01
+
 N_CLOSE_PTS = int(param_dict["n_close_pts"])
 N_PERC_PTS = int(param_dict["n_perc_pts"])
 DIST_MEASURE = int(param_dict["dist_measure"])
 N_CLUSTERS = int(param_dict["n_clusters"])
-LOG_RETURN_THRESHOLD = param_dict["log_return_threshold"]
-CALMAR_RATIO_THRESHOLD = param_dict["calmar_ratio_threshold"]
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
-RISK_FREE_RATE = 0.01
-MAX_K_LABELS = 5
+ALGORITHM = param_dict["algorithm"]
 
 START_WINDOW_ITER = 20
 MAX_WINDOW_ITER = 50
 
-
 random_state = int(param_dict["random_state"])
-# first_train_size = int(param_dict["first_train_size"] * ONE_DAY)
-# second_train_size = int(param_dict["second_train_size"] * ONE_DAY)
-# train_size = first_train_size + second_train_size
 train_size = int(param_dict["train_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
+
+estimators = {
+    "kmeans" : KMeans(n_clusters=N_CLUSTERS, random_state=random_state),
+    "mini_batch_kmeans" : MiniBatchKMeans(n_clusters=N_CLUSTERS, random_state=random_state),
+    "birch" : Birch(n_clusters=N_CLUSTERS),
+    "gaussian_mixture" : GaussianMixture(n_components=N_CLUSTERS, covariance_type='tied', random_state=random_state)
+}
 
 def calc_sharpe_ratio(portfolio_returns):
     excess_returns = np.array(portfolio_returns) - RISK_FREE_RATE
@@ -67,7 +71,6 @@ def calc_calmar_ratio(portfolio_returns):
     calmar_ratio = np.mean(portfolio_returns) / max_drawdown
     return calmar_ratio
 
-# Define a function to calculate the ulcer index
 def m_ulcer_index(series):
     drawdown = (series - series.cummax()) / series.cummax()
     squared_average = (drawdown**2).mean()
@@ -157,9 +160,7 @@ def get_pips_df(sub_df):
     return pips_y_df
 
 def cluster_and_filter_pips_df(pips_train_df):
-    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=random_state)
-    kmeans.fit(
-        pips_train_df[
+    pips_train_np = pips_train_df[
             [
                 "pip_0",
                 "pip_1",
@@ -170,9 +171,11 @@ def cluster_and_filter_pips_df(pips_train_df):
                 "hour",
                 "minute",
             ]
-        ].to_numpy()
-    )
-    pips_train_df["k_label"] = kmeans.labels_
+    ].to_numpy()
+    estimator = estimators[ALGORITHM]
+    estimator.fit(pips_train_np)
+    pips_train_df["k_label"] = estimator.predict(pips_train_np)
+    
     # group by k_label and calculate the cumulative sum of future returns
     filter_k_labels_df = (
         pips_train_df.groupby("k_label")["future_return"]
@@ -223,10 +226,10 @@ def cluster_and_filter_pips_df(pips_train_df):
             }
         )
     best_k_labels_df = pd.DataFrame(best_k_labels_list)
-    return best_k_labels_df, kmeans
+    return best_k_labels_df, estimator
 
-def filter_pips_df(pips_y_df, train_best_k_labels_df, kmeans):
-    pips_y_df["k_label"] = kmeans.predict(pips_y_df[
+def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
+    pips_y_df["k_label"] = estimator.predict(pips_y_df[
         ["pip_0", "pip_1", "pip_2", "pip_3", "pip_4", "day_of_week", "hour", "minute"]
     ].to_numpy())
 
@@ -310,8 +313,7 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     pips_train_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
         pips_train_df[["day_of_week", "hour", "minute"]]
     )
-    train_best_k_labels_df, kmeans = cluster_and_filter_pips_df(pips_train_df)
-    # ACCEPT OR REJECT THE TRAIN MODEL
+    train_best_k_labels_df, estimator = cluster_and_filter_pips_df(pips_train_df)
     if train_best_k_labels_df.empty:
         continue
 
@@ -320,7 +322,7 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     pips_test_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
         pips_test_df[["day_of_week", "hour", "minute"]]
     )
-    test_k_labels_df = filter_pips_df(pips_test_df, train_best_k_labels_df, kmeans)
+    test_k_labels_df = filter_pips_df(pips_test_df, train_best_k_labels_df, estimator)
     if test_k_labels_df.empty:
         continue
 
@@ -359,9 +361,8 @@ return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1 * return_df["test
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
 # return_df["dist_measure"] = DIST_MEASURE
-# return_df["log_return_threshold"] = LOG_RETURN_THRESHOLD
-# return_df["calmar_ratio_threshold"] = CALMAR_RATIO_THRESHOLD
 return_df["n_clusters"] = N_CLUSTERS
+return_df["algorithm"] = ALGORITHM
 return_df["train_size"] = train_size
 return_df["test_size"] = test_size
 return_df["random_state"] = random_state
