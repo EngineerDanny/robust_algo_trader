@@ -30,7 +30,7 @@ params_dict = {
     'train_size': [40, 50, 60, 70], # days   
     'test_size': [10], # days
     'atr_multiplier': [10],
-    'estimator': ['kmeans', 'mini_batch_kmeans', 'birch', 'gaussian_mixture'],
+    'algorithm': ['kmeans', 'mini_batch_kmeans', 'birch', 'gaussian_mixture'],
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
