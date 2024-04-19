@@ -36,11 +36,14 @@ time = "2024-04-01_15:42"
 time = "2024-04-01_17:06"
 time = "2024-04-01_18:11"
 time = "2024-04-16_16:47"
+time = "2024-04-18_19:23"
+time = "2024-04-18_20:30"
+time = "2024-04-19_01:29"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
     out_df_list.append(pd.read_csv(out_csv))
 error_df = pd.concat(out_df_list)
 
-root_results_dir = "/projects/genomic-ml/da2343/ml_project_2/kmeans/results"
+root_results_dir = "/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/results"
 error_df.to_csv(f"{root_results_dir}/{time}_results.csv", index=False)
