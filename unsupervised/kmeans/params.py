@@ -22,15 +22,15 @@ params_dict = {
     'n_clusters': [90, 100],
     'log_return_threshold': [0.1],
     'calmar_ratio_threshold': [2],
-    'random_state': np.arange(100, 200),
+    'random_state': np.arange(1, 100),
     # 'random_state': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
     # 'first_train_size': [50], # days
     # 'second_train_size': [50], # days
     # 'val_size': [10], # days
-    'train_size': [40, 50, 60, 70], # days   
+    'train_size': [30, 40, 50, 60, 70], # days   
     'test_size': [10], # days
     'atr_multiplier': [10],
-    'algorithm': ['kmeans', 'mini_batch_kmeans', 'birch', 'gaussian_mixture'],
+    'algorithm': ['kmeans', 'mini_batch_kmeans', 'gaussian_mixture'],
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
