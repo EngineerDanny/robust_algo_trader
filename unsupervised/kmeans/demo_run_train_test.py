@@ -39,8 +39,8 @@ N_CLUSTERS = int(param_dict["n_clusters"])
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 ALGORITHM = param_dict["algorithm"]
 
-START_WINDOW_ITER = 20
-MAX_WINDOW_ITER = 50
+START_WINDOW_ITER = 40
+MAX_WINDOW_ITER = 70
 
 random_state = int(param_dict["random_state"])
 train_size = int(param_dict["train_size"] * ONE_DAY)
