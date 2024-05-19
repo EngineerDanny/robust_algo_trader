@@ -159,6 +159,61 @@ def get_pips_df(sub_df):
     pips_y_df = pd.DataFrame(pips_y_list)
     return pips_y_df
 
+def get_test_pips_df(sub_df, full_df, last_test_idx):
+    pips_y_list = []
+    # loop through the data
+    for index in range(N_CLOSE_PTS, len(sub_df)):
+        try:
+            x_close = sub_df["log_close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
+            pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
+            scaled_pips_y = (
+                StandardScaler()
+                .fit_transform(np.array(pips_y).reshape(-1, 1))
+                .reshape(-1)
+            )
+            pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
+            j = index - 1
+            pips_y_dict["year"] = sub_df["year"].iloc[j]
+            pips_y_dict["month"] = sub_df["month"].iloc[j]
+            pips_y_dict["day_of_week"] = sub_df["day_of_week"].iloc[j]
+            pips_y_dict["hour"] = sub_df["hour"].iloc[j]
+            pips_y_dict["minute"] = sub_df["minute"].iloc[j]
+            # future features
+            tp = sub_df["log_close"].iloc[j] + (
+                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
+            )
+            sl = sub_df["log_close"].iloc[j] - (
+                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
+            )
+            for k in range(index, len(sub_df)):
+                if sub_df["log_close"].iloc[k] >= tp:
+                    pips_y_dict["future_return"] = 1
+                    break
+                elif sub_df["log_close"].iloc[k] <= sl:
+                    pips_y_dict["future_return"] = -1
+                    break
+                else:
+                    pips_y_dict["future_return"] = 0
+            
+            if pips_y_dict["future_return"] == 0:
+                # loop through the full_df starting from the last_test_idx
+                # set future_return to 1 if tp is reached and -1 if sl is reached
+                for k in range(last_test_idx, len(full_df)):
+                    if full_df["log_close"].iloc[k] >= tp:
+                        pips_y_dict["future_return"] = 1
+                        break
+                    elif full_df["log_close"].iloc[k] <= sl:
+                        pips_y_dict["future_return"] = -1
+                        break
+                    else:
+                        pips_y_dict["future_return"] = 0         
+            
+            pips_y_list.append(pips_y_dict)
+        except Exception as e:
+            break
+    pips_y_df = pd.DataFrame(pips_y_list)
+    return pips_y_df
+
 def cluster_and_filter_pips_df(pips_train_df):
     pips_train_np = pips_train_df[
             [
@@ -289,7 +344,7 @@ ohlcv_data["log_high"] = np.log(ohlcv_data["high"])
 ohlcv_data["log_low"] = np.log(ohlcv_data["low"])
 ohlcv_data["log_atr"] = talib.ATR(ohlcv_data["log_high"], ohlcv_data["log_low"], ohlcv_data["log_close"], timeperiod=1)
 start_date = "2007-01-01"
-end_date = "2015-01-01"
+end_date = "2008-01-01"
 ohlcv_data = ohlcv_data[start_date:end_date]
 df = ohlcv_data.copy()
 
@@ -301,11 +356,12 @@ splitter = SlidingWindowSplitter(
 
 return_df_list = []
 for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
-    if i < START_WINDOW_ITER:
-        continue
+    # if i < START_WINDOW_ITER:
+    #     continue
             
     df_train = df.iloc[train_idx, :]
     df_test = df.iloc[test_idx, :]
+    last_test_idx = test_idx[-1]
 
     # TRAINING
     pips_train_df = get_pips_df(df_train)
@@ -318,7 +374,7 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
         continue
 
     # TESTING
-    pips_test_df = get_pips_df(df_test)
+    pips_test_df = get_test_pips_df(df_test, df, last_test_idx)
     pips_test_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
         pips_test_df[["day_of_week", "hour", "minute"]]
     )
@@ -338,8 +394,8 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
             "test_n_trades": test_k_labels_df["n_trades"].sum(),
         }
     )
-    if i >= MAX_WINDOW_ITER:
-        break
+    # if i >= MAX_WINDOW_ITER:
+    #     break
 return_df = pd.DataFrame(return_df_list)
 return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
 return_df["train_cumsum_actual_return"] = return_df["train_sum_actual_return"].cumsum()
