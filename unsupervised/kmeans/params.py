@@ -15,18 +15,18 @@ config_settings = config["trading_settings"]
 
 params_df_list = []
 params_dict = {
-    'n_close_pts': [24],
-    'n_perc_pts': [5],
-    'dist_measure': [1],
     'future_candles': [10],
-    'n_clusters': [90, 100],
     'log_return_threshold': [0.1],
     'calmar_ratio_threshold': [2],
-    'random_state': np.arange(1, 100),
     # 'random_state': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
     # 'first_train_size': [50], # days
     # 'second_train_size': [50], # days
     # 'val_size': [10], # days
+    'n_close_pts': [24],
+    'dist_measure': [1],
+    'n_perc_pts': [5],
+    'random_state': np.arange(1, 100),
+    'n_clusters': [90, 100],
     'train_size': [30, 40, 50, 60, 70], # days   
     'test_size': [10], # days
     'atr_multiplier': [10],
