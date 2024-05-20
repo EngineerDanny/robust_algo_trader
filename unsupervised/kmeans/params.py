@@ -30,7 +30,7 @@ params_dict = {
     'n_clusters': [70, 80, 90, 100],
     'train_size': [30, 40, 50, 60, 70], # days   
     'test_size': [5, 10], # days
-    'atr_multiplier': [10],
+    'atr_multiplier': [20],
     'algorithm': ['kmeans', 'gaussian_mixture'],
 }
 params_df = pd.MultiIndex.from_product(
