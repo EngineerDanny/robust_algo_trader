@@ -15,6 +15,10 @@ time = "2024-04-18_19:23"
 time = "2024-04-18_20:30"
 time = "2024-04-19_01:29"
 time = "2024-04-19_09:39"
+time = "2024-05-19_16:34"
+time = "2024-05-19_16:58"
+time = "2024-05-19_17:38"
+time = "2024-05-19_18:55"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):

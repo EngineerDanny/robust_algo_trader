@@ -29,9 +29,9 @@ param_dict = dict(params_df.iloc[param_row, :])
 
 ONE_DAY = 4 * 24
 INIT_CAPITAL = 100
-MAX_K_LABELS = 5
 RISK_FREE_RATE = 0.01
 
+MAX_K_LABELS = int(param_dict["max_k_labels"])
 N_CLOSE_PTS = int(param_dict["n_close_pts"])
 N_PERC_PTS = int(param_dict["n_perc_pts"])
 DIST_MEASURE = int(param_dict["dist_measure"])
@@ -344,7 +344,7 @@ ohlcv_data["log_high"] = np.log(ohlcv_data["high"])
 ohlcv_data["log_low"] = np.log(ohlcv_data["low"])
 ohlcv_data["log_atr"] = talib.ATR(ohlcv_data["log_high"], ohlcv_data["log_low"], ohlcv_data["log_close"], timeperiod=1)
 start_date = "2007-01-01"
-end_date = "2008-01-01"
+end_date = "2012-01-01"
 ohlcv_data = ohlcv_data[start_date:end_date]
 df = ohlcv_data.copy()
 
@@ -417,6 +417,7 @@ return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1 * return_df["test
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
 # return_df["dist_measure"] = DIST_MEASURE
+return_df["max_k_labels"] = MAX_K_LABELS
 return_df["n_clusters"] = N_CLUSTERS
 return_df["algorithm"] = ALGORITHM
 return_df["train_size"] = train_size

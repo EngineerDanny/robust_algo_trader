@@ -18,17 +18,18 @@ params_dict = {
     'future_candles': [10],
     'log_return_threshold': [0.1],
     'calmar_ratio_threshold': [2],
-    # 'random_state': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
     # 'first_train_size': [50], # days
     # 'second_train_size': [50], # days
     # 'val_size': [10], # days
+    'random_state': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
     'n_close_pts': [24],
     'dist_measure': [1],
     'n_perc_pts': [5],
-    'random_state': np.arange(1, 100),
-    'n_clusters': [90, 100],
+    'max_k_labels': [1, 2, 5],
+    # 'random_state': np.arange(1, 100),
+    'n_clusters': [70, 80, 90, 100],
     'train_size': [30, 40, 50, 60, 70], # days   
-    'test_size': [10], # days
+    'test_size': [5, 10], # days
     'atr_multiplier': [10],
     'algorithm': ['kmeans', 'gaussian_mixture'],
 }
@@ -49,8 +50,8 @@ params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 
 run_one_contents = f"""#!/bin/bash
 #SBATCH --array=0-{n_tasks-1}
-#SBATCH --time=1:00:00
-#SBATCH --mem=1GB
+#SBATCH --time=24:00:00
+#SBATCH --mem=2GB
 #SBATCH --cpus-per-task=1
 #SBATCH --error={job_dir}/slurm-%A_%a.out
 #SBATCH --output={job_dir}/slurm-%A_%a.out
