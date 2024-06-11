@@ -23,6 +23,10 @@ time = "2024-05-20_04:15"
 time = "2024-05-20_10:30"
 time = "2024-06-10_12:52" # EUR_USD_M15
 time = "2024-06-10_19:47" # GBP_USD_M15
+time = "2024-06-10_22:59" # USD_JPY_M15
+time = "2024-06-11_04:01" # USD_CHF_M15
+# time = "2024-06-11_04:14" # USD_CAD_M15
+# time = "2024-06-11_11:42" # AUD_USD_M15
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
