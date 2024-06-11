@@ -330,7 +330,7 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
 
 ohlcv_data = pd.read_csv(
     # "/Users/newuser/Projects/robust_algo_trader/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
-    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
+    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/EUR_USD_M15_raw_data.csv",
     parse_dates=["time"],
 )
 ohlcv_data = ohlcv_data.set_index("time")
@@ -343,8 +343,8 @@ ohlcv_data["log_close"] = np.log(ohlcv_data["close"])
 ohlcv_data["log_high"] = np.log(ohlcv_data["high"])
 ohlcv_data["log_low"] = np.log(ohlcv_data["low"])
 ohlcv_data["log_atr"] = talib.ATR(ohlcv_data["log_high"], ohlcv_data["log_low"], ohlcv_data["log_close"], timeperiod=1)
-start_date = "2007-01-01"
-end_date = "2012-01-01"
+start_date = "2019-01-01"
+end_date = "2024-01-01"
 ohlcv_data = ohlcv_data[start_date:end_date]
 df = ohlcv_data.copy()
 
