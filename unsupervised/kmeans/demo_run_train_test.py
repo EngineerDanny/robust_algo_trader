@@ -331,7 +331,7 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
 ohlcv_data = pd.read_csv(
     # "/Users/newuser/Projects/robust_algo_trader/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
     # "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/EUR_USD_M15_raw_data.csv",
-    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/AUD_USD_M15_raw_data.csv",
+    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_JPY_M15_raw_data.csv",
     parse_dates=["time"],
 )
 ohlcv_data = ohlcv_data.set_index("time")
