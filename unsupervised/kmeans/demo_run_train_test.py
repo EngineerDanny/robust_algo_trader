@@ -119,8 +119,8 @@ def get_pips_df(sub_df):
     # loop through the data
     for index in range(N_CLOSE_PTS, len(sub_df)):
         try:
-            x_close = sub_df["log_close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
-            pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
+            x_close = sub_df["close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
+            _, pips_y = find_pips(x_close, N_PERC_PTS)
             scaled_pips_y = (
                 StandardScaler()
                 .fit_transform(np.array(pips_y).reshape(-1, 1))
@@ -134,17 +134,17 @@ def get_pips_df(sub_df):
             pips_y_dict["hour"] = sub_df["hour"].iloc[j]
             pips_y_dict["minute"] = sub_df["minute"].iloc[j]
             # future features
-            tp = sub_df["log_close"].iloc[j] + (
-                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
+            tp = sub_df["close"].iloc[j] + (
+                ATR_MULTIPLIER * sub_df["atr_clipped"].iloc[j]
             )
-            sl = sub_df["log_close"].iloc[j] - (
-                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
+            sl = sub_df["close"].iloc[j] - (
+                ATR_MULTIPLIER * sub_df["atr_clipped"].iloc[j]
             )
             for k in range(index, len(sub_df)):
-                if sub_df["log_close"].iloc[k] >= tp:
+                if sub_df["high"].iloc[k] >= tp:
                     pips_y_dict["future_return"] = 1
                     break
-                elif sub_df["log_close"].iloc[k] <= sl:
+                elif sub_df["low"].iloc[k] <= sl:
                     pips_y_dict["future_return"] = -1
                     break
                 else:
@@ -323,30 +323,36 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
         )
     return pd.DataFrame(test_k_labels_list)
 
-
-ohlcv_data = pd.read_csv(
-    # "/Users/newuser/Projects/robust_algo_trader/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
-    # "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/EUR_USD_M15_raw_data.csv",
-    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_JPY_M15_raw_data.csv",
-    parse_dates=["time"],
-)
-ohlcv_data = ohlcv_data.set_index("time")
-ohlcv_data["year"] = ohlcv_data.index.year
-ohlcv_data["month"] = ohlcv_data.index.month
-ohlcv_data["day_of_week"] = ohlcv_data.index.dayofweek
-ohlcv_data["hour"] = ohlcv_data.index.hour
-ohlcv_data["minute"] = ohlcv_data.index.minute
-ohlcv_data["log_close"] = np.log(ohlcv_data["close"])
-ohlcv_data["log_high"] = np.log(ohlcv_data["high"])
-ohlcv_data["log_low"] = np.log(ohlcv_data["low"])
-ohlcv_data["log_atr"] = talib.ATR(ohlcv_data["log_high"], ohlcv_data["log_low"], ohlcv_data["log_close"], timeperiod=1)
-start_date = "2019-01-01"
-end_date = "2024-01-01"
-ohlcv_data = ohlcv_data[start_date:end_date]
-df = ohlcv_data.copy()
-
 # Load the saved time scaler
-ts_scaler = joblib.load("time_scaler_2023.joblib")
+ts_scaler = joblib.load("ts_scaler_2018.joblib")
+
+# Read the CSV file
+df = pd.read_csv(
+    "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
+    parse_dates=["time"],
+    index_col="time"
+)
+
+# Extract date components efficiently
+df["year"] = df.index.year
+df["month"] = df.index.month
+df["day_of_week"] = df.index.dayofweek
+df["hour"] = df.index.hour
+df["minute"] = df.index.minute
+
+# Calculate ATR
+df["atr"] = talib.ATR(df["high"].values, df["low"].values, df["close"].values, timeperiod=1)
+df['atr_clipped'] = np.clip(df['atr'], 0.00068, 0.00176)
+
+# Filter date range
+df = df.loc["2019-01-01":"2024-01-01"]
+
+# Apply time scaling and rounding in one step
+time_columns = ["day_of_week", "hour", "minute"]
+df[time_columns] = np.round(ts_scaler.transform(df[time_columns]), 6)
+
+# Round ATR columns
+df[["atr", "atr_clipped"]] = df[["atr", "atr_clipped"]].round(6)
 
 
 splitter = SlidingWindowSplitter(
@@ -366,19 +372,12 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
 
     # TRAINING
     pips_train_df = get_pips_df(df_train)
-    
-    pips_train_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
-        pips_train_df[["day_of_week", "hour", "minute"]]
-    )
     train_best_k_labels_df, estimator = cluster_and_filter_pips_df(pips_train_df)
     if train_best_k_labels_df.empty:
         continue
 
     # TESTING
     pips_test_df = get_test_pips_df(df_test, df, last_test_idx)
-    pips_test_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
-        pips_test_df[["day_of_week", "hour", "minute"]]
-    )
     test_k_labels_df = filter_pips_df(pips_test_df, train_best_k_labels_df, estimator)
     if test_k_labels_df.empty:
         continue
