@@ -12,19 +12,15 @@ from sklearn.cluster import *
 from sklearn.mixture import *
 import ffn as ffn
 import empyrical as ep
+import joblib
 from sktime.forecasting.model_selection import SlidingWindowSplitter
+import numba
 
 warnings.filterwarnings("ignore")
+
+# Load parameters
 params_df = pd.read_csv("params.csv")
-
-if len(sys.argv) == 2:
-    prog_name, task_str = sys.argv
-    param_row = int(task_str)
-else:
-    print("len(sys.argv)=%d so trying first param" % len(sys.argv))
-    param_row = 0
-
-# Get the parameters for this task
+param_row = int(sys.argv[1]) if len(sys.argv) == 2 else 0
 param_dict = dict(params_df.iloc[param_row, :])
 
 ONE_DAY = 4 * 24
@@ -349,6 +345,10 @@ end_date = "2024-01-01"
 ohlcv_data = ohlcv_data[start_date:end_date]
 df = ohlcv_data.copy()
 
+# Load the saved time scaler
+ts_scaler = joblib.load("time_scaler_2023.joblib")
+
+
 splitter = SlidingWindowSplitter(
     window_length=train_size,
     fh=np.arange(1, test_size + 1),
@@ -366,7 +366,7 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
 
     # TRAINING
     pips_train_df = get_pips_df(df_train)
-    ts_scaler = StandardScaler().fit(pips_train_df[["day_of_week", "hour", "minute"]])
+    
     pips_train_df[["day_of_week", "hour", "minute"]] = ts_scaler.transform(
         pips_train_df[["day_of_week", "hour", "minute"]]
     )
@@ -407,13 +407,6 @@ return_df["test_cumsum_actual_return"] = return_df["test_sum_actual_return"].cum
 
 return_df["test_sharpe_ratio"] = calc_sharpe_ratio(return_df["test_sum_annualized_return"].to_numpy())
 return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1 * return_df["test_sum_annualized_return"].to_numpy())
-
-# return_df["train_sortino_ratio"] = calc_sortino_ratio(return_df["train_sum_annualized_return"].to_numpy())
-# return_df["train_calmar_ratio"] = calc_calmar_ratio(return_df["train_sum_annualized_return"].to_numpy())
-# return_df["test_sortino_ratio"] = calc_sortino_ratio(return_df["test_sum_annualized_return"].to_numpy())
-# return_df["test_negative_sortino_ratio"] = calc_sortino_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
-# return_df["test_calmar_ratio"] = calc_calmar_ratio(return_df["test_sum_annualized_return"].to_numpy())
-# return_df["test_negative_calmar_ratio"] = calc_calmar_ratio(-1* return_df["test_sum_annualized_return"].to_numpy())
 
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
