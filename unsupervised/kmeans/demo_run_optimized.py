@@ -112,7 +112,6 @@ def distance(data, pips_x, pips_y, i, left_adj, right_adj):
     else:  # DIST_MEASURE == 3
         return abs((slope * x + intercept) - y)
 
-
 def get_test_pips_df(sub_df, full_df, last_test_idx):
     # Precompute necessary arrays
     log_close_array = sub_df["log_close"].to_numpy()
@@ -176,29 +175,17 @@ def get_test_pips_df(sub_df, full_df, last_test_idx):
     return pips_y_df
 
 @jit(nopython=True)
-def m_ulcer_index(portfolio):
-    # Implement Ulcer Index calculation using NumPy operations
-    returns = np.diff(portfolio) / portfolio[:-1]
-    cumulative_returns = np.cumprod(1 + returns)
-    drawdowns = (
-        cumulative_returns - np.maximum.accumulate(cumulative_returns)
-    ) / np.maximum.accumulate(cumulative_returns)
-    return np.sqrt(np.mean(np.square(drawdowns)))
-
-
-@jit(nopython=True)
 def calculate_metrics(portfolio):
     start_value = portfolio[0]
     end_value = portfolio[-1]
     annualized_return = (end_value / start_value) - 1
-    ulcer_index = m_ulcer_index(portfolio)
+  
     max_drawdown = (
         np.abs(np.min((portfolio / np.maximum.accumulate(portfolio)) - 1)) + 0.001
     )
     calmar_ratio = annualized_return / max_drawdown
     return (
         calmar_ratio,
-        ulcer_index,
         annualized_return,
         max_drawdown,
         end_value - start_value,
@@ -227,7 +214,6 @@ def filter_pips(pips_y, train_best_k_labels, estimator_predict):
             start_value = portfolio[0]
             end_value = portfolio[-1]
             annualized_return = (end_value / start_value) - 1
-            ulcer_index = m_ulcer_index(portfolio)
             max_drawdown = (
                 np.abs(np.min((portfolio / np.maximum.accumulate(portfolio)) - 1))
                 + 0.001
@@ -239,7 +225,6 @@ def filter_pips(pips_y, train_best_k_labels, estimator_predict):
                     signal,
                     k_label,
                     calmar_ratio,
-                    ulcer_index,
                     annualized_return,
                     max_drawdown,
                     actual_return,
@@ -274,7 +259,6 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
             "signal",
             "k_label",
             "calmar_ratio",
-            "ulcer_index",
             "annualized_return",
             "max_drawdown",
             "actual_return",
@@ -354,7 +338,6 @@ def calculate_metrics(future_returns):
     # Calculate Ulcer Index
     drawdowns = np.maximum.accumulate(portfolio) - portfolio
     squared_drawdowns = np.square(drawdowns / portfolio)
-    ulcer_index = np.sqrt(np.mean(squared_drawdowns))
 
     # Calculate max drawdown
     max_drawdown = np.max(drawdowns) / np.max(portfolio)
@@ -364,7 +347,6 @@ def calculate_metrics(future_returns):
     return (
         signal,
         calmar_ratio,
-        ulcer_index,
         annualized_return,
         max_drawdown,
         end_value - start_value,
@@ -401,7 +383,6 @@ def cluster_and_filter_pips_df(pips_train_df):
                 "signal": metrics[0],
                 "k_label": k_label,
                 "calmar_ratio": metrics[1],
-                "ulcer_index": metrics[2],
                 "annualized_return": metrics[3],
                 "max_drawdown": metrics[4],
                 "actual_return": metrics[5],
