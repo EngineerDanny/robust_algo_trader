@@ -61,25 +61,6 @@ def calc_sharpe_ratio(portfolio_returns):
     return sharpe_ratio
 
 
-def calc_sortino_ratio(portfolio_returns):
-    excess_returns = np.array(portfolio_returns) - RISK_FREE_RATE
-    downside_returns = excess_returns[excess_returns < 0]
-    downside_std = np.std(downside_returns)
-    sortino_ratio = np.mean(excess_returns) / downside_std
-    return sortino_ratio
-
-
-def calc_calmar_ratio(portfolio_returns):
-    max_drawdown = ep.max_drawdown(portfolio_returns) + 0.001
-    calmar_ratio = np.mean(portfolio_returns) / max_drawdown
-    return calmar_ratio
-
-
-def m_ulcer_index(series):
-    drawdown = (series - series.cummax()) / series.cummax()
-    squared_average = (drawdown**2).mean()
-    return squared_average**0.5
-
 @jit(nopython=True)
 def find_pips(data, n_pips):
     data = np.asarray(data)
@@ -87,27 +68,29 @@ def find_pips(data, n_pips):
     pips_y = np.zeros(n_pips, dtype=np.float64)
     pips_x[0], pips_x[1] = 0, len(data) - 1
     pips_y[0], pips_y[1] = data[0], data[-1]
-    
+
     for curr_point in range(2, n_pips):
         md = 0.0
         md_i = -1
         insert_index = -1
-        
+
         for i in range(1, len(data) - 1):
-            left_adj = np.searchsorted(pips_x[:curr_point], i, side='right') - 1
+            left_adj = np.searchsorted(pips_x[:curr_point], i, side="right") - 1
             right_adj = left_adj + 1
-            d = distance(data, pips_x[:curr_point], pips_y[:curr_point], i, left_adj, right_adj)
-            
+            d = distance(
+                data, pips_x[:curr_point], pips_y[:curr_point], i, left_adj, right_adj
+            )
+
             if d > md:
                 md = d
                 md_i = i
                 insert_index = right_adj
-        
-        pips_x[insert_index+1:curr_point+1] = pips_x[insert_index:curr_point]
-        pips_y[insert_index+1:curr_point+1] = pips_y[insert_index:curr_point]
+
+        pips_x[insert_index + 1 : curr_point + 1] = pips_x[insert_index:curr_point]
+        pips_y[insert_index + 1 : curr_point + 1] = pips_y[insert_index:curr_point]
         pips_x[insert_index] = md_i
         pips_y[insert_index] = data[md_i]
-    
+
     return pips_x, pips_y
 
 
@@ -119,14 +102,16 @@ def distance(data, pips_x, pips_y, i, left_adj, right_adj):
     slope = price_diff / time_diff
     intercept = pips_y[left_adj] - pips_x[left_adj] * slope
     x, y = i, data[i]
-    
+
     if DIST_MEASURE == 1:
-        return (((pips_x[left_adj] - x) ** 2 + (pips_y[left_adj] - y) ** 2) ** 0.5 +
-                ((pips_x[right_adj] - x) ** 2 + (pips_y[right_adj] - y) ** 2) ** 0.5)
+        return ((pips_x[left_adj] - x) ** 2 + (pips_y[left_adj] - y) ** 2) ** 0.5 + (
+            (pips_x[right_adj] - x) ** 2 + (pips_y[right_adj] - y) ** 2
+        ) ** 0.5
     elif DIST_MEASURE == 2:
         return abs((slope * x + intercept) - y) / (slope**2 + 1) ** 0.5
     else:  # DIST_MEASURE == 3
         return abs((slope * x + intercept) - y)
+
 
 def get_test_pips_df(sub_df, full_df, last_test_idx):
     # Precompute necessary arrays
@@ -138,7 +123,7 @@ def get_test_pips_df(sub_df, full_df, last_test_idx):
     hour_array = sub_df["hour"].to_numpy()
     minute_array = sub_df["minute"].to_numpy()
     full_log_close_array = full_df["log_close"].to_numpy()
-    
+
     pips_y_list = []
     scaler = StandardScaler()
 
@@ -148,26 +133,30 @@ def get_test_pips_df(sub_df, full_df, last_test_idx):
             continue  # Ensure enough historical data
 
         pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
-        scaled_pips_y = scaler.fit_transform(np.array(pips_y).reshape(-1, 1)).reshape(-1)
+        scaled_pips_y = scaler.fit_transform(np.array(pips_y).reshape(-1, 1)).reshape(
+            -1
+        )
         pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
 
         j = index - 1
-        pips_y_dict.update({
-            "year": year_array[j],
-            "month": month_array[j],
-            "day_of_week": day_of_week_array[j],
-            "hour": hour_array[j],
-            "minute": minute_array[j],
-        })
+        pips_y_dict.update(
+            {
+                "year": year_array[j],
+                "month": month_array[j],
+                "day_of_week": day_of_week_array[j],
+                "hour": hour_array[j],
+                "minute": minute_array[j],
+            }
+        )
 
         tp = log_close_array[j] + (ATR_MULTIPLIER * log_atr_array[j])
         sl = log_close_array[j] - (ATR_MULTIPLIER * log_atr_array[j])
-        
+
         future_log_close_array = log_close_array[index:]
-        
+
         tp_hit = np.argmax(future_log_close_array >= tp)
         sl_hit = np.argmax(future_log_close_array <= sl)
-        
+
         if tp_hit < sl_hit:
             pips_y_dict["future_return"] = 1
         elif sl_hit < tp_hit:
@@ -182,11 +171,116 @@ def get_test_pips_df(sub_df, full_df, last_test_idx):
                 pips_y_dict["future_return"] = -1
             else:
                 pips_y_dict["future_return"] = 0
-        
         pips_y_list.append(pips_y_dict)
-
     pips_y_df = pd.DataFrame(pips_y_list)
     return pips_y_df
+
+@jit(nopython=True)
+def m_ulcer_index(portfolio):
+    # Implement Ulcer Index calculation using NumPy operations
+    returns = np.diff(portfolio) / portfolio[:-1]
+    cumulative_returns = np.cumprod(1 + returns)
+    drawdowns = (
+        cumulative_returns - np.maximum.accumulate(cumulative_returns)
+    ) / np.maximum.accumulate(cumulative_returns)
+    return np.sqrt(np.mean(np.square(drawdowns)))
+
+
+@jit(nopython=True)
+def calculate_metrics(portfolio):
+    start_value = portfolio[0]
+    end_value = portfolio[-1]
+    annualized_return = (end_value / start_value) - 1
+    ulcer_index = m_ulcer_index(portfolio)
+    max_drawdown = (
+        np.abs(np.min((portfolio / np.maximum.accumulate(portfolio)) - 1)) + 0.001
+    )
+    calmar_ratio = annualized_return / max_drawdown
+    return (
+        calmar_ratio,
+        ulcer_index,
+        annualized_return,
+        max_drawdown,
+        end_value - start_value,
+    )
+
+
+@jit(nopython=True)
+def filter_pips(pips_y, train_best_k_labels, estimator_predict):
+    k_labels = estimator_predict(pips_y[:, :8])
+
+    test_k_labels_list = []
+
+    for i in range(len(train_best_k_labels)):
+        k_label = train_best_k_labels[i, 0]
+        signal = train_best_k_labels[i, 1]
+
+        mask = k_labels == k_label
+        k_label_cumsum = np.cumsum(pips_y[mask, -1])
+
+        if signal == 0:
+            k_label_cumsum = -k_label_cumsum
+
+        portfolio = np.concatenate(([INIT_CAPITAL], k_label_cumsum + INIT_CAPITAL))
+
+        if len(portfolio) > 1:
+            start_value = portfolio[0]
+            end_value = portfolio[-1]
+            annualized_return = (end_value / start_value) - 1
+            ulcer_index = m_ulcer_index(portfolio)
+            max_drawdown = (
+                np.abs(np.min((portfolio / np.maximum.accumulate(portfolio)) - 1))
+                + 0.001
+            )
+            calmar_ratio = annualized_return / max_drawdown
+            actual_return = end_value - start_value
+            test_k_labels_list.append(
+                (
+                    signal,
+                    k_label,
+                    calmar_ratio,
+                    ulcer_index,
+                    annualized_return,
+                    max_drawdown,
+                    actual_return,
+                    len(k_label_cumsum),
+                )
+            )
+    return np.array(test_k_labels_list)
+
+
+# This function is not JIT-compiled as it involves Pandas operations
+def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
+    pips_y = pips_y_df[
+        [
+            "pip_0",
+            "pip_1",
+            "pip_2",
+            "pip_3",
+            "pip_4",
+            "day_of_week",
+            "hour",
+            "minute",
+            "future_return",
+        ]
+    ].to_numpy()
+    train_best_k_labels = train_best_k_labels_df[["k_label", "signal"]].to_numpy()
+
+    result = filter_pips(pips_y, train_best_k_labels, estimator.predict)
+
+    return pd.DataFrame(
+        result,
+        columns=[
+            "signal",
+            "k_label",
+            "calmar_ratio",
+            "ulcer_index",
+            "annualized_return",
+            "max_drawdown",
+            "actual_return",
+            "n_trades",
+        ],
+    )
 
 
 def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
@@ -226,7 +320,6 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
             continue
 
         annualized_return = (end_k_label_cumsum / start_k_label_cumsum) - 1
-        ulcer_index = m_ulcer_index(portfolio)
         max_drawdown = abs(ffn.calc_max_drawdown(portfolio)) + 0.001
         calmar_ratio = annualized_return / max_drawdown
 
@@ -235,7 +328,6 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
                 "signal": signal,
                 "k_label": k_label,
                 "calmar_ratio": calmar_ratio,
-                "ulcer_index": ulcer_index,
                 "annualized_return": annualized_return,
                 "max_drawdown": max_drawdown,
                 "actual_return": end_k_label_cumsum - start_k_label_cumsum,
@@ -251,26 +343,34 @@ def calculate_metrics(future_returns):
     signal = 1 if cumsum[-1] > 0 else 0
     if signal == 0:
         cumsum = -cumsum
-    
+
     portfolio = np.concatenate(([INIT_CAPITAL], cumsum + INIT_CAPITAL))
-    
+
     start_value = portfolio[0]
     end_value = portfolio[-1]
-    
+
     annualized_return = (end_value / start_value) - 1
-    
+
     # Calculate Ulcer Index
     drawdowns = np.maximum.accumulate(portfolio) - portfolio
     squared_drawdowns = np.square(drawdowns / portfolio)
     ulcer_index = np.sqrt(np.mean(squared_drawdowns))
-    
+
     # Calculate max drawdown
     max_drawdown = np.max(drawdowns) / np.max(portfolio)
-    
+
     calmar_ratio = annualized_return / (max_drawdown + 0.001)
-    
-    return (signal, calmar_ratio, ulcer_index, annualized_return, 
-            max_drawdown, end_value - start_value, len(future_returns))
+
+    return (
+        signal,
+        calmar_ratio,
+        ulcer_index,
+        annualized_return,
+        max_drawdown,
+        end_value - start_value,
+        len(future_returns),
+    )
+
 
 def cluster_and_filter_pips_df(pips_train_df):
     pips_train_np = pips_train_df[
@@ -291,22 +391,27 @@ def cluster_and_filter_pips_df(pips_train_df):
 
     best_k_labels_list = []
     for k_label in filter_k_labels_df["k_label"]:
-        future_returns = pips_train_df[pips_train_df["k_label"] == k_label]["future_return"].to_numpy()
+        future_returns = pips_train_df[pips_train_df["k_label"] == k_label][
+            "future_return"
+        ].to_numpy()
         metrics = calculate_metrics(future_returns)
-        
-        best_k_labels_list.append({
-            "signal": metrics[0],
-            "k_label": k_label,
-            "calmar_ratio": metrics[1],
-            "ulcer_index": metrics[2],
-            "annualized_return": metrics[3],
-            "max_drawdown": metrics[4],
-            "actual_return": metrics[5],
-            "n_trades": metrics[6]
-        })
+
+        best_k_labels_list.append(
+            {
+                "signal": metrics[0],
+                "k_label": k_label,
+                "calmar_ratio": metrics[1],
+                "ulcer_index": metrics[2],
+                "annualized_return": metrics[3],
+                "max_drawdown": metrics[4],
+                "actual_return": metrics[5],
+                "n_trades": metrics[6],
+            }
+        )
 
     best_k_labels_df = pd.DataFrame(best_k_labels_list)
     return best_k_labels_df, estimator
+
 
 def get_train_pips_df(sub_df):
     # Precompute necessary arrays
@@ -322,11 +427,11 @@ def get_train_pips_df(sub_df):
         x_close = close_array[max(0, index - N_CLOSE_PTS) : index]
         if len(x_close) < N_CLOSE_PTS:
             break  # Stop if we don't have enough historical data
-        
+
         _, pips_y = find_pips(x_close, N_PERC_PTS)
-        scaled_pips_y = (scaler
-                         .fit_transform(np.array(pips_y).reshape(-1, 1))
-                         .reshape(-1))
+        scaled_pips_y = scaler.fit_transform(np.array(pips_y).reshape(-1, 1)).reshape(
+            -1
+        )
         pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
 
         j = index - 1
@@ -363,13 +468,12 @@ def get_train_pips_df(sub_df):
                 pips_y_dict["future_return"] = -1  # SL hit
             # otherwise, then none of tp or sl were hit
             else:
-                pips_y_dict["future_return"] = 0    
+                pips_y_dict["future_return"] = 0
         else:
             pips_y_dict["future_return"] = 0  # No future data available
-            
+
         pips_y_list.append(pips_y_dict)
     return pd.DataFrame(pips_y_list)
-
 
 
 # Load the saved time scaler
