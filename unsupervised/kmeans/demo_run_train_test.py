@@ -43,17 +43,23 @@ train_size = int(param_dict["train_size"] * ONE_DAY)
 test_size = int(param_dict["test_size"] * ONE_DAY)
 
 estimators = {
-    "kmeans" : KMeans(n_clusters=N_CLUSTERS, random_state=random_state),
-    "mini_batch_kmeans" : MiniBatchKMeans(n_clusters=N_CLUSTERS, random_state=random_state),
-    "birch" : Birch(n_clusters=N_CLUSTERS),
-    "gaussian_mixture" : GaussianMixture(n_components=N_CLUSTERS, covariance_type='tied', random_state=random_state)
+    "kmeans": KMeans(n_clusters=N_CLUSTERS, random_state=random_state),
+    "mini_batch_kmeans": MiniBatchKMeans(
+        n_clusters=N_CLUSTERS, random_state=random_state
+    ),
+    "birch": Birch(n_clusters=N_CLUSTERS),
+    "gaussian_mixture": GaussianMixture(
+        n_components=N_CLUSTERS, covariance_type="tied", random_state=random_state
+    ),
 }
+
 
 def calc_sharpe_ratio(portfolio_returns):
     excess_returns = np.array(portfolio_returns) - RISK_FREE_RATE
     standard_deviation = np.std(portfolio_returns)
     sharpe_ratio = np.mean(excess_returns) / standard_deviation
     return sharpe_ratio
+
 
 def calc_sortino_ratio(portfolio_returns):
     excess_returns = np.array(portfolio_returns) - RISK_FREE_RATE
@@ -62,15 +68,18 @@ def calc_sortino_ratio(portfolio_returns):
     sortino_ratio = np.mean(excess_returns) / downside_std
     return sortino_ratio
 
+
 def calc_calmar_ratio(portfolio_returns):
     max_drawdown = ep.max_drawdown(portfolio_returns) + 0.001
     calmar_ratio = np.mean(portfolio_returns) / max_drawdown
     return calmar_ratio
 
+
 def m_ulcer_index(series):
     drawdown = (series - series.cummax()) / series.cummax()
     squared_average = (drawdown**2).mean()
     return squared_average**0.5
+
 
 # DIST_MEASURE
 # 1 = Euclidean Distance
@@ -99,6 +108,7 @@ def find_pips(data, n_pips):
         pips_y.insert(insert_index, data[md_i])
     return pips_x, pips_y
 
+
 # Define a helper function to calculate the distance
 def distance(data, pips_x, pips_y, i, left_adj, right_adj):
     time_diff = pips_x[right_adj] - pips_x[left_adj]
@@ -114,49 +124,6 @@ def distance(data, pips_x, pips_y, i, left_adj, right_adj):
     }
     return dist_funcs[DIST_MEASURE](i, data[i])
 
-def get_pips_df(sub_df):
-    pips_y_list = []
-    # loop through the data
-    for index in range(N_CLOSE_PTS, len(sub_df)):
-        try:
-            x_close = sub_df["close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
-            _, pips_y = find_pips(x_close, N_PERC_PTS)
-            scaled_pips_y = (
-                StandardScaler()
-                .fit_transform(np.array(pips_y).reshape(-1, 1))
-                .reshape(-1)
-            )
-            pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
-            j = index - 1
-            
-            pips_y_dict.update({
-                "year": sub_df["year"].iloc[j],
-                "month": sub_df["month"].iloc[j],
-                "day_of_week": sub_df["day_of_week"].iloc[j],
-                "hour": sub_df["hour"].iloc[j],
-                "minute": sub_df["minute"].iloc[j]
-            })
-            # future features
-            tp = sub_df["close"].iloc[j] + (
-                ATR_MULTIPLIER * sub_df["atr_clipped"].iloc[j]
-            )
-            sl = sub_df["close"].iloc[j] - (
-                ATR_MULTIPLIER * sub_df["atr_clipped"].iloc[j]
-            )
-            for k in range(index, len(sub_df)):
-                if sub_df["high"].iloc[k] >= tp:
-                    pips_y_dict["future_return"] = 1
-                    break
-                elif sub_df["low"].iloc[k] <= sl:
-                    pips_y_dict["future_return"] = -1
-                    break
-                else:
-                    pips_y_dict["future_return"] = 0
-            pips_y_list.append(pips_y_dict)
-        except Exception as e:
-            break
-    pips_y_df = pd.DataFrame(pips_y_list)
-    return pips_y_df
 
 def get_test_pips_df(sub_df, full_df, last_test_idx):
     pips_y_list = []
@@ -193,7 +160,7 @@ def get_test_pips_df(sub_df, full_df, last_test_idx):
                     break
                 else:
                     pips_y_dict["future_return"] = 0
-            
+
             if pips_y_dict["future_return"] == 0:
                 # loop through the full_df starting from the last_test_idx
                 # set future_return to 1 if tp is reached and -1 if sl is reached
@@ -205,31 +172,32 @@ def get_test_pips_df(sub_df, full_df, last_test_idx):
                         pips_y_dict["future_return"] = -1
                         break
                     else:
-                        pips_y_dict["future_return"] = 0         
-            
+                        pips_y_dict["future_return"] = 0
+
             pips_y_list.append(pips_y_dict)
         except Exception as e:
             break
     pips_y_df = pd.DataFrame(pips_y_list)
     return pips_y_df
 
+
 def cluster_and_filter_pips_df(pips_train_df):
     pips_train_np = pips_train_df[
-            [
-                "pip_0",
-                "pip_1",
-                "pip_2",
-                "pip_3",
-                "pip_4",
-                "day_of_week",
-                "hour",
-                "minute",
-            ]
+        [
+            "pip_0",
+            "pip_1",
+            "pip_2",
+            "pip_3",
+            "pip_4",
+            "day_of_week",
+            "hour",
+            "minute",
+        ]
     ].to_numpy()
     estimator = estimators[ALGORITHM]
     estimator.fit(pips_train_np)
     pips_train_df["k_label"] = estimator.predict(pips_train_np)
-    
+
     # group by k_label and calculate the cumulative sum of future returns
     filter_k_labels_df = (
         pips_train_df.groupby("k_label")["future_return"]
@@ -255,7 +223,7 @@ def cluster_and_filter_pips_df(pips_train_df):
         portfolio = pd.concat(
             [pd.Series([INIT_CAPITAL]), (k_label_cumsum + INIT_CAPITAL)]
         ).reset_index(drop=True)
-        
+
         if not portfolio.empty:
             start_k_label_cumsum = portfolio.iloc[0]
             end_k_label_cumsum = portfolio.iloc[-1]
@@ -266,7 +234,7 @@ def cluster_and_filter_pips_df(pips_train_df):
         ulcer_index = m_ulcer_index(portfolio)
         max_drawdown = abs(ffn.calc_max_drawdown(portfolio)) + 0.001
         calmar_ratio = annualized_return / max_drawdown
-      
+
         best_k_labels_list.append(
             {
                 "signal": signal,
@@ -282,10 +250,22 @@ def cluster_and_filter_pips_df(pips_train_df):
     best_k_labels_df = pd.DataFrame(best_k_labels_list)
     return best_k_labels_df, estimator
 
+
 def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
-    pips_y_df["k_label"] = estimator.predict(pips_y_df[
-        ["pip_0", "pip_1", "pip_2", "pip_3", "pip_4", "day_of_week", "hour", "minute"]
-    ].to_numpy())
+    pips_y_df["k_label"] = estimator.predict(
+        pips_y_df[
+            [
+                "pip_0",
+                "pip_1",
+                "pip_2",
+                "pip_3",
+                "pip_4",
+                "day_of_week",
+                "hour",
+                "minute",
+            ]
+        ].to_numpy()
+    )
 
     test_k_labels_list = []
 
@@ -326,6 +306,70 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
         )
     return pd.DataFrame(test_k_labels_list)
 
+
+def get_pips_df(sub_df):
+    # Precompute necessary arrays
+    close_array = sub_df["close"].to_numpy()
+    high_array = sub_df["high"].to_numpy()
+    low_array = sub_df["low"].to_numpy()
+    atr_clipped_array = sub_df["atr_clipped"].to_numpy()
+
+    pips_y_list = []
+    scaler = StandardScaler()
+
+    for index in range(N_CLOSE_PTS, len(sub_df)):
+        x_close = close_array[max(0, index - N_CLOSE_PTS) : index]
+        if len(x_close) < N_CLOSE_PTS:
+            break  # Stop if we don't have enough historical data
+        
+        _, pips_y = find_pips(x_close, N_PERC_PTS)
+        scaled_pips_y = (scaler
+                         .fit_transform(np.array(pips_y).reshape(-1, 1))
+                         .reshape(-1))
+        pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
+
+        j = index - 1
+        pips_y_dict.update(
+            {
+                "year": sub_df["year"].iloc[j],
+                "month": sub_df["month"].iloc[j],
+                "day_of_week": sub_df["day_of_week"].iloc[j],
+                "hour": sub_df["hour"].iloc[j],
+                "minute": sub_df["minute"].iloc[j],
+            }
+        )
+
+        # Calculate future return
+        tp = close_array[j] + (ATR_MULTIPLIER * atr_clipped_array[j])
+        sl = close_array[j] - (ATR_MULTIPLIER * atr_clipped_array[j])
+
+        future_highs = high_array[index:]
+        future_lows = low_array[index:]
+
+        if len(future_highs) > 0:
+            tp_hit = np.argmax(future_highs >= tp)
+            sl_hit = np.argmax(future_lows <= sl)
+
+            # tp or sl were hit not by first value but by some other value
+            # check if tp or sl has been hit first
+            if tp_hit < sl_hit:
+                pips_y_dict["future_return"] = 1  # TP hit first
+            elif sl_hit < tp_hit:
+                pips_y_dict["future_return"] = -1  # SL hit first
+            elif future_highs[0] >= tp:
+                pips_y_dict["future_return"] = 1  # TP hit
+            elif future_lows[0] <= sl:
+                pips_y_dict["future_return"] = -1  # SL hit
+            # otherwise, then none of tp or sl were hit
+            else:
+                pips_y_dict["future_return"] = 0    
+        else:
+            pips_y_dict["future_return"] = 0  # No future data available
+            
+        pips_y_list.append(pips_y_dict)
+    return pd.DataFrame(pips_y_list)
+
+
 # Load the saved time scaler
 ts_scaler = joblib.load("ts_scaler_2018.joblib")
 
@@ -333,7 +377,7 @@ ts_scaler = joblib.load("ts_scaler_2018.joblib")
 df = pd.read_csv(
     "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
     parse_dates=["time"],
-    index_col="time"
+    index_col="time",
 )
 
 # Extract date components efficiently
@@ -344,8 +388,10 @@ df["hour"] = df.index.hour
 df["minute"] = df.index.minute
 
 # Calculate ATR
-df["atr"] = talib.ATR(df["high"].values, df["low"].values, df["close"].values, timeperiod=1)
-df['atr_clipped'] = np.clip(df['atr'], 0.00068, 0.00176)
+df["atr"] = talib.ATR(
+    df["high"].values, df["low"].values, df["close"].values, timeperiod=1
+)
+df["atr_clipped"] = np.clip(df["atr"], 0.00068, 0.00176)
 
 # Filter date range
 df = df.loc["2019-01-01":"2024-01-01"]
@@ -368,7 +414,7 @@ return_df_list = []
 for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     # if i < START_WINDOW_ITER:
     #     continue
-            
+
     df_train = df.iloc[train_idx, :]
     df_test = df.iloc[test_idx, :]
     last_test_idx = test_idx[-1]
@@ -388,10 +434,11 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     return_df_list.append(
         {
             "window": i,
-            "train_sum_annualized_return": train_best_k_labels_df["annualized_return"].sum(),
+            "train_sum_annualized_return": train_best_k_labels_df[
+                "annualized_return"
+            ].sum(),
             "train_sum_actual_return": train_best_k_labels_df["actual_return"].sum(),
             "train_n_trades": train_best_k_labels_df["n_trades"].sum(),
-            
             "test_sum_annualized_return": test_k_labels_df["annualized_return"].sum(),
             "test_sum_actual_return": test_k_labels_df["actual_return"].sum(),
             "test_n_trades": test_k_labels_df["n_trades"].sum(),
@@ -400,15 +447,25 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     # if i >= MAX_WINDOW_ITER:
     #     break
 return_df = pd.DataFrame(return_df_list)
-return_df["train_cumsum_annualized_return"] = return_df["train_sum_annualized_return"].cumsum()
+return_df["train_cumsum_annualized_return"] = return_df[
+    "train_sum_annualized_return"
+].cumsum()
 return_df["train_cumsum_actual_return"] = return_df["train_sum_actual_return"].cumsum()
-return_df["train_sharpe_ratio"] = calc_sharpe_ratio(return_df["train_sum_annualized_return"].to_numpy())
+return_df["train_sharpe_ratio"] = calc_sharpe_ratio(
+    return_df["train_sum_annualized_return"].to_numpy()
+)
 
-return_df["test_cumsum_annualized_return"] = return_df["test_sum_annualized_return"].cumsum()
+return_df["test_cumsum_annualized_return"] = return_df[
+    "test_sum_annualized_return"
+].cumsum()
 return_df["test_cumsum_actual_return"] = return_df["test_sum_actual_return"].cumsum()
 
-return_df["test_sharpe_ratio"] = calc_sharpe_ratio(return_df["test_sum_annualized_return"].to_numpy())
-return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(-1 * return_df["test_sum_annualized_return"].to_numpy())
+return_df["test_sharpe_ratio"] = calc_sharpe_ratio(
+    return_df["test_sum_annualized_return"].to_numpy()
+)
+return_df["test_negative_sharpe_ratio"] = calc_sharpe_ratio(
+    -1 * return_df["test_sum_annualized_return"].to_numpy()
+)
 
 # return_df["n_close_pts"] = N_CLOSE_PTS
 # return_df["n_perc_pts"] = N_PERC_PTS
