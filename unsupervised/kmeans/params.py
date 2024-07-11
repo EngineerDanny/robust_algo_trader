@@ -15,24 +15,17 @@ config_settings = config["trading_settings"]
 
 params_df_list = []
 params_dict = {
-    'future_candles': [10],
-    'log_return_threshold': [0.1],
-    'calmar_ratio_threshold': [2],
-    # 'first_train_size': [50], # days
-    # 'second_train_size': [50], # days
-    # 'val_size': [10], # days
-    'random_state': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
-    'n_close_pts': [24],
-    'dist_measure': [1],
-    'n_perc_pts': [5],
-    'max_k_labels': [1, 2, 5],
-    # 'random_state': np.arange(1, 100),
-    'n_clusters': [70, 80, 90, 100, 110, 120],
-    'train_size': [30, 40, 50, 60, 70, 80, 90], # days   
-    # 'test_size': [5, 10], # days
-    'test_size': [10], # days
+    'max_cluster_labels': [1, 2, 5],
+    'price_history_length': [24],
+    'num_perceptually_important_points': [5],
+    'distance_measure': [1],
+    'num_clusters': [70, 80, 90, 100, 110, 120],
     'atr_multiplier': [10],
-    'algorithm': ['kmeans', 'gaussian_mixture'],
+    'clustering_algorithm': ['kmeans', 'gaussian_mixture'],
+    # 'random_seed': np.arange(1, 100),
+    'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
+    'train_period': [30, 40, 50, 60, 70, 80, 90], # days   
+    'test_period': [10] # days
 }
 params_df = pd.MultiIndex.from_product(
     params_dict.values(),
@@ -65,7 +58,7 @@ with open(run_one_sh, "w") as run_one_f:
     run_one_f.write(run_one_contents)
 
 # run_orig_py = "demo_run.py"
-run_orig_py = "demo_run_train_test.py"
+run_orig_py = "demo_run_optimized.py"
 run_one_py = os.path.join(job_dir, "run_one.py")
 shutil.copyfile(run_orig_py, run_one_py)
 orig_dir = os.path.dirname(run_orig_py)
