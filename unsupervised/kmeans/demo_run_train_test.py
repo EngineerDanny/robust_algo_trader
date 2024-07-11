@@ -128,11 +128,14 @@ def get_pips_df(sub_df):
             )
             pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
             j = index - 1
-            pips_y_dict["year"] = sub_df["year"].iloc[j]
-            pips_y_dict["month"] = sub_df["month"].iloc[j]
-            pips_y_dict["day_of_week"] = sub_df["day_of_week"].iloc[j]
-            pips_y_dict["hour"] = sub_df["hour"].iloc[j]
-            pips_y_dict["minute"] = sub_df["minute"].iloc[j]
+            
+            pips_y_dict.update({
+                "year": sub_df["year"].iloc[j],
+                "month": sub_df["month"].iloc[j],
+                "day_of_week": sub_df["day_of_week"].iloc[j],
+                "hour": sub_df["hour"].iloc[j],
+                "minute": sub_df["minute"].iloc[j]
+            })
             # future features
             tp = sub_df["close"].iloc[j] + (
                 ATR_MULTIPLIER * sub_df["atr_clipped"].iloc[j]
