@@ -128,10 +128,19 @@ def determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss):
     Returns:
     int: 1 for profit, -1 for loss, 0 for no action.
     """
+    # Check if the first value hits TP or SL
+    if future_highs[0] >= take_profit:
+        return 1
+    if future_lows[0] <= stop_loss:
+        return -1
+
+    # If first value doesn't hit TP or SL, proceed with the original logic
     tp_hit = np.argmax(future_highs >= take_profit)
     sl_hit = np.argmax(future_lows <= stop_loss)
 
-    if tp_hit < sl_hit or (tp_hit > 0 and sl_hit == 0):
+    if tp_hit == 0 and sl_hit == 0:
+        return 0
+    elif tp_hit < sl_hit or (tp_hit > 0 and sl_hit == 0):
         return 1
     elif sl_hit < tp_hit or (sl_hit > 0 and tp_hit == 0):
         return -1
@@ -187,9 +196,6 @@ def prepare_test_data(price_subset, full_price_data, last_test_index):
 
     return pd.DataFrame(test_data_list)
 
-
-import numpy as np
-from numba import jit
 
 # Define the dtype for our structured array
 performance_dtype = np.dtype(
