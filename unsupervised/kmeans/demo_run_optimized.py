@@ -1,11 +1,11 @@
+import sys
 import numpy as np
 import pandas as pd
 import talib
 import warnings
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans, MiniBatchKMeans
+from sklearn.cluster import *
 from sklearn.mixture import GaussianMixture
-from sklearn.cluster import Birch
 from sktime.forecasting.model_selection import SlidingWindowSplitter
 from numba import jit
 import joblib
@@ -19,7 +19,8 @@ RISK_FREE_RATE = 0.01
 
 # Load trading parameters from CSV
 trading_params = pd.read_csv("params.csv")
-param_dict = dict(trading_params.iloc[0, :])  # Assume first row of trading_params.csv
+param_row = 0 if len(sys.argv) != 2 else int(sys.argv[1])
+param_dict = dict(trading_params.iloc[param_row, :])  # Assume first row of trading_params.csv
 
 # Extract trading parameters
 MAX_CLUSTER_LABELS = int(param_dict["max_cluster_labels"])
@@ -503,7 +504,6 @@ def main():
         window_splitter.split(price_data)
     ):
         print(f"Processing window {window}...")
-
         train_data = price_data.iloc[train_indices, :]
         test_data = price_data.iloc[test_indices, :]
         last_test_index = test_indices[-1]
