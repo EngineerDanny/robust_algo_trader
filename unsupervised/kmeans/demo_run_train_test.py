@@ -14,7 +14,7 @@ import ffn as ffn
 import empyrical as ep
 import joblib
 from sktime.forecasting.model_selection import SlidingWindowSplitter
-import numba
+from numba import jit
 
 warnings.filterwarnings("ignore")
 
@@ -80,175 +80,113 @@ def m_ulcer_index(series):
     squared_average = (drawdown**2).mean()
     return squared_average**0.5
 
-
-# DIST_MEASURE
-# 1 = Euclidean Distance
-# 2 = Perpendicular Distance
-# 3 = Vertical Distance
+@jit(nopython=True)
 def find_pips(data, n_pips):
-    pips_x = [0, len(data) - 1]  # Index
-    pips_y = [data[0], data[-1]]  # Price
+    data = np.asarray(data)
+    pips_x = np.zeros(n_pips, dtype=np.int64)
+    pips_y = np.zeros(n_pips, dtype=np.float64)
+    pips_x[0], pips_x[1] = 0, len(data) - 1
+    pips_y[0], pips_y[1] = data[0], data[-1]
+    
     for curr_point in range(2, n_pips):
-        md = 0.0  # Max distance
-        md_i = -1  # Max distance index
+        md = 0.0
+        md_i = -1
         insert_index = -1
-        # Use a single loop to iterate over all the points
+        
         for i in range(1, len(data) - 1):
-            left_adj = bisect.bisect_right(pips_x, i) - 1
+            left_adj = np.searchsorted(pips_x[:curr_point], i, side='right') - 1
             right_adj = left_adj + 1
-            # Calculate the distance from the point to the line segment
-            d = distance(data, pips_x, pips_y, i, left_adj, right_adj)
-            # Update the maximum distance and the insert index
+            d = distance(data, pips_x[:curr_point], pips_y[:curr_point], i, left_adj, right_adj)
+            
             if d > md:
                 md = d
                 md_i = i
                 insert_index = right_adj
-        # Insert the new pip
-        pips_x.insert(insert_index, md_i)
-        pips_y.insert(insert_index, data[md_i])
+        
+        pips_x[insert_index+1:curr_point+1] = pips_x[insert_index:curr_point]
+        pips_y[insert_index+1:curr_point+1] = pips_y[insert_index:curr_point]
+        pips_x[insert_index] = md_i
+        pips_y[insert_index] = data[md_i]
+    
     return pips_x, pips_y
 
 
 # Define a helper function to calculate the distance
+@jit(nopython=True)
 def distance(data, pips_x, pips_y, i, left_adj, right_adj):
     time_diff = pips_x[right_adj] - pips_x[left_adj]
     price_diff = pips_y[right_adj] - pips_y[left_adj]
     slope = price_diff / time_diff
     intercept = pips_y[left_adj] - pips_x[left_adj] * slope
-    dist_funcs = {
-        1: lambda x, y: ((pips_x[left_adj] - x) ** 2 + (pips_y[left_adj] - y) ** 2)
-        ** 0.5
-        + ((pips_x[right_adj] - x) ** 2 + (pips_y[right_adj] - y) ** 2) ** 0.5,
-        2: lambda x, y: abs((slope * x + intercept) - y) / (slope**2 + 1) ** 0.5,
-        3: lambda x, y: abs((slope * x + intercept) - y),
-    }
-    return dist_funcs[DIST_MEASURE](i, data[i])
-
+    x, y = i, data[i]
+    
+    if DIST_MEASURE == 1:
+        return (((pips_x[left_adj] - x) ** 2 + (pips_y[left_adj] - y) ** 2) ** 0.5 +
+                ((pips_x[right_adj] - x) ** 2 + (pips_y[right_adj] - y) ** 2) ** 0.5)
+    elif DIST_MEASURE == 2:
+        return abs((slope * x + intercept) - y) / (slope**2 + 1) ** 0.5
+    else:  # DIST_MEASURE == 3
+        return abs((slope * x + intercept) - y)
 
 def get_test_pips_df(sub_df, full_df, last_test_idx):
+    # Precompute necessary arrays
+    log_close_array = sub_df["log_close"].to_numpy()
+    log_atr_array = sub_df["log_atr"].to_numpy()
+    year_array = sub_df["year"].to_numpy()
+    month_array = sub_df["month"].to_numpy()
+    day_of_week_array = sub_df["day_of_week"].to_numpy()
+    hour_array = sub_df["hour"].to_numpy()
+    minute_array = sub_df["minute"].to_numpy()
+    full_log_close_array = full_df["log_close"].to_numpy()
+    
     pips_y_list = []
-    # loop through the data
+    scaler = StandardScaler()
+
     for index in range(N_CLOSE_PTS, len(sub_df)):
-        try:
-            x_close = sub_df["log_close"].iloc[index - N_CLOSE_PTS : index].to_numpy()
-            pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
-            scaled_pips_y = (
-                StandardScaler()
-                .fit_transform(np.array(pips_y).reshape(-1, 1))
-                .reshape(-1)
-            )
-            pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
-            j = index - 1
-            pips_y_dict["year"] = sub_df["year"].iloc[j]
-            pips_y_dict["month"] = sub_df["month"].iloc[j]
-            pips_y_dict["day_of_week"] = sub_df["day_of_week"].iloc[j]
-            pips_y_dict["hour"] = sub_df["hour"].iloc[j]
-            pips_y_dict["minute"] = sub_df["minute"].iloc[j]
-            # future features
-            tp = sub_df["log_close"].iloc[j] + (
-                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
-            )
-            sl = sub_df["log_close"].iloc[j] - (
-                ATR_MULTIPLIER * sub_df["log_atr"].iloc[j]
-            )
-            for k in range(index, len(sub_df)):
-                if sub_df["log_close"].iloc[k] >= tp:
-                    pips_y_dict["future_return"] = 1
-                    break
-                elif sub_df["log_close"].iloc[k] <= sl:
-                    pips_y_dict["future_return"] = -1
-                    break
-                else:
-                    pips_y_dict["future_return"] = 0
+        x_close = log_close_array[index - N_CLOSE_PTS : index]
+        if len(x_close) < N_CLOSE_PTS:
+            continue  # Ensure enough historical data
 
-            if pips_y_dict["future_return"] == 0:
-                # loop through the full_df starting from the last_test_idx
-                # set future_return to 1 if tp is reached and -1 if sl is reached
-                for k in range(last_test_idx, len(full_df)):
-                    if full_df["log_close"].iloc[k] >= tp:
-                        pips_y_dict["future_return"] = 1
-                        break
-                    elif full_df["log_close"].iloc[k] <= sl:
-                        pips_y_dict["future_return"] = -1
-                        break
-                    else:
-                        pips_y_dict["future_return"] = 0
+        pips_x, pips_y = find_pips(x_close, N_PERC_PTS)
+        scaled_pips_y = scaler.fit_transform(np.array(pips_y).reshape(-1, 1)).reshape(-1)
+        pips_y_dict = {f"pip_{i}": scaled_pips_y[i] for i in range(N_PERC_PTS)}
 
-            pips_y_list.append(pips_y_dict)
-        except Exception as e:
-            break
+        j = index - 1
+        pips_y_dict.update({
+            "year": year_array[j],
+            "month": month_array[j],
+            "day_of_week": day_of_week_array[j],
+            "hour": hour_array[j],
+            "minute": minute_array[j],
+        })
+
+        tp = log_close_array[j] + (ATR_MULTIPLIER * log_atr_array[j])
+        sl = log_close_array[j] - (ATR_MULTIPLIER * log_atr_array[j])
+        
+        future_log_close_array = log_close_array[index:]
+        
+        tp_hit = np.argmax(future_log_close_array >= tp)
+        sl_hit = np.argmax(future_log_close_array <= sl)
+        
+        if tp_hit < sl_hit:
+            pips_y_dict["future_return"] = 1
+        elif sl_hit < tp_hit:
+            pips_y_dict["future_return"] = -1
+        else:
+            future_log_close_array_full = full_log_close_array[last_test_idx:]
+            tp_hit_full = np.argmax(future_log_close_array_full >= tp)
+            sl_hit_full = np.argmax(future_log_close_array_full <= sl)
+            if tp_hit_full < sl_hit_full:
+                pips_y_dict["future_return"] = 1
+            elif sl_hit_full < tp_hit_full:
+                pips_y_dict["future_return"] = -1
+            else:
+                pips_y_dict["future_return"] = 0
+        
+        pips_y_list.append(pips_y_dict)
+
     pips_y_df = pd.DataFrame(pips_y_list)
     return pips_y_df
-
-
-def cluster_and_filter_pips_df(pips_train_df):
-    pips_train_np = pips_train_df[
-        [
-            "pip_0",
-            "pip_1",
-            "pip_2",
-            "pip_3",
-            "pip_4",
-            "day_of_week",
-            "hour",
-            "minute",
-        ]
-    ].to_numpy()
-    estimator = estimators[ALGORITHM]
-    estimator.fit(pips_train_np)
-    pips_train_df["k_label"] = estimator.predict(pips_train_np)
-
-    # group by k_label and calculate the cumulative sum of future returns
-    filter_k_labels_df = (
-        pips_train_df.groupby("k_label")["future_return"]
-        .sum()
-        .reset_index()
-        .abs()
-        .sort_values(by="future_return", ascending=False)
-        .head(MAX_K_LABELS)
-    )
-
-    best_k_labels_list = []
-    for k_label in filter_k_labels_df["k_label"]:
-        pips_y_sub_df = pips_train_df[(pips_train_df["k_label"] == k_label)]
-        k_label_cumsum = pips_y_sub_df["future_return"].cumsum().reset_index(drop=True)
-        if k_label_cumsum.iloc[-1] > 0:
-            signal = 1
-        else:
-            signal = 0
-            k_label_cumsum = -k_label_cumsum
-
-        # Add a constant value to the series
-        # Put INIT_CAPITAL as the first value
-        portfolio = pd.concat(
-            [pd.Series([INIT_CAPITAL]), (k_label_cumsum + INIT_CAPITAL)]
-        ).reset_index(drop=True)
-
-        if not portfolio.empty:
-            start_k_label_cumsum = portfolio.iloc[0]
-            end_k_label_cumsum = portfolio.iloc[-1]
-        else:
-            continue
-
-        annualized_return = (end_k_label_cumsum / start_k_label_cumsum) - 1
-        ulcer_index = m_ulcer_index(portfolio)
-        max_drawdown = abs(ffn.calc_max_drawdown(portfolio)) + 0.001
-        calmar_ratio = annualized_return / max_drawdown
-
-        best_k_labels_list.append(
-            {
-                "signal": signal,
-                "k_label": k_label,
-                "calmar_ratio": calmar_ratio,
-                "ulcer_index": ulcer_index,
-                "annualized_return": annualized_return,
-                "max_drawdown": max_drawdown,
-                "actual_return": end_k_label_cumsum - start_k_label_cumsum,
-                "n_trades": len(k_label_cumsum),
-            }
-        )
-    best_k_labels_df = pd.DataFrame(best_k_labels_list)
-    return best_k_labels_df, estimator
 
 
 def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
@@ -307,7 +245,70 @@ def filter_pips_df(pips_y_df, train_best_k_labels_df, estimator):
     return pd.DataFrame(test_k_labels_list)
 
 
-def get_pips_df(sub_df):
+@jit(nopython=True)
+def calculate_metrics(future_returns):
+    cumsum = np.cumsum(future_returns)
+    signal = 1 if cumsum[-1] > 0 else 0
+    if signal == 0:
+        cumsum = -cumsum
+    
+    portfolio = np.concatenate(([INIT_CAPITAL], cumsum + INIT_CAPITAL))
+    
+    start_value = portfolio[0]
+    end_value = portfolio[-1]
+    
+    annualized_return = (end_value / start_value) - 1
+    
+    # Calculate Ulcer Index
+    drawdowns = np.maximum.accumulate(portfolio) - portfolio
+    squared_drawdowns = np.square(drawdowns / portfolio)
+    ulcer_index = np.sqrt(np.mean(squared_drawdowns))
+    
+    # Calculate max drawdown
+    max_drawdown = np.max(drawdowns) / np.max(portfolio)
+    
+    calmar_ratio = annualized_return / (max_drawdown + 0.001)
+    
+    return (signal, calmar_ratio, ulcer_index, annualized_return, 
+            max_drawdown, end_value - start_value, len(future_returns))
+
+def cluster_and_filter_pips_df(pips_train_df):
+    pips_train_np = pips_train_df[
+        ["pip_0", "pip_1", "pip_2", "pip_3", "pip_4", "day_of_week", "hour", "minute"]
+    ].to_numpy()
+    estimator = estimators[ALGORITHM]
+    estimator.fit(pips_train_np)
+    pips_train_df["k_label"] = estimator.predict(pips_train_np)
+
+    # Group by k_label and calculate the cumulative sum of future returns
+    filter_k_labels_df = (
+        pips_train_df.groupby("k_label")["future_return"]
+        .sum()
+        .abs()
+        .nlargest(MAX_K_LABELS)
+        .reset_index()
+    )
+
+    best_k_labels_list = []
+    for k_label in filter_k_labels_df["k_label"]:
+        future_returns = pips_train_df[pips_train_df["k_label"] == k_label]["future_return"].to_numpy()
+        metrics = calculate_metrics(future_returns)
+        
+        best_k_labels_list.append({
+            "signal": metrics[0],
+            "k_label": k_label,
+            "calmar_ratio": metrics[1],
+            "ulcer_index": metrics[2],
+            "annualized_return": metrics[3],
+            "max_drawdown": metrics[4],
+            "actual_return": metrics[5],
+            "n_trades": metrics[6]
+        })
+
+    best_k_labels_df = pd.DataFrame(best_k_labels_list)
+    return best_k_labels_df, estimator
+
+def get_train_pips_df(sub_df):
     # Precompute necessary arrays
     close_array = sub_df["close"].to_numpy()
     high_array = sub_df["high"].to_numpy()
@@ -370,6 +371,7 @@ def get_pips_df(sub_df):
     return pd.DataFrame(pips_y_list)
 
 
+
 # Load the saved time scaler
 ts_scaler = joblib.load("ts_scaler_2018.joblib")
 
@@ -420,7 +422,7 @@ for i, (train_idx, test_idx) in enumerate(splitter.split(df)):
     last_test_idx = test_idx[-1]
 
     # TRAINING
-    pips_train_df = get_pips_df(df_train)
+    pips_train_df = get_train_pips_df(df_train)
     train_best_k_labels_df, estimator = cluster_and_filter_pips_df(pips_train_df)
     if train_best_k_labels_df.empty:
         continue
