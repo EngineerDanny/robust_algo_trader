@@ -50,16 +50,27 @@ clustering_models = {
 
 @jit(nopython=True)
 def calculate_sharpe_ratio(returns, risk_free_rate=RISK_FREE_RATE):
+    if len(returns) == 0:
+        return 0.0
     excess_returns = returns - (risk_free_rate / TRADING_DAYS_PER_YEAR)
-    return np.sqrt(TRADING_DAYS_PER_YEAR) * np.mean(excess_returns) / np.std(returns)
+    avg_excess_return = np.mean(excess_returns)
+    std_dev = np.std(returns)
+    if std_dev == 0:
+        return 0.0 if avg_excess_return == 0 else np.inf * np.sign(avg_excess_return)
+    return np.sqrt(TRADING_DAYS_PER_YEAR) * avg_excess_return / std_dev
 
 
 @jit(nopython=True)
 def calculate_sortino_ratio(returns, risk_free_rate=RISK_FREE_RATE):
+    if len(returns) == 0:
+        return 0.0
     excess_returns = returns - (risk_free_rate / TRADING_DAYS_PER_YEAR)
+    avg_excess_return = np.mean(excess_returns)
     downside_returns = np.minimum(excess_returns, 0)
     downside_deviation = np.sqrt(np.mean(downside_returns**2))
-    return np.sqrt(TRADING_DAYS_PER_YEAR) * np.mean(excess_returns) / downside_deviation
+    if downside_deviation == 0:
+        return 0.0 if avg_excess_return == 0 else np.inf * np.sign(avg_excess_return)
+    return np.sqrt(TRADING_DAYS_PER_YEAR) * avg_excess_return / downside_deviation
 
 
 @jit(nopython=True)
@@ -198,20 +209,11 @@ def predict_clusters(price_data, cluster_centers):
 @jit(nopython=True)
 def evaluate_cluster_performance(price_data, best_clusters, cluster_centers):
     predicted_labels = predict_clusters(price_data[:, :8], cluster_centers)
-    cluster_performance_list = np.zeros(
-        len(best_clusters),
-        dtype=[
-            ("signal", np.int64),
-            ("cluster_label", np.int64),
-            ("sharpe_ratio", np.float64),
-            ("sortino_ratio", np.float64),
-            ("max_drawdown", np.float64),
-            ("actual_return", np.float64),
-            ("num_trades", np.int64),
-        ],
-    )
+    num_clusters = len(best_clusters)
 
-    for i in range(len(best_clusters)):
+    cluster_performance_list = np.zeros((num_clusters, 7), dtype=np.float64)
+
+    for i in range(num_clusters):
         cluster_label, signal = best_clusters[i]
         mask = predicted_labels == cluster_label
         cluster_returns = price_data[mask, -1]
@@ -219,15 +221,19 @@ def evaluate_cluster_performance(price_data, best_clusters, cluster_centers):
         if signal == 0:
             cluster_returns = -cluster_returns
 
-        metrics = calculate_trading_metrics(cluster_returns)
+        if len(cluster_returns) > 0:
+            metrics = calculate_trading_metrics(cluster_returns)
 
-        cluster_performance_list[i]["signal"] = signal
-        cluster_performance_list[i]["cluster_label"] = cluster_label
-        cluster_performance_list[i]["sharpe_ratio"] = metrics[1]
-        cluster_performance_list[i]["sortino_ratio"] = metrics[2]
-        cluster_performance_list[i]["max_drawdown"] = metrics[3]
-        cluster_performance_list[i]["actual_return"] = metrics[4]
-        cluster_performance_list[i]["num_trades"] = metrics[5]
+            cluster_performance_list[i, 0] = signal
+            cluster_performance_list[i, 1] = cluster_label
+            cluster_performance_list[i, 2] = metrics[1]  # sharpe_ratio
+            cluster_performance_list[i, 3] = metrics[2]  # sortino_ratio
+            cluster_performance_list[i, 4] = metrics[3]  # max_drawdown
+            cluster_performance_list[i, 5] = metrics[4]  # actual_return
+            cluster_performance_list[i, 6] = metrics[5]  # num_trades
+        else:
+            # If there are no returns for this cluster, set all metrics to 0
+            cluster_performance_list[i] = [signal, cluster_label, 0, 0, 0, 0, 0]
 
     return cluster_performance_list
 
@@ -256,7 +262,29 @@ def evaluate_cluster_performance_df(
         price_data, train_best_clusters, cluster_centers
     )
 
-    return pd.DataFrame(result)
+    df = pd.DataFrame(
+        result,
+        columns=[
+            "signal",
+            "cluster_label",
+            "sharpe_ratio",
+            "sortino_ratio",
+            "max_drawdown",
+            "actual_return",
+            "num_trades",
+        ],
+    )
+
+    # Remove rows where all metrics are 0 (no trades in that cluster)
+    df = df[
+        (df["sharpe_ratio"] != 0)
+        | (df["sortino_ratio"] != 0)
+        | (df["max_drawdown"] != 0)
+        | (df["actual_return"] != 0)
+        | (df["num_trades"] != 0)
+    ]
+
+    return df
 
 
 def prepare_test_data(price_subset, full_price_data, last_test_index):
@@ -458,6 +486,7 @@ def main():
             train_price_data
         )
         if train_best_clusters.empty:
+            print(f"No valid clusters in training window {window}, skipping...")
             continue
 
         # Prepare test data and evaluate cluster performance
@@ -467,6 +496,7 @@ def main():
             test_price_data, train_best_clusters, clustering_model
         )
         if test_cluster_performance.empty:
+            print(f"No valid trades in test window {window}, skipping...")
             continue
 
         # Calculate window returns
