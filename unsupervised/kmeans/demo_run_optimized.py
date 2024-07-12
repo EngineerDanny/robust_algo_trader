@@ -445,8 +445,7 @@ def prepare_training_data(price_subset):
 
 
 def main():
-    time_scaler = joblib.load("ts_scaler_2018.joblib")
-
+    time_scaler = joblib.load("/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/ts_scaler_2018.joblib")
     price_data = pd.read_csv(
         "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
         parse_dates=["time"],
@@ -467,7 +466,7 @@ def main():
     price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176)
 
     # Filter date range and apply time scaling
-    price_data = price_data.loc["2019-01-01":"2019-08-01"]
+    price_data = price_data.loc["2019-01-01":"2024-05-01"]
     time_columns = ["day_of_week", "hour", "minute"]
     price_data[time_columns] = np.round(
         time_scaler.transform(price_data[time_columns]), 6
@@ -558,13 +557,10 @@ def main():
     results_df["test_period"] = TEST_PERIOD
     results_df["random_seed"] = RANDOM_SEED
 
-    # Print results
-    print(results_df)
-    print("Backtesting completed.")
-
     # save results to csv
-    results_df.to_csv("results.csv", index=False)
-
+    out_file = f"results/{param_row}.csv"
+    results_df.to_csv(out_file, encoding="utf-8", index=False)
+    print("Backtesting completed.")
 
 if __name__ == "__main__":
     main()
