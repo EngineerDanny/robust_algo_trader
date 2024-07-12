@@ -211,66 +211,6 @@ performance_dtype = np.dtype(
 )
 
 
-@jit(nopython=True)
-def predict_clusters(price_data, cluster_centers):
-    """
-    Predict cluster labels for price data.
-
-    Args:
-    price_data (np.array): Array of price data features.
-    cluster_centers (np.array): Array of cluster centers.
-
-    Returns:
-    np.array: Array of predicted cluster labels.
-    """
-    num_samples = price_data.shape[0]
-    num_clusters = cluster_centers.shape[0]
-    distances = np.zeros((num_samples, num_clusters))
-
-    for i in range(num_samples):
-        for j in range(num_clusters):
-            distances[i, j] = np.sum((price_data[i] - cluster_centers[j]) ** 2)
-
-    return np.argmin(distances, axis=1)
-
-
-@jit(nopython=True)
-def evaluate_cluster_performance(price_data, best_clusters, cluster_centers):
-    """
-    Evaluate the performance of clusters based on price data.
-
-    Args:
-    price_data (np.array): Array of price data.
-    best_clusters (np.array): Array of best performing clusters.
-    cluster_centers (np.array): Array of cluster centers.
-
-    Returns:
-    np.array: Structured array of cluster performance metrics.
-    """
-    predicted_labels = predict_clusters(price_data[:, :8], cluster_centers)
-    cluster_performance_list = np.zeros(len(best_clusters), dtype=performance_dtype)
-
-    for i in range(len(best_clusters)):
-        cluster_label, signal = best_clusters[i]
-        mask = predicted_labels == cluster_label
-        cluster_cumulative_return = np.cumsum(price_data[mask, -1])
-
-        if signal == 0:
-            cluster_cumulative_return = -cluster_cumulative_return
-
-        metrics = calculate_trading_metrics(cluster_cumulative_return)
-
-        cluster_performance_list[i]["signal"] = signal
-        cluster_performance_list[i]["cluster_label"] = cluster_label
-        cluster_performance_list[i]["calmar_ratio"] = metrics[1]
-        cluster_performance_list[i]["annualized_return"] = metrics[2]
-        cluster_performance_list[i]["max_drawdown"] = metrics[3]
-        cluster_performance_list[i]["actual_return"] = metrics[4]
-        cluster_performance_list[i]["num_trades"] = metrics[5]
-
-    return cluster_performance_list
-
-
 def evaluate_cluster_performance_df(
     price_data_df, train_best_clusters_df, clustering_model
 ):
@@ -300,14 +240,29 @@ def evaluate_cluster_performance_df(
     ].values
     train_best_clusters = train_best_clusters_df[["cluster_label", "signal"]].values
 
-    # Extract cluster centers from the clustering model
-    cluster_centers = clustering_model.cluster_centers_
+    # Predict cluster labels and evaluate performance
+    # Remove the trade_outcome column from the price data before
+    predicted_labels = clustering_model.predict(price_data[:, :-1])
+    cluster_performance_list = np.zeros(len(train_best_clusters), dtype=performance_dtype)
 
-    result = evaluate_cluster_performance(
-        price_data, train_best_clusters, cluster_centers
-    )
+    for i in range(len(train_best_clusters)):
+        cluster_label, signal = train_best_clusters[i]
+        mask = predicted_labels == cluster_label
+        cluster_cumulative_return = np.cumsum(price_data[mask, -1])
 
-    return pd.DataFrame(result)
+        if signal == 0:
+            cluster_cumulative_return = -cluster_cumulative_return
+        cluster_trade_outcomes = price_data[mask, -1]
+        metrics = calculate_trading_metrics(cluster_trade_outcomes)
+        cluster_performance_list[i]["signal"] = signal
+        cluster_performance_list[i]["cluster_label"] = cluster_label
+        cluster_performance_list[i]["calmar_ratio"] = metrics[1]
+        cluster_performance_list[i]["annualized_return"] = metrics[2]
+        cluster_performance_list[i]["max_drawdown"] = metrics[3]
+        cluster_performance_list[i]["actual_return"] = metrics[4]
+        cluster_performance_list[i]["num_trades"] = metrics[5]
+
+    return pd.DataFrame(cluster_performance_list)
 
 
 @jit(nopython=True)
