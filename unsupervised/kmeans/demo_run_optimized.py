@@ -249,18 +249,20 @@ def evaluate_cluster_performance_df(
         cluster_label, signal = train_best_clusters[i]
         mask = predicted_labels == cluster_label
         cluster_cumulative_return = np.cumsum(price_data[mask, -1])
-
         if signal == 0:
             cluster_cumulative_return = -cluster_cumulative_return
+
         cluster_trade_outcomes = price_data[mask, -1]
-        metrics = calculate_trading_metrics(cluster_trade_outcomes)
+        metrics = calculate_evaluation_metrics(
+            cluster_cumulative_return, cluster_trade_outcomes
+        )
         cluster_performance_list[i]["signal"] = signal
         cluster_performance_list[i]["cluster_label"] = cluster_label
-        cluster_performance_list[i]["calmar_ratio"] = metrics[1]
-        cluster_performance_list[i]["annualized_return"] = metrics[2]
-        cluster_performance_list[i]["max_drawdown"] = metrics[3]
-        cluster_performance_list[i]["actual_return"] = metrics[4]
-        cluster_performance_list[i]["num_trades"] = metrics[5]
+        cluster_performance_list[i]["calmar_ratio"] = metrics[0]
+        cluster_performance_list[i]["annualized_return"] = metrics[1]
+        cluster_performance_list[i]["max_drawdown"] = metrics[2]
+        cluster_performance_list[i]["actual_return"] = metrics[3]
+        cluster_performance_list[i]["num_trades"] = metrics[4]
 
     return pd.DataFrame(cluster_performance_list)
 
@@ -318,6 +320,28 @@ def calculate_trading_metrics(trade_outcomes):
     calmar_ratio = annualized_return / (max_drawdown + 1e-6)
     return (
         signal,
+        calmar_ratio,
+        annualized_return,
+        max_drawdown,
+        end_value - start_value,
+        len(trade_outcomes),
+    )
+
+
+@jit(nopython=True)
+def calculate_evaluation_metrics(cumulative_return, trade_outcomes):
+    if len(trade_outcomes) == 0:
+        return 0.0, 0.0, 0.0, 0.0, 0
+
+    portfolio_values = np.zeros(len(cumulative_return) + 1)
+    portfolio_values[0] = INITIAL_CAPITAL
+    portfolio_values[1:] = cumulative_return + INITIAL_CAPITAL
+
+    start_value, end_value = portfolio_values[0], portfolio_values[-1]
+    annualized_return = (end_value / start_value) - 1
+    max_drawdown = calculate_max_drawdown(portfolio_values)
+    calmar_ratio = annualized_return / (max_drawdown + 1e-6)
+    return (
         calmar_ratio,
         annualized_return,
         max_drawdown,
