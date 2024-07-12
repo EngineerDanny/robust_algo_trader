@@ -20,7 +20,9 @@ RISK_FREE_RATE = 0.01
 # Load trading parameters from CSV
 trading_params = pd.read_csv("params.csv")
 param_row = 0 if len(sys.argv) != 2 else int(sys.argv[1])
-param_dict = dict(trading_params.iloc[param_row, :])  # Assume first row of trading_params.csv
+param_dict = dict(
+    trading_params.iloc[param_row, :]
+)  # Assume first row of trading_params.csv
 
 # Extract trading parameters
 MAX_CLUSTER_LABELS = int(param_dict["max_cluster_labels"])
@@ -239,7 +241,9 @@ def evaluate_cluster_performance_df(
     # Predict cluster labels and evaluate performance
     # Remove the trade_outcome column from the price data before
     predicted_labels = clustering_model.predict(price_data[:, :-1])
-    cluster_performance_list = np.zeros(len(train_best_clusters), dtype=performance_dtype)
+    cluster_performance_list = np.zeros(
+        len(train_best_clusters), dtype=performance_dtype
+    )
 
     for i in range(len(train_best_clusters)):
         cluster_label, signal = train_best_clusters[i]
@@ -533,8 +537,8 @@ def main():
     # Print results
     print(results_df)
     print("Backtesting completed.")
-    
-    #save results to csv
+
+    # save results to csv
     results_df.to_csv("results.csv", index=False)
 
 
