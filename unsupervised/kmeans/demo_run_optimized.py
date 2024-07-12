@@ -37,10 +37,6 @@ TEST_PERIOD = int(param_dict["test_period"] * CANDLES_PER_DAY)
 # Define clustering algorithms
 clustering_models = {
     "kmeans": KMeans(n_clusters=NUM_CLUSTERS, random_state=RANDOM_SEED),
-    "mini_batch_kmeans": MiniBatchKMeans(
-        n_clusters=NUM_CLUSTERS, random_state=RANDOM_SEED
-    ),
-    "birch": Birch(n_clusters=NUM_CLUSTERS),
     "gaussian_mixture": GaussianMixture(
         n_components=NUM_CLUSTERS, covariance_type="tied", random_state=RANDOM_SEED
     ),
