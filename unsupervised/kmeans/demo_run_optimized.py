@@ -271,9 +271,6 @@ def evaluate_cluster_performance(price_data, best_clusters, cluster_centers):
     return cluster_performance_list
 
 
-# The rest of the code remains the same
-
-
 def evaluate_cluster_performance_df(
     price_data_df, train_best_clusters_df, clustering_model
 ):
@@ -363,7 +360,7 @@ def calculate_trading_metrics(trade_outcomes):
     start_value, end_value = portfolio_values[0], portfolio_values[-1]
     annualized_return = (end_value / start_value) - 1
     max_drawdown = calculate_max_drawdown(portfolio_values)
-    calmar_ratio = annualized_return / (max_drawdown + 0.001)
+    calmar_ratio = annualized_return / (max_drawdown + 1e-6)
     return (
         signal,
         calmar_ratio,

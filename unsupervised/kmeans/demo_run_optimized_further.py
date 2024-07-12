@@ -10,30 +10,26 @@ from sktime.forecasting.model_selection import SlidingWindowSplitter
 from numba import jit
 import joblib
 
-# Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")
 
-# Define constants
+# Constants
 CANDLES_PER_DAY = 4 * 24  # 15-minute candles
-INITIAL_CAPITAL = 100000  # Starting capital for backtesting
-RISK_FREE_RATE = 0.01  # Risk-free rate for Sharpe ratio calculation
+INITIAL_CAPITAL = 100
+RISK_FREE_RATE = 0.01
+TRADING_DAYS_PER_YEAR = 252
 
-def load_params(param_file="params.csv"):
-    """Load trading parameters from a CSV file."""
-    trading_params = pd.read_csv(param_file)
-    param_row = 0 if len(sys.argv) != 2 else int(sys.argv[1])
-    return dict(trading_params.iloc[param_row, :])
+# Load trading parameters from CSV
+trading_params = pd.read_csv("params.csv")
+param_row = 0 if len(sys.argv) != 2 else int(sys.argv[1])
+param_dict = dict(trading_params.iloc[param_row, :])
 
-# Load parameters
-param_dict = load_params()
-
-# Extract trading parameters from the loaded dictionary
+# Extract trading parameters
 MAX_CLUSTER_LABELS = int(param_dict["max_cluster_labels"])
 PRICE_HISTORY_LENGTH = int(param_dict["price_history_length"])
 NUM_PERCEPTUALLY_IMPORTANT_POINTS = int(param_dict["num_perceptually_important_points"])
 DISTANCE_MEASURE = int(param_dict["distance_measure"])
 NUM_CLUSTERS = int(param_dict["num_clusters"])
-ATR_MULTIPLIER = float(param_dict["atr_multiplier"])
+ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 CLUSTERING_ALGORITHM = param_dict["clustering_algorithm"]
 RANDOM_SEED = int(param_dict["random_seed"])
 TRAIN_PERIOD = int(param_dict["train_period"] * CANDLES_PER_DAY)
@@ -47,61 +43,20 @@ clustering_models = {
     "gaussian_mixture": GaussianMixture(n_components=NUM_CLUSTERS, covariance_type="tied", random_state=RANDOM_SEED),
 }
 
+@jit(nopython=True)
+def calculate_sharpe_ratio(returns, risk_free_rate=RISK_FREE_RATE):
+    excess_returns = returns - (risk_free_rate / TRADING_DAYS_PER_YEAR)
+    return np.sqrt(TRADING_DAYS_PER_YEAR) * np.mean(excess_returns) / np.std(returns)
 
-def calculate_trading_metrics(trade_outcomes, initial_capital=INITIAL_CAPITAL, trading_days_per_year=252, risk_free_rate=RISK_FREE_RATE):
-    """Calculate various trading performance metrics."""
-    if len(trade_outcomes) == 0:
-        return np.zeros(10)  # Return zeros if no trades
-
-    # Calculate returns
-    returns = trade_outcomes
-    cumulative_return = np.sum(returns)
-    
-    # Annualize the return
-    num_trading_days = len(trade_outcomes)
-    annualized_return = ((1 + cumulative_return) ** (trading_days_per_year / num_trading_days)) - 1
-    
-    # Calculate drawdowns and max drawdown
-    cumulative_returns = np.cumsum(returns)
-    peak = np.maximum.accumulate(cumulative_returns)
-    drawdowns = peak - cumulative_returns
-    max_drawdown = np.max(drawdowns)
-    
-    # Calculate Sharpe and Sortino ratios
-    excess_returns = returns - (risk_free_rate / trading_days_per_year)
-    sharpe_ratio = (np.mean(excess_returns) / np.std(returns)) * np.sqrt(trading_days_per_year) if np.std(returns) != 0 else 0
-    
+@jit(nopython=True)
+def calculate_sortino_ratio(returns, risk_free_rate=RISK_FREE_RATE):
+    excess_returns = returns - (risk_free_rate / TRADING_DAYS_PER_YEAR)
     downside_returns = np.minimum(excess_returns, 0)
-    sortino_ratio = (np.mean(excess_returns) / np.std(downside_returns)) * np.sqrt(trading_days_per_year) if np.std(downside_returns) != 0 else 0
-    
-    # Calculate Calmar ratio
-    calmar_ratio = annualized_return / max_drawdown if max_drawdown != 0 else 0
-    
-    # Calculate win rate and profit factors
-    wins = trade_outcomes > 0
-    losses = trade_outcomes < 0
-    win_rate = np.sum(wins) / len(trade_outcomes)
-    profit_factor = np.sum(trade_outcomes[wins]) / np.abs(np.sum(trade_outcomes[losses])) if np.sum(trade_outcomes[losses]) != 0 else 0
-    
-    # Calculate average trade metrics
-    avg_trade = np.mean(trade_outcomes)
-
-    return np.array([
-        cumulative_return,
-        annualized_return,
-        max_drawdown,
-        sharpe_ratio,
-        sortino_ratio,
-        calmar_ratio,
-        win_rate,
-        profit_factor,
-        avg_trade,
-        len(trade_outcomes)
-    ])
+    downside_deviation = np.sqrt(np.mean(downside_returns**2))
+    return np.sqrt(TRADING_DAYS_PER_YEAR) * np.mean(excess_returns) / downside_deviation
 
 @jit(nopython=True)
 def find_perceptually_important_points(price_data, num_points):
-    """Find perceptually important points in a price series."""
     point_indices = np.zeros(num_points, dtype=np.int64)
     point_prices = np.zeros(num_points, dtype=np.float64)
     point_indices[0], point_indices[1] = 0, len(price_data) - 1
@@ -124,7 +79,6 @@ def find_perceptually_important_points(price_data, num_points):
 
 @jit(nopython=True)
 def calculate_point_distance(data, point_indices, point_prices, index, left_adj, right_adj):
-    """Calculate the distance of a point from a line segment."""
     time_diff = point_indices[right_adj] - point_indices[left_adj]
     price_diff = point_prices[right_adj] - point_prices[left_adj]
     slope = price_diff / time_diff
@@ -140,51 +94,157 @@ def calculate_point_distance(data, point_indices, point_prices, index, left_adj,
         return abs((slope * x + intercept) - y)
 
 @jit(nopython=True)
-def determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss, current_price):
-    """Determine the outcome of a trade based on future price movements."""
+def determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss):
+    if future_highs[0] >= take_profit:
+        return 1
+    if future_lows[0] <= stop_loss:
+        return -1
+
     tp_hit = np.argmax(future_highs >= take_profit)
     sl_hit = np.argmax(future_lows <= stop_loss)
 
-    if tp_hit < sl_hit or (tp_hit > 0 and sl_hit == 0):
-        return (take_profit - current_price) / current_price
+    if tp_hit == 0 and sl_hit == 0:
+        return 0
+    elif tp_hit < sl_hit or (tp_hit > 0 and sl_hit == 0):
+        return 1
     elif sl_hit < tp_hit or (sl_hit > 0 and tp_hit == 0):
-        return (stop_loss - current_price) / current_price
+        return -1
     else:
         return 0
 
-def prepare_price_data(price_data, history_length, num_pips):
-    """Prepare price data for clustering by extracting features and calculating trade outcomes."""
-    price_data_list = []
+@jit(nopython=True)
+def calculate_max_drawdown(portfolio_values):
+    peak = portfolio_values[0]
+    max_drawdown = 0.0
+
+    for value in portfolio_values[1:]:
+        if value > peak:
+            peak = value
+        drawdown = (peak - value) / peak
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+
+    return max_drawdown
+
+@jit(nopython=True)
+def calculate_trading_metrics(trade_outcomes):
+    if len(trade_outcomes) == 0:
+        return 0, 0.0, 0.0, 0.0, 0.0, 0
+
+    cumulative_return = np.cumprod(1 + trade_outcomes) - 1
+    total_return = cumulative_return[-1]
+    
+    portfolio_values = INITIAL_CAPITAL * (1 + cumulative_return)
+
+    max_drawdown = calculate_max_drawdown(portfolio_values)
+    sharpe_ratio = calculate_sharpe_ratio(trade_outcomes)
+    sortino_ratio = calculate_sortino_ratio(trade_outcomes)
+    
+    return (
+        1 if total_return > 0 else 0,  # signal
+        sharpe_ratio,
+        sortino_ratio,
+        max_drawdown,
+        total_return * INITIAL_CAPITAL,  # actual return in currency units
+        len(trade_outcomes),
+    )
+
+@jit(nopython=True)
+def predict_clusters(price_data, cluster_centers):
+    num_samples = price_data.shape[0]
+    num_clusters = cluster_centers.shape[0]
+    distances = np.zeros((num_samples, num_clusters))
+
+    for i in range(num_samples):
+        for j in range(num_clusters):
+            distances[i, j] = np.sum((price_data[i] - cluster_centers[j]) ** 2)
+
+    return np.argmin(distances, axis=1)
+
+@jit(nopython=True)
+def evaluate_cluster_performance(price_data, best_clusters, cluster_centers):
+    predicted_labels = predict_clusters(price_data[:, :8], cluster_centers)
+    cluster_performance_list = np.zeros(len(best_clusters), dtype=[
+        ('signal', np.int64),
+        ('cluster_label', np.int64),
+        ('sharpe_ratio', np.float64),
+        ('sortino_ratio', np.float64),
+        ('max_drawdown', np.float64),
+        ('actual_return', np.float64),
+        ('num_trades', np.int64),
+    ])
+
+    for i in range(len(best_clusters)):
+        cluster_label, signal = best_clusters[i]
+        mask = predicted_labels == cluster_label
+        cluster_returns = price_data[mask, -1]
+
+        if signal == 0:
+            cluster_returns = -cluster_returns
+
+        metrics = calculate_trading_metrics(cluster_returns)
+
+        cluster_performance_list[i]['signal'] = signal
+        cluster_performance_list[i]['cluster_label'] = cluster_label
+        cluster_performance_list[i]['sharpe_ratio'] = metrics[1]
+        cluster_performance_list[i]['sortino_ratio'] = metrics[2]
+        cluster_performance_list[i]['max_drawdown'] = metrics[3]
+        cluster_performance_list[i]['actual_return'] = metrics[4]
+        cluster_performance_list[i]['num_trades'] = metrics[5]
+
+    return cluster_performance_list
+
+def evaluate_cluster_performance_df(price_data_df, train_best_clusters_df, clustering_model):
+    price_data = price_data_df[[
+        "price_point_0", "price_point_1", "price_point_2", "price_point_3", "price_point_4",
+        "day_of_week", "hour", "minute", "trade_outcome"
+    ]].values
+    train_best_clusters = train_best_clusters_df[["cluster_label", "signal"]].values
+
+    cluster_centers = clustering_model.cluster_centers_
+
+    result = evaluate_cluster_performance(price_data, train_best_clusters, cluster_centers)
+
+    return pd.DataFrame(result)
+
+def prepare_test_data(price_subset, full_price_data, last_test_index):
+    test_data_list = []
     scaler = StandardScaler()
 
-    for index in range(history_length, len(price_data)):
-        price_history = price_data["close"].iloc[index - history_length : index].values
-        if len(price_history) < history_length:
+    for index in range(PRICE_HISTORY_LENGTH, len(price_subset)):
+        price_history = price_subset["close"].iloc[index - PRICE_HISTORY_LENGTH : index].values
+        if len(price_history) < PRICE_HISTORY_LENGTH:
             continue
 
-        _, important_points = find_perceptually_important_points(price_history, num_pips)
+        _, important_points = find_perceptually_important_points(price_history, NUM_PERCEPTUALLY_IMPORTANT_POINTS)
         scaled_points = scaler.fit_transform(important_points.reshape(-1, 1)).flatten()
 
-        data_point = {f"price_point_{i}": scaled_points[i] for i in range(num_pips)}
-        data_point.update(price_data.iloc[index - 1][["year", "month", "day_of_week", "hour", "minute"]].to_dict())
+        data_point = {f"price_point_{i}": scaled_points[i] for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)}
+        data_point.update(price_subset.iloc[index - 1][["year", "month", "day_of_week", "hour", "minute"]].to_dict())
 
-        current_price = price_data["close"].iloc[index - 1]
-        current_atr = price_data["atr"].iloc[index - 1]
+        current_price = price_subset["close"].iloc[index - 1]
+        current_atr = price_subset["atr"].iloc[index - 1]
         take_profit = current_price + (ATR_MULTIPLIER * current_atr)
         stop_loss = current_price - (ATR_MULTIPLIER * current_atr)
 
-        future_highs = price_data["high"].iloc[index:].values
-        future_lows = price_data["low"].iloc[index:].values
+        future_highs = price_subset["high"].iloc[index:].values
+        future_lows = price_subset["low"].iloc[index:].values
 
-        data_point["trade_outcome"] = determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss, current_price)
-        price_data_list.append(data_point)
+        data_point["trade_outcome"] = determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss)
+        if data_point["trade_outcome"] == 0:
+            future_highs_full = full_price_data["high"].iloc[last_test_index:].values
+            future_lows_full = full_price_data["low"].iloc[last_test_index:].values
+            data_point["trade_outcome"] = determine_trade_outcome(future_highs_full, future_lows_full, take_profit, stop_loss)
 
-    return pd.DataFrame(price_data_list)
+        test_data_list.append(data_point)
+
+    return pd.DataFrame(test_data_list)
 
 def cluster_and_evaluate_price_data(price_data_df):
-    """Perform clustering on price data and evaluate the performance of each cluster."""
-    price_features = price_data_df[[f"price_point_{i}" for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)] + 
-                                   ["day_of_week", "hour", "minute"]].values
+    price_features = price_data_df[[
+        "price_point_0", "price_point_1", "price_point_2", "price_point_3", "price_point_4",
+        "day_of_week", "hour", "minute"
+    ]].values
     clustering_model = clustering_models[CLUSTERING_ALGORITHM]
     clustering_model.fit(price_features)
     price_data_df["cluster_label"] = clustering_model.predict(price_features)
@@ -196,125 +256,157 @@ def cluster_and_evaluate_price_data(price_data_df):
         cluster_trade_outcomes = price_data_df[price_data_df["cluster_label"] == cluster_label]["trade_outcome"].values
         metrics = calculate_trading_metrics(cluster_trade_outcomes)
         best_clusters_list.append({
+            "signal": metrics[0],
             "cluster_label": cluster_label,
-            "total_return": metrics[0],
-            "annualized_return": metrics[1],
-            "max_drawdown": metrics[2],
-            "sharpe_ratio": metrics[3],
-            "sortino_ratio": metrics[4],
-            "calmar_ratio": metrics[5],
-            "win_rate": metrics[6],
-            "profit_factor": metrics[7],
-            "avg_trade": metrics[8],
-            "num_trades": metrics[9]
+            "sharpe_ratio": metrics[1],
+            "sortino_ratio": metrics[2],
+            "max_drawdown": metrics[3],
+            "actual_return": metrics[4],
+            "num_trades": metrics[5],
         })
 
     return pd.DataFrame(best_clusters_list), clustering_model
 
+def prepare_training_data(price_subset):
+    training_data_list = []
+    scaler = StandardScaler()
+
+    for index in range(PRICE_HISTORY_LENGTH, len(price_subset)):
+        price_history = price_subset["close"].iloc[max(0, index - PRICE_HISTORY_LENGTH) : index].values
+        if len(price_history) < PRICE_HISTORY_LENGTH:
+            break
+
+        _, important_points = find_perceptually_important_points(price_history, NUM_PERCEPTUALLY_IMPORTANT_POINTS)
+        scaled_points = scaler.fit_transform(important_points.reshape(-1, 1)).flatten()
+
+        data_point = {f"price_point_{i}": scaled_points[i] for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)}
+        data_point.update(price_subset.iloc[index - 1][["year", "month", "day_of_week", "hour", "minute"]].to_dict())
+
+        current_price = price_subset["close"].iloc[index - 1]
+        current_atr = price_subset["atr_clipped"].iloc[index - 1]
+        take_profit = current_price + (ATR_MULTIPLIER * current_atr)
+        stop_loss = current_price - (ATR_MULTIPLIER * current_atr)
+
+        future_highs = price_subset["high"].iloc[index:].values
+        future_lows = price_subset["low"].iloc[index:].values
+
+        if len(future_highs) > 0:
+            data_point["trade_outcome"] = determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss)
+        else:
+            data_point["trade_outcome"] = 0
+
+        training_data_list.append(data_point)
+
+    return pd.DataFrame(training_data_list)
+
 def main():
-    """Main function to run the trading strategy backtesting."""
-    # Load time scaler
     time_scaler = joblib.load("ts_scaler_2018.joblib")
 
-    # Load and preprocess price data
-    price_data = pd.read_csv("/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
-                             parse_dates=["time"], index_col="time")
+    price_data = pd.read_csv(
+        "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
+        parse_dates=["time"],
+        index_col="time",
+    )
 
-    # Extract time features
     price_data["year"] = price_data.index.year
     price_data["month"] = price_data.index.month
     price_data["day_of_week"] = price_data.index.dayofweek
     price_data["hour"] = price_data.index.hour
     price_data["minute"] = price_data.index.minute
-    
-    # Calculate ATR
-    price_data["atr"] = talib.ATR(price_data["high"].values, price_data["low"].values, price_data["close"].values, timeperiod=14)
+    price_data["atr"] = talib.ATR(
+        price_data["high"].values,
+        price_data["low"].values,
+        price_data["close"].values,
+        timeperiod=1,
+    )
+    price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176)
 
     # Filter date range and apply time scaling
     price_data = price_data.loc["2019-01-01":"2019-05-01"]
     time_columns = ["day_of_week", "hour", "minute"]
     price_data[time_columns] = np.round(time_scaler.transform(price_data[time_columns]), 6)
-    price_data["atr"] = price_data["atr"].round(6)
+    price_data[["atr", "atr_clipped"]] = price_data[["atr", "atr_clipped"]].round(6)
 
     # Initialize the sliding window splitter for backtesting
-    window_splitter = SlidingWindowSplitter(window_length=TRAIN_PERIOD, fh=np.arange(1, TEST_PERIOD + 1), step_length=TEST_PERIOD)
+    window_splitter = SlidingWindowSplitter(
+        window_length=TRAIN_PERIOD,
+        fh=np.arange(1, TEST_PERIOD + 1),
+        step_length=TEST_PERIOD,
+    )
 
     backtest_results = []
+    cumulative_return = 1.0
+    all_returns = []
+
     for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data)):
         print(f"Processing window {window}...")
         train_data = price_data.iloc[train_indices, :]
         test_data = price_data.iloc[test_indices, :]
+        last_test_index = test_indices[-1]
 
         # Prepare training data and perform clustering
         print("Preparing training data and clustering...")
-        train_price_data = prepare_price_data(train_data, PRICE_HISTORY_LENGTH, NUM_PERCEPTUALLY_IMPORTANT_POINTS)
+        train_price_data = prepare_training_data(train_data)
         train_best_clusters, clustering_model = cluster_and_evaluate_price_data(train_price_data)
         if train_best_clusters.empty:
             continue
 
         # Prepare test data and evaluate cluster performance
         print("Preparing test data and evaluating cluster performance...")
-        test_price_data = prepare_price_data(test_data, PRICE_HISTORY_LENGTH, NUM_PERCEPTUALLY_IMPORTANT_POINTS)
-        test_cluster_performance = cluster_and_evaluate_price_data(test_price_data)[0]
+        test_price_data = prepare_test_data(test_data, price_data, last_test_index)
+        test_cluster_performance = evaluate_cluster_performance_df(test_price_data, train_best_clusters, clustering_model)
         if test_cluster_performance.empty:
             continue
+
+        # Calculate window returns
+        train_return = train_best_clusters['actual_return'].sum() / INITIAL_CAPITAL
+        test_return = test_cluster_performance['actual_return'].sum() / INITIAL_CAPITAL
+        
+        all_returns.append(test_return)
+        cumulative_return *= (1 + test_return)
 
         # Compile results for this window
         print("Compiling results...")
         window_result = {
-            "window": window,
-            "train_total_return": np.sum(train_best_clusters["total_return"]),
-            "train_annualized_return": (1 + np.sum(train_best_clusters["total_return"])) ** (252 / TRAIN_PERIOD) - 1,
-            "train_sharpe_ratio": np.mean(train_best_clusters["sharpe_ratio"]),
-            "train_sortino_ratio": np.mean(train_best_clusters["sortino_ratio"]),
-            "train_calmar_ratio": np.mean(train_best_clusters["calmar_ratio"]),
-            "train_win_rate": np.mean(train_best_clusters["win_rate"]),
-            "train_profit_factor": np.mean(train_best_clusters["profit_factor"]),
-            "train_num_trades": np.sum(train_best_clusters["num_trades"]),
-            "test_total_return": np.sum(test_cluster_performance["total_return"]),
-            "test_annualized_return": (1 + np.sum(test_cluster_performance["total_return"])) ** (252 / TEST_PERIOD) - 1,
-            "test_sharpe_ratio": np.mean(test_cluster_performance["sharpe_ratio"]),
-            "test_sortino_ratio": np.mean(test_cluster_performance["sortino_ratio"]),
-            "test_calmar_ratio": np.mean(test_cluster_performance["calmar_ratio"]),
-            "test_win_rate": np.mean(test_cluster_performance["win_rate"]),
-            "test_profit_factor": np.mean(test_cluster_performance["profit_factor"]),
-            "test_num_trades": np.sum(test_cluster_performance["num_trades"]),
+            'window': window,
+            'train_return': train_return,
+            'train_sharpe_ratio': calculate_sharpe_ratio(train_best_clusters['actual_return'].values / INITIAL_CAPITAL),
+            'train_sortino_ratio': calculate_sortino_ratio(train_best_clusters['actual_return'].values / INITIAL_CAPITAL),
+            'train_total_trades': train_best_clusters['num_trades'].sum(),
+            'test_return': test_return,
+            'test_sharpe_ratio': calculate_sharpe_ratio(test_cluster_performance['actual_return'].values / INITIAL_CAPITAL),
+            'test_sortino_ratio': calculate_sortino_ratio(test_cluster_performance['actual_return'].values / INITIAL_CAPITAL),
+            'test_total_trades': test_cluster_performance['num_trades'].sum(),
+            'cumulative_return': cumulative_return - 1  # Convert to percentage
         }
         backtest_results.append(window_result)
 
     # Compile final results
     results_df = pd.DataFrame(backtest_results)
     
-    # Calculate cumulative metrics
-    results_df["train_cumulative_return"] = (1 + results_df["train_total_return"]).cumprod() - 1
-    results_df["test_cumulative_return"] = (1 + results_df["test_total_return"]).cumprod() - 1
+    # Calculate overall metrics
+    total_days = len(price_data)
+    years = total_days / (CANDLES_PER_DAY * TRADING_DAYS_PER_YEAR)
+    
+    overall_annualized_return = (cumulative_return ** (1/years)) - 1
+    overall_sharpe_ratio = calculate_sharpe_ratio(np.array(all_returns))
+    overall_sortino_ratio = calculate_sortino_ratio(np.array(all_returns))
 
-    train_returns = results_df["train_total_return"].values
-    test_returns = results_df["test_total_return"].values
-
-    # Calculate overall Sharpe ratios
-    results_df["train_overall_sharpe"] = (np.mean(train_returns) / np.std(train_returns)) * np.sqrt(252) if np.std(train_returns) != 0 else 0
-    results_df["test_overall_sharpe"] = (np.mean(test_returns) / np.std(test_returns)) * np.sqrt(252) if np.std(test_returns) != 0 else 0
+    # Add overall metrics to results
+    results_df['overall_annualized_return'] = overall_annualized_return
+    results_df['overall_sharpe_ratio'] = overall_sharpe_ratio
+    results_df['overall_sortino_ratio'] = overall_sortino_ratio
 
     # Add constant parameters to the results
-    results_df["max_cluster_labels"] = MAX_CLUSTER_LABELS
-    results_df["num_clusters"] = NUM_CLUSTERS
-    results_df["clustering_algorithm"] = CLUSTERING_ALGORITHM
-    results_df["train_period"] = TRAIN_PERIOD
-    results_df["test_period"] = TEST_PERIOD
-    results_df["random_seed"] = RANDOM_SEED
+    results_df['max_cluster_labels'] = MAX_CLUSTER_LABELS
+    results_df['num_clusters'] = NUM_CLUSTERS
+    results_df['clustering_algorithm'] = CLUSTERING_ALGORITHM
+    results_df['train_period'] = TRAIN_PERIOD
+    results_df['test_period'] = TEST_PERIOD
+    results_df['random_seed'] = RANDOM_SEED
 
     # Print results
-    print("\nBacktesting Results:")
     print(results_df)
-
-    # Print overall performance metrics
-    print("\nOverall Performance:")
-    print(f"Train Cumulative Return: {results_df['train_cumulative_return'].iloc[-1]:.2%}")
-    print(f"Test Cumulative Return: {results_df['test_cumulative_return'].iloc[-1]:.2%}")
-    print(f"Train Overall Sharpe Ratio: {results_df['train_overall_sharpe'].iloc[-1]:.2f}")
-    print(f"Test Overall Sharpe Ratio: {results_df['test_overall_sharpe'].iloc[-1]:.2f}")
-
     print("Backtesting completed.")
 
 if __name__ == "__main__":
