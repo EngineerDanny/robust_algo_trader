@@ -113,7 +113,7 @@ def calculate_point_distance(
 
 
 @jit(nopython=True)
-def determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss):
+def determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss):   
     """
     Determine the outcome of a trade based on future high and low prices and TP/SL levels.
 
@@ -125,22 +125,21 @@ def determine_trade_outcome(future_highs, future_lows, take_profit, stop_loss):
 
     Returns:
     int: 1 for profit, -1 for loss, 0 for no action.
-    """
+    """    
     # Check if the first value hits TP or SL
     if future_highs[0] >= take_profit:
         return 1
     if future_lows[0] <= stop_loss:
         return -1
-
-    # If first value doesn't hit TP or SL, proceed with the original logic
+    
     tp_hit = np.argmax(future_highs >= take_profit)
     sl_hit = np.argmax(future_lows <= stop_loss)
 
     if tp_hit == 0 and sl_hit == 0:
         return 0
-    elif tp_hit < sl_hit or (tp_hit > 0 and sl_hit == 0):
+    elif (tp_hit < sl_hit and tp_hit != 0) or (tp_hit != 0 and sl_hit == 0):
         return 1
-    elif sl_hit < tp_hit or (sl_hit > 0 and tp_hit == 0):
+    elif (sl_hit < tp_hit and sl_hit != 0) or (sl_hit != 0 and tp_hit == 0):
         return -1
     else:
         return 0
@@ -173,7 +172,7 @@ def prepare_test_data(price_subset, full_price_data, last_test_index):
         )
 
         current_price = price_subset["close"].iloc[index - 1]
-        current_atr = price_subset["atr"].iloc[index - 1]
+        current_atr = price_subset["atr_clipped"].iloc[index - 1]
         take_profit = current_price + (ATR_MULTIPLIER * current_atr)
         stop_loss = current_price - (ATR_MULTIPLIER * current_atr)
 
@@ -318,12 +317,13 @@ def calculate_trading_metrics(trade_outcomes):
     annualized_return = (end_value / start_value) - 1
     max_drawdown = calculate_max_drawdown(portfolio_values)
     calmar_ratio = annualized_return / (max_drawdown + 1e-6)
+    actual_return = end_value - start_value
     return (
         signal,
         calmar_ratio,
         annualized_return,
         max_drawdown,
-        end_value - start_value,
+        actual_return,
         len(trade_outcomes),
     )
 
@@ -341,11 +341,13 @@ def calculate_evaluation_metrics(cumulative_return, trade_outcomes):
     annualized_return = (end_value / start_value) - 1
     max_drawdown = calculate_max_drawdown(portfolio_values)
     calmar_ratio = annualized_return / (max_drawdown + 1e-6)
+    actual_return = end_value - start_value
+    
     return (
         calmar_ratio,
         annualized_return,
         max_drawdown,
-        end_value - start_value,
+        actual_return,
         len(trade_outcomes),
     )
 
