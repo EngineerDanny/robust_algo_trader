@@ -314,7 +314,7 @@ def prepare_test_data(price_subset, full_price_data, last_test_index, params):
 
 
 def evaluate_cluster_performance_df(
-    price_data_df, train_best_clusters_df, clustering_model
+    price_data_df, train_best_clusters_df, clustering_model, params
 ):
     price_data = price_data_df[
         [
@@ -376,7 +376,7 @@ def process_window(window, train_indices, test_indices, price_data, params):
     # Prepare test data and evaluate cluster performance
     test_price_data = prepare_test_data(test_data, price_data, last_test_index, params)
     test_cluster_performance = evaluate_cluster_performance_df(
-        test_price_data, train_best_clusters, clustering_model
+        test_price_data, train_best_clusters, clustering_model, params
     )
     if test_cluster_performance.empty:
         return None
@@ -413,8 +413,8 @@ def main():
         "atr_multiplier": int(param_dict["atr_multiplier"]),
         "clustering_algorithm": param_dict["clustering_algorithm"],
         "random_seed": int(param_dict["random_seed"]),
-        "train_period": int(param_dict["train_period"] ),
-        "test_period": int(param_dict["test_period"] ),
+        "train_period": int(param_dict["train_period"]),
+        "test_period": int(param_dict["test_period"]),
         "initial_capital": 100,
         "risk_free_rate": 0.01,
     }
@@ -465,15 +465,22 @@ def main():
         )
     ]
 
-    # Use all available CPUs
-    # num_processes = multiprocessing.cpu_count()
-
+    # Determine the number of processes
+    num_processes = 30
     # Create a multiprocessing pool and map the process_window function to all windows
-    with multiprocessing.Pool(processes=30) as pool:
-        backtest_results = pool.starmap(process_window, window_args)
+    try:
+        with multiprocessing.Pool(processes=num_processes) as pool:
+            backtest_results = pool.starmap(process_window, window_args)
+    except Exception as e:
+        print(f"An error occurred during multiprocessing: {e}")
+        return
 
     # Filter out None results and create DataFrame
     backtest_results = [result for result in backtest_results if result is not None]
+    if not backtest_results:
+        print("No valid results were produced.")
+        return
+
     results_df = pd.DataFrame(backtest_results)
 
     # Compile final results
