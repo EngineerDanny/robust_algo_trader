@@ -466,10 +466,10 @@ def main():
     ]
 
     # Use all available CPUs
-    num_processes = multiprocessing.cpu_count()
+    # num_processes = multiprocessing.cpu_count()
 
     # Create a multiprocessing pool and map the process_window function to all windows
-    with multiprocessing.Pool(processes=num_processes) as pool:
+    with multiprocessing.Pool(processes=30) as pool:
         backtest_results = pool.starmap(process_window, window_args)
 
     # Filter out None results and create DataFrame
