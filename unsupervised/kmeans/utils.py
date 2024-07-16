@@ -1,18 +1,12 @@
 import numpy as np
 from sklearn.model_selection import TimeSeriesSplit
-from numba import jit
 
-
-class RandomStartSlidingWindowSplitter(TimeSeriesSplit):
-    """Time Series cross-validator with random starting points for each split.
+class OverlappingRandomStartSlidingWindowSplitter(TimeSeriesSplit):
+    """Time Series cross-validator with random starting points for each split, allowing overlaps.
     
-    Provides train/test indices to split time series data samples
-    that are observed at fixed time intervals, in train/test sets.
-    In each split, test indices must be higher than before, and thus shuffling
-    in cross validator is inappropriate. This cross-validation object is a variation
-    of TimeSeriesSplit with the following differences:
-    * The starting point of each split is randomized within a certain range.
-    * The range of possible starting points is controlled by the 'randomness' parameter.
+    This cross-validation object is a variation of TimeSeriesSplit with the following differences:
+    * The starting point of each split is randomized within the available range.
+    * Splits are allowed to overlap.
     * Both train_size and test_size can be specified.
     
     Parameters
@@ -21,19 +15,16 @@ class RandomStartSlidingWindowSplitter(TimeSeriesSplit):
         Number of splits. Must be at least 2.
     
     train_size : int, default=None
-        Number of samples in the training set. If None, it will be set to the maximum
-        possible size that allows for the specified test_size in all splits.
+        Number of samples in the training set.
     
     test_size : int, default=None
-        Number of samples in the test set. If None, it will default to
-        n_samples // (n_splits + 1).
+        Number of samples in the test set.
     
-    randomness : float, default=0.2
+    randomness : float, default=1.0
         A value between 0 and 1 that determines the range of possible random starting points.
-        0 means no randomness (equivalent to regular TimeSeriesSplit),
-        1 means maximum randomness (can start anywhere before the last possible regular split).
+        0 means evenly spaced splits, 1 means maximum randomness.
     """
-    def __init__(self, n_splits=5, train_size=None, test_size=None, randomness=0.2):
+    def __init__(self, n_splits=5, train_size=None, test_size=None, randomness=1.0):
         super().__init__(n_splits=n_splits)
         self.train_size = train_size
         self.test_size = test_size
@@ -45,42 +36,42 @@ class RandomStartSlidingWindowSplitter(TimeSeriesSplit):
         n_samples = len(X)
         n_splits = self.n_splits
         
-        # Determine test_size if not specified
-        if self.test_size is None:
-            test_size = n_samples // (n_splits + 1)
-        else:
-            test_size = self.test_size
+        if self.train_size is None or self.test_size is None:
+            raise ValueError("Both train_size and test_size must be specified")
         
-        # Determine train_size if not specified
-        if self.train_size is None:
-            train_size = n_samples - (test_size * n_splits)
-        else:
-            train_size = self.train_size
+        train_size = self.train_size
+        test_size = self.test_size
         
         if train_size + test_size > n_samples:
             raise ValueError(
-                f"Cannot have train_size={train_size} and test_size={test_size} "
-                f"with n_samples={n_samples}")
+                f"train_size ({train_size}) + test_size ({test_size}) "
+                f"should be <= n_samples ({n_samples})")
 
-        # The last possible start index for a regular TimeSeriesSplit
-        last_regular_start = n_samples - (n_splits * test_size + train_size)
+        # Calculate the range for start indices
+        max_start = n_samples - (train_size + test_size)
         
-        # Calculate the range of possible random starts
-        random_range = int(last_regular_start * self.randomness)
-        
+        if max_start < 0:
+            raise ValueError(
+                f"Not enough samples ({n_samples}) for the specified "
+                f"train_size ({train_size}) and test_size ({test_size})")
+
         # Generate random starting points
-        random_starts = np.random.randint(0, random_range + 1, size=n_splits)
-        
-        for i in range(n_splits):
-            start = random_starts[i]
-            train_end = start + train_size
-            test_end = train_end + test_size
+        if self.randomness == 0:
+            # Evenly spaced splits
+            starts = np.linspace(0, max_start, n_splits, dtype=int)
+        else:
+            # Random starts
+            starts = np.random.randint(0, max_start + 1, size=n_splits)
+            starts.sort()  # Ensure chronological order
 
+        for start in starts:
+            train_end = start + train_size
+            test_end = min(train_end + test_size, n_samples)
+            
+            # Adjust if the test set goes beyond n_samples
             if test_end > n_samples:
                 test_end = n_samples
+                train_end = test_end - test_size
+                start = train_end - train_size
 
             yield np.arange(start, train_end), np.arange(train_end, test_end)
-            
-            
-            
-            
