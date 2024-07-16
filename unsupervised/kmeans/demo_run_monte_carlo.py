@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sklearn.cluster import *
 from sklearn.mixture import GaussianMixture
+from sktime.forecasting.model_selection import SlidingWindowSplitter
 import talib
 import warnings
 from numba import jit
@@ -15,12 +16,12 @@ import sys
 import multiprocessing
 from functools import partial
 
-sys.path.append(
-    os.path.abspath(
-        "/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/utils.py"
-    )
-)
-from utils import *
+# sys.path.append(
+#     os.path.abspath(
+#         "/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/utils.py"
+#     )
+# )
+# from utils import *
 
 warnings.filterwarnings("ignore")
 
@@ -450,11 +451,10 @@ def main():
     price_data[["atr", "atr_clipped"]] = price_data[["atr", "atr_clipped"]].round(6)
 
     # Initialize the sliding window splitter for backtesting
-    window_splitter = RandomStartSlidingWindowSplitter(
-        train_size=params["train_period"],
-        test_size=params["test_period"],
-        n_splits=640,
-        randomness=0.5,
+    window_splitter = SlidingWindowSplitter(
+        window_length=params["train_period"],
+        fh=np.arange(1, params["test_period"] + 1),
+        step_length=1,
     )
 
     # Prepare the arguments for multiprocessing
