@@ -443,7 +443,8 @@ def main():
     price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176)
 
     # Filter date range and apply time scaling
-    price_data = price_data.loc["2019-01-01":"2024-05-01"]
+    # price_data = price_data.loc["2019-01-01":"2024-05-01"]
+    price_data = price_data.loc["2019-01-01":"2019-05-01"]
     time_columns = ["day_of_week", "hour", "minute"]
     price_data[time_columns] = np.round(
         time_scaler.transform(price_data[time_columns]), 6

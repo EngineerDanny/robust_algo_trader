@@ -33,8 +33,11 @@ NUM_CLUSTERS = int(param_dict["num_clusters"])
 ATR_MULTIPLIER = int(param_dict["atr_multiplier"])
 CLUSTERING_ALGORITHM = param_dict["clustering_algorithm"]
 RANDOM_SEED = int(param_dict["random_seed"])
-TRAIN_PERIOD = int(param_dict["train_period"] * CANDLES_PER_DAY)
-TEST_PERIOD = int(param_dict["test_period"] * CANDLES_PER_DAY)
+TRAIN_PERIOD = int(param_dict["train_period"])
+TEST_PERIOD = int(param_dict["test_period"])
+
+# TRAIN_PERIOD = int(param_dict["train_period"] * CANDLES_PER_DAY)
+# TEST_PERIOD = int(param_dict["test_period"] * CANDLES_PER_DAY)
 
 # Define clustering algorithms
 clustering_models = {
@@ -479,13 +482,17 @@ def main():
     window_splitter = SlidingWindowSplitter(
         window_length=TRAIN_PERIOD,
         fh=np.arange(1, TEST_PERIOD + 1),
-        step_length=TEST_PERIOD,
+        # step_length=TEST_PERIOD,
+        step_length=1,
+        
     )
 
     backtest_results = []
     for window, (train_indices, test_indices) in enumerate(
         window_splitter.split(price_data)
     ):
+        if window % 5 != 0:
+            continue
         print(f"Processing window {window}...")
         train_data = price_data.iloc[train_indices, :]
         test_data = price_data.iloc[test_indices, :]
