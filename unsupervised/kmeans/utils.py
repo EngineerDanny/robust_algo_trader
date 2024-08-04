@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from typing import Tuple, Union, Iterator
-         
 
 class RandomStartWindowSplitter:
     def __init__(self, window_length: int, fh: Union[int, list, np.ndarray], 
@@ -37,20 +36,17 @@ class RandomStartWindowSplitter:
         self.random_state = random_state
         self.rng = np.random.default_rng(self.random_state)
 
-    def split(self, X: Union[np.ndarray, pd.DataFrame, pd.Series], 
-              y: Union[np.ndarray, pd.Series, None] = None) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+    def split(self, X: pd.DataFrame) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
         """
         Split the input data into random windows, allowing duplicates if necessary.
         
         Args:
-            X (np.ndarray, pd.DataFrame, or pd.Series): Input time series data.
-            y (np.ndarray, pd.Series, optional): Target values. If provided, should have the same length as X.
+            X (pd.DataFrame): Input time series data with DatetimeIndex.
         
         Yields:
-            Tuple of train and test indices for each split.
+            Tuple of train and test integer indices for each split.
         """
-        n_samples = self._get_n_samples(X)
-        indices = self._get_indices(X)
+        n_samples = len(X)
 
         if n_samples < self.window_length + self.max_fh:
             raise ValueError(f"Insufficient data: n_samples ({n_samples}) must be at least window_length ({self.window_length}) + max(fh) ({self.max_fh})")
@@ -71,43 +67,23 @@ class RandomStartWindowSplitter:
             start_idx = all_start_indices[i % available_starts]
             train_start = start_idx
             train_end = train_start + self.window_length
-            test_indices = train_end - 1 + self.fh
+            test_end = train_end + self.max_fh
             
-            yield indices[train_start:train_end], indices[test_indices]
+            yield np.arange(train_start, train_end), np.arange(train_end, test_end)
 
-    def get_n_splits(self, X: Union[np.ndarray, pd.DataFrame, pd.Series], 
-                     y: Union[np.ndarray, pd.Series, None] = None) -> int:
+    def get_n_splits(self, X: pd.DataFrame) -> int:
         """
         Returns the number of splitting iterations.
         
         Args:
-            X (np.ndarray, pd.DataFrame, or pd.Series): Input time series data.
-            y (np.ndarray, pd.Series, optional): Target values. Not used, present for API consistency.
+            X (pd.DataFrame): Input time series data with DatetimeIndex.
         
         Returns:
             int: Number of splits (same as n_splits or max possible unique splits).
         """
         if self.n_splits is None:
-            n_samples = self._get_n_samples(X)
+            n_samples = len(X)
             min_start = self.window_length
             max_start = n_samples - self.window_length - self.max_fh + 1
             return max_start - min_start
         return self.n_splits
-
-    def _get_n_samples(self, X: Union[np.ndarray, pd.DataFrame, pd.Series]) -> int:
-        """Helper method to get the number of samples in X."""
-        if isinstance(X, (pd.DataFrame, pd.Series)):
-            return len(X)
-        elif isinstance(X, np.ndarray):
-            return X.shape[0] if X.ndim > 1 else len(X)
-        else:
-            raise ValueError("X must be a numpy array, pandas DataFrame, or pandas Series")
-
-    def _get_indices(self, X: Union[np.ndarray, pd.DataFrame, pd.Series]) -> np.ndarray:
-        """Helper method to get the indices of X."""
-        if isinstance(X, (pd.DataFrame, pd.Series)):
-            return X.index.values
-        elif isinstance(X, np.ndarray):
-            return np.arange(self._get_n_samples(X))
-        else:
-            raise ValueError("X must be a numpy array, pandas DataFrame, or pandas Series")

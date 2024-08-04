@@ -487,7 +487,7 @@ def main():
     price_data[["atr", "atr_clipped"]] = price_data[["atr", "atr_clipped"]].round(6)
     
     # Initialize our custom splitter
-    splitter = RandomStartWindowSplitter(
+    window_splitter = RandomStartWindowSplitter(
         window_length=TRAIN_PERIOD,
         fh=np.arange(1, TEST_PERIOD + 1),
         n_splits=10,
