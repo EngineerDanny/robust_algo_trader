@@ -491,8 +491,6 @@ def main():
     for window, (train_indices, test_indices) in enumerate(
         window_splitter.split(price_data)
     ):
-        if window % 5 != 0:
-            continue
         print(f"Processing window {window}...")
         train_data = price_data.iloc[train_indices, :]
         test_data = price_data.iloc[test_indices, :]
