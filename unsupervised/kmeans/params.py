@@ -14,39 +14,26 @@ with open(config_path) as f:
 config_settings = config["trading_settings"]
 
 params_df_list = []
-# params_dict = {
-#     'max_cluster_labels': [1, 2, 5],
-#     'price_history_length': [24],
-#     'num_perceptually_important_points': [5],
-#     'distance_measure': [1],
-#     'num_clusters': [70, 80, 90, 100, 110, 120],
-#     'atr_multiplier': [10],
-#     'clustering_algorithm': ['kmeans', 'gaussian_mixture'],
-#     # 'random_seed': np.arange(1, 100),
-#     'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
-#     'train_period': [30, 40, 50, 60, 70, 80, 90], # days   
-#     'test_period': [10] # days
-# }
-# params_df = pd.MultiIndex.from_product(
-#     params_dict.values(),
-#     names=params_dict.keys()
-# ).to_frame().reset_index(drop=True)
-# params_df_list.append(params_df)
-# params_concat_df = pd.concat(params_df_list, ignore_index=True)
-
-data_dict = {
-    'train_period': [3840, 4800, 4800, 4800, 4800, 8640, 8640, 8640, 8640],
-    'random_seed': [20, 10, 20, 42, 200, 7, 7, 10, 90],
-    'num_clusters': [110, 80, 80, 70, 90, 80, 80, 90, 70],
-    'clustering_algorithm': 8 * ['gaussian_mixture'] + ['kmeans'],
-    'max_cluster_labels': [2, 2, 1, 1, 1, 1, 2, 2, 2],
-    'num_perceptually_important_points': 9 * [5],
-    'distance_measure': 9 *[1],
-    'atr_multiplier': 9 * [10],
-    'price_history_length': 9 * [24],
-    'test_period': 9 * [960],
+params_dict = {
+    'max_cluster_labels': [1, 2, 5],
+    'price_history_length': [24],
+    'num_perceptually_important_points': [5],
+    'distance_measure': [1],
+    'num_clusters': [70, 80, 90, 100, 110, 120],
+    'atr_multiplier': [10],
+    'clustering_algorithm': ['kmeans', 'gaussian_mixture'],
+    # 'random_seed': np.arange(1, 100),
+    'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
+    'train_period': [6, 8, 10, 12, 14, 16, 18], # weeks   
+    'test_period': [2] # weeks
 }
-params_concat_df = pd.DataFrame(data_dict)
+params_df = pd.MultiIndex.from_product(
+    params_dict.values(),
+    names=params_dict.keys()
+).to_frame().reset_index(drop=True)
+params_df_list.append(params_df)
+params_concat_df = pd.concat(params_df_list, ignore_index=True)
+
 
 n_tasks, ncol = params_concat_df.shape
 date_time = datetime.now().strftime("%Y-%m-%d_%H:%M")
@@ -59,7 +46,7 @@ params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 run_one_contents = f"""#!/bin/bash
 #SBATCH --array=0-{n_tasks-1}
 #SBATCH --time=24:00:00
-#SBATCH --mem=4GB
+#SBATCH --mem=6GB
 #SBATCH --cpus-per-task=1
 #SBATCH --error={job_dir}/slurm-%A_%a.out
 #SBATCH --output={job_dir}/slurm-%A_%a.out

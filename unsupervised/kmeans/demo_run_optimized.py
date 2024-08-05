@@ -9,6 +9,14 @@ from sklearn.mixture import GaussianMixture
 from sktime.forecasting.model_selection import SlidingWindowSplitter
 from numba import jit
 import joblib
+import os
+
+sys.path.append(
+    os.path.abspath(
+        "/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans"
+    )
+)
+from utils import *
 
 warnings.filterwarnings("ignore")
 
@@ -36,8 +44,6 @@ RANDOM_SEED = int(param_dict["random_seed"])
 TRAIN_PERIOD = int(param_dict["train_period"])
 TEST_PERIOD = int(param_dict["test_period"])
 
-# TRAIN_PERIOD = int(param_dict["train_period"] * CANDLES_PER_DAY)
-# TEST_PERIOD = int(param_dict["test_period"] * CANDLES_PER_DAY)
 
 # Define clustering algorithms
 clustering_models = {
@@ -479,18 +485,12 @@ def main():
     price_data[["atr", "atr_clipped"]] = price_data[["atr", "atr_clipped"]].round(6)
 
     # Initialize the sliding window splitter for backtesting
-    window_splitter = SlidingWindowSplitter(
-        window_length=TRAIN_PERIOD,
-        fh=np.arange(1, TEST_PERIOD + 1),
-        # step_length=TEST_PERIOD,
-        step_length=1,
-        
-    )
+    window_splitter = OrderedSlidingWindowSplitter(train_weeks=TRAIN_PERIOD, 
+                                                   test_weeks=TEST_PERIOD, 
+                                                   step_size=1)
 
     backtest_results = []
-    for window, (train_indices, test_indices) in enumerate(
-        window_splitter.split(price_data)
-    ):
+    for window, (train_indices, test_indices) in enumerate(window_splitter.split(df), 1):
         print(f"Processing window {window}...")
         train_data = price_data.iloc[train_indices, :]
         test_data = price_data.iloc[test_indices, :]
