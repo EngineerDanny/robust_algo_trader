@@ -490,7 +490,7 @@ def main():
     window_splitter = RandomStartWindowSplitter(
         window_length=TRAIN_PERIOD,
         fh=np.arange(1, TEST_PERIOD + 1),
-        n_splits=10,
+        n_splits=150,
         random_state=42  # optional, for reproducibility
     )
 
