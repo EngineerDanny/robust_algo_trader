@@ -490,7 +490,7 @@ def main():
                                                    step_size=1)
 
     backtest_results = []
-    for window, (train_indices, test_indices) in enumerate(window_splitter.split(df), 1):
+    for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
         print(f"Processing window {window}...")
         train_data = price_data.iloc[train_indices, :]
         test_data = price_data.iloc[test_indices, :]
