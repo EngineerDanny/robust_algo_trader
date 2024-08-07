@@ -474,6 +474,7 @@ def main():
         price_data["close"].values,
         timeperiod=1,
     )
+    # price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176) # GBP_USD_M15
     price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176) # GBP_USD_M15
 
     # Filter date range and apply time scaling
