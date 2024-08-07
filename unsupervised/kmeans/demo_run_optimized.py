@@ -458,7 +458,7 @@ def prepare_training_data(price_subset):
 def main():
     time_scaler = joblib.load("/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/ts_scaler_2018.joblib")
     price_data = pd.read_csv(
-        "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/GBP_USD_M15_raw_data.csv",
+        "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/EUR_USD_M15_raw_data.csv",
         parse_dates=["time"],
         index_col="time",
     )
@@ -474,7 +474,7 @@ def main():
         price_data["close"].values,
         timeperiod=1,
     )
-    price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176)
+    price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176) # GBP_USD_M15
 
     # Filter date range and apply time scaling
     price_data = price_data.loc["2019-01-01":"2024-05-01"]
