@@ -534,19 +534,12 @@ def main():
 
     # Compile final results
     results_df = pd.DataFrame(backtest_results)
-    results_df["train_cumulative_annualized_return"] = results_df[
-        "train_total_annualized_return"
-    ].cumsum()
     results_df["train_cumulative_actual_return"] = results_df[
         "train_total_actual_return"
     ].cumsum()
     results_df["train_sharpe_ratio"] = calculate_sharpe_ratio(
         results_df["train_total_annualized_return"].values
     )
-
-    results_df["test_cumulative_annualized_return"] = results_df[
-        "test_total_annualized_return"
-    ].cumsum()
     results_df["test_cumulative_actual_return"] = results_df[
         "test_total_actual_return"
     ].cumsum()
