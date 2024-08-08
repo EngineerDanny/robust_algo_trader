@@ -79,6 +79,31 @@
       "margin": 38,
       "units_calculation": "Type_3",
       "sister_instrument": "GBP_USD"
+    },
+    "EUR_CHF": {
+      "display_precision": 5,
+      "units": 700,
+      "margin": 31
+    },
+    "AUD_NZD": {
+      "display_precision": 5,
+      "units": 1200,
+      "margin": 24
+    },
+    "CAD_JPY": {
+      "display_precision": 3,
+      "units": 1100,
+      "margin": 41
+    },
+    "NZD_USD": {
+      "display_precision": 5,
+      "units": 1600,
+      "margin": 31
+    },
+    "EUR_CAD": {
+      "display_precision": 5,
+      "units": 1000,
+      "margin": 22
     }
   },
   "big_margin_instruments": {
@@ -103,11 +128,6 @@
       "display_precision": 5,
       "units": 1000,
       "margin": 34
-    },
-    "EUR_CAD": {
-      "display_precision": 5,
-      "units": 1000,
-      "margin": 22
     },
     "GBP_NZD": {
       "display_precision": 5,
@@ -149,11 +169,6 @@
       "units": 1400,
       "margin": 108
     },
-    "EUR_CHF": {
-      "display_precision": 5,
-      "units": 700,
-      "margin": 31
-    },
     "AUD_CHF": {
       "display_precision": 5,
       "units": 800,
@@ -165,16 +180,6 @@
       "margin": 60,
       "units_calculation": "Type_3",
       "sister_instrument": "AUD_USD"
-    },
-    "AUD_NZD": {
-      "display_precision": 5,
-      "units": 1200,
-      "margin": 24
-    },
-    "CAD_JPY": {
-      "display_precision": 3,
-      "units": 1100,
-      "margin": 41
     },
     "CHF_JPY": {
       "display_precision": 3,
@@ -262,11 +267,6 @@
       "display_precision": 5,
       "units": 2000,
       "margin": 63
-    },
-    "NZD_USD": {
-      "display_precision": 5,
-      "units": 1600,
-      "margin": 31
     },
     "SGD_CHF": {
       "display_precision": 5,
