@@ -15,7 +15,7 @@ config_settings = config["trading_settings"]
 
 params_df_list = []
 params_dict = {
-    'max_cluster_labels': [1, 2, 5],
+    'max_cluster_labels': [1],
     'price_history_length': [24],
     'num_perceptually_important_points': [5],
     'distance_measure': [1],
@@ -24,7 +24,7 @@ params_dict = {
     'clustering_algorithm': ['kmeans', 'gaussian_mixture'],
     # 'random_seed': np.arange(1, 100),
     'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
-    'train_period': [6, 8, 10, 12, 14, 16, 18], # weeks   
+    'train_period': [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18], # weeks   
     'test_period': [2] # weeks
 }
 params_df = pd.MultiIndex.from_product(
@@ -46,7 +46,7 @@ params_concat_df.to_csv(os.path.join(job_dir, "params.csv"), index=False)
 run_one_contents = f"""#!/bin/bash
 #SBATCH --array=0-{n_tasks-1}
 #SBATCH --time=24:00:00
-#SBATCH --mem=6GB
+#SBATCH --mem=4GB
 #SBATCH --cpus-per-task=1
 #SBATCH --error={job_dir}/slurm-%A_%a.out
 #SBATCH --output={job_dir}/slurm-%A_%a.out
