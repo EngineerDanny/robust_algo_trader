@@ -17,68 +17,92 @@
       "display_precision": 5,
       "units": 800,
       "margin": 18,
-      "units_calculation": "Type_2"
+      "units_calculation": "Type_2",
+      "atr_min": 0.00056,
+      "atr_max": 0.00136
     },
     "GBP_USD": {
       "display_precision": 5,
       "units": 800,
-      "margin": 51
+      "margin": 51,
+      "atr_min": 0.00068,
+      "atr_max": 0.00176
     },
     "USD_JPY": {
       "display_precision": 3,
       "units": 600,
-      "margin": 30
+      "margin": 30,
+      "atr_min": 0.048,
+      "atr_max": 0.114
     },
     "USD_CHF": {
       "display_precision": 5,
       "units": 700,
-      "margin": 28
+      "margin": 28,
+      "atr_min": 0.00043,
+      "atr_max": 0.00107
     },
     "AUD_JPY": {
       "display_precision": 3,
       "units": 1100,
-      "margin": 34
+      "margin": 34,
+      "atr_min": 0.056,
+      "atr_max": 0.126
     },
     "USD_CAD": {
       "display_precision": 5,
       "units": 1100,
-      "margin": 22
+      "margin": 22,
+      "atr_min": 0.00057,
+      "atr_max": 0.00139
     },
     "AUD_USD": {
       "display_precision": 5,
       "units": 800,
-      "margin": 17
+      "margin": 17,
+      "atr_min": 0.00044,
+      "atr_max": 0.00096
     },
     "AUD_CAD": {
       "display_precision": 5,
       "units": 1300,
-      "margin": 26
+      "margin": 26,
+      "atr_min": 0.00048,
+      "atr_max": 0.001
     },
     "EUR_GBP": {
       "display_precision": 5,
       "units": 600,
       "margin": 33,
       "units_calculation": "Type_3",
-      "sister_instrument": "EUR_USD"
+      "sister_instrument": "EUR_USD",
+      "atr_min": 0.00034,
+      "atr_max": 0.00092
     },
     "EUR_JPY": {
       "display_precision": 3,
       "units": 1100,
       "margin": 61,
       "units_calculation": "Type_3",
-      "sister_instrument": "EUR_USD"
+      "sister_instrument": "EUR_USD",
+      "atr_min": 0.071,
+      "atr_max": 0.168
     },
     "GBP_CHF": {
       "display_precision": 5,
       "units": 700,
-      "margin": 45
+      "margin": 45,
+      "atr_min": 0.00062,
+      "atr_max": 0.0016
     },
     "GBP_JPY": {
       "display_precision": 3,
       "units": 600,
       "margin": 38,
       "units_calculation": "Type_3",
-      "sister_instrument": "GBP_USD"
+      "sister_instrument": "GBP_USD",
+      "atr_min": 0.092,
+      "atr_max": 0.218
     },
     "EUR_CHF": {
       "display_precision": 5,
