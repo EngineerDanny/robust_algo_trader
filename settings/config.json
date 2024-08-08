@@ -67,6 +67,18 @@
       "margin": 61,
       "units_calculation": "Type_3",
       "sister_instrument": "EUR_USD"
+    },
+    "GBP_CHF": {
+      "display_precision": 5,
+      "units": 700,
+      "margin": 45
+    },
+    "GBP_JPY": {
+      "display_precision": 3,
+      "units": 600,
+      "margin": 38,
+      "units_calculation": "Type_3",
+      "sister_instrument": "GBP_USD"
     }
   },
   "big_margin_instruments": {
@@ -219,22 +231,10 @@
       "units": 500,
       "margin": 32
     },
-    "GBP_CHF": {
-      "display_precision": 5,
-      "units": 700,
-      "margin": 45
-    },
     "GBP_HKD": {
       "display_precision": 5,
       "units": 600,
       "margin": 76
-    },
-    "GBP_JPY": {
-      "display_precision": 3,
-      "units": 600,
-      "margin": 38,
-      "units_calculation": "Type_3",
-      "sister_instrument": "GBP_USD"
     },
     "GBP_SGD": {
       "display_precision": 5,
