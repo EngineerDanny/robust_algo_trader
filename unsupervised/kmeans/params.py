@@ -4,14 +4,6 @@ import numpy as np
 import os
 import shutil
 import sys
-import pandas as pd
-import json
-
-# Load the config file
-config_path = "/projects/genomic-ml/da2343/ml_project_2/settings/config.json"
-with open(config_path) as f:
-  config = json.load(f) 
-config_settings = config["trading_settings"]
 
 params_df_list = []
 params_dict = {
