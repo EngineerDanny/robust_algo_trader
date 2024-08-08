@@ -456,9 +456,10 @@ def prepare_training_data(price_subset):
 
 
 def main():
+    INSTRUMENT = "GBP_USD_M15"
     time_scaler = joblib.load("/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/ts_scaler_2018.joblib")
     price_data = pd.read_csv(
-        "/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/EUR_USD_M15_raw_data.csv",
+        f"/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/{INSTRUMENT}_raw_data.csv",
         parse_dates=["time"],
         index_col="time",
     )
@@ -474,8 +475,8 @@ def main():
         price_data["close"].values,
         timeperiod=1,
     )
-    # price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176) # GBP_USD_M15
     price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176) # GBP_USD_M15
+    # price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00056, 0.00136) # EUR_USD_M15
 
     # Filter date range and apply time scaling
     price_data = price_data.loc["2019-01-01":"2024-05-01"]
@@ -557,6 +558,7 @@ def main():
     results_df["train_period"] = TRAIN_PERIOD
     results_df["test_period"] = TEST_PERIOD
     results_df["random_seed"] = RANDOM_SEED
+    results_df["instrument"] = INSTRUMENT
 
     # save results to csv
     out_file = f"results/{param_row}.csv"
