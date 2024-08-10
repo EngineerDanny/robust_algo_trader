@@ -458,7 +458,7 @@ def prepare_training_data(price_subset):
 
 
 def main():
-    INSTRUMENT = "GBP_USD_M15"
+    INSTRUMENT = "GBP_JPY_M15"
     PROJECT_DIR = "/projects/genomic-ml/da2343/ml_project_2"
     # Load the config file
     config_path = f"{PROJECT_DIR}/settings/config.json"
