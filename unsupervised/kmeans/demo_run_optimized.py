@@ -10,6 +10,8 @@ from sktime.forecasting.model_selection import SlidingWindowSplitter
 from numba import jit
 import joblib
 import os
+import shutil
+import json
 
 sys.path.append(
     os.path.abspath(
@@ -46,7 +48,7 @@ TEST_PERIOD = int(param_dict["test_period"])
 
 
 # Define clustering algorithms
-clustering_models = {
+clustering_estimator_dict = {
     "kmeans": KMeans(n_clusters=NUM_CLUSTERS, random_state=RANDOM_SEED),
     "gaussian_mixture": GaussianMixture(
         n_components=NUM_CLUSTERS, covariance_type="tied", random_state=RANDOM_SEED
@@ -374,7 +376,7 @@ def cluster_and_evaluate_price_data(price_data_df):
             "minute",
         ]
     ].values
-    clustering_model = clustering_models[CLUSTERING_ALGORITHM]
+    clustering_model = clustering_estimator_dict[CLUSTERING_ALGORITHM]
     clustering_model.fit(price_features)
     price_data_df["cluster_label"] = clustering_model.predict(price_features)
 
@@ -457,13 +459,19 @@ def prepare_training_data(price_subset):
 
 def main():
     INSTRUMENT = "GBP_USD_M15"
-    time_scaler = joblib.load("/projects/genomic-ml/da2343/ml_project_2/unsupervised/kmeans/ts_scaler_2018.joblib")
+    PROJECT_DIR = "/projects/genomic-ml/da2343/ml_project_2"
+    # Load the config file
+    config_path = f"{PROJECT_DIR}/settings/config.json"
+    with open(config_path) as f:
+        config = json.load(f) 
+
+    instrument_dict = config["traded_instruments"][INSTRUMENT.split("_M15")[0]]
+    time_scaler = joblib.load(f"{PROJECT_DIR}/unsupervised/kmeans/ts_scaler_2018.joblib")
     price_data = pd.read_csv(
-        f"/projects/genomic-ml/da2343/ml_project_2/data/gen_oanda_data/{INSTRUMENT}_raw_data.csv",
+        f"{PROJECT_DIR}/data/gen_oanda_data/{INSTRUMENT}_raw_data.csv",
         parse_dates=["time"],
         index_col="time",
     )
-
     price_data["year"] = price_data.index.year
     price_data["month"] = price_data.index.month
     price_data["day_of_week"] = price_data.index.dayofweek
@@ -475,8 +483,7 @@ def main():
         price_data["close"].values,
         timeperiod=1,
     )
-    price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00068, 0.00176) # GBP_USD_M15
-    # price_data["atr_clipped"] = np.clip(price_data["atr"], 0.00056, 0.00136) # EUR_USD_M15
+    price_data["atr_clipped"] = np.clip(price_data["atr"], instrument_dict['atr_min'], instrument_dict['atr_max'])
 
     # Filter date range and apply time scaling
     price_data = price_data.loc["2019-01-01":"2024-05-01"]
