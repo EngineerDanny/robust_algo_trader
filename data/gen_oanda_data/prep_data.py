@@ -7,8 +7,7 @@ OANDA_TEST_ACCOUNT_ID
 OANDA_TEST_TOKEN
 
 time_frame = "M15"
-# instrument_list = ["GBP_USD", "EUR_USD", "USD_JPY"]
-instrument_list = ["USD_JPY"]
+instrument_list = ["EUR_CHF", "AUD_NZD", "CAD_JPY", "EUR_CAD"]
 
 for instrument in instrument_list: 
     start_date = "2006-08-14T20:00:00.000000000Z"
