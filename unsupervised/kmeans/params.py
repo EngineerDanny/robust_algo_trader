@@ -9,7 +9,7 @@ params_df_list = []
 params_dict = {
     'max_cluster_labels': [1],
     'price_history_length': [24],
-    'num_perceptually_important_points': [5],
+    'num_perceptually_important_points': [5, 6],
     'distance_measure': [1],
     'num_clusters': [70, 80, 90, 100, 110, 120],
     'atr_multiplier': [10],
@@ -19,7 +19,7 @@ params_dict = {
     'train_period': [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20], # weeks   
     'test_period': [2] # weeks
 }
-params_df = pd.MultiIndex.from_product(
+params_df = pd.MultiIndex.from_product(    
     params_dict.values(),
     names=params_dict.keys()
 ).to_frame().reset_index(drop=True)
