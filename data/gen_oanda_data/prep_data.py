@@ -47,4 +47,3 @@ for instrument in instrument_list:
     forex_data = pd.DataFrame(forex_data_list)
     forex_data.to_csv(f"{instrument}_{time_frame}_raw_data.csv", index=False)
     print(f"{instrument} data saved")
-    
