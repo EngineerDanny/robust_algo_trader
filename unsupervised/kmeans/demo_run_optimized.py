@@ -458,7 +458,7 @@ def prepare_training_data(price_subset):
 
 
 def main():
-    INSTRUMENT = "GBP_JPY_M15"
+    INSTRUMENT = "EUR_CAD_M15"
     PROJECT_DIR = "/projects/genomic-ml/da2343/ml_project_2"
     # Load the config file
     config_path = f"{PROJECT_DIR}/settings/config.json"
@@ -566,6 +566,7 @@ def main():
     results_df["test_period"] = TEST_PERIOD
     results_df["random_seed"] = RANDOM_SEED
     results_df["instrument"] = INSTRUMENT
+    results_df["num_perceptually_important_points"] = NUM_PERCEPTUALLY_IMPORTANT_POINTS
 
     # save results to csv
     out_file = f"results/{param_row}.csv"
