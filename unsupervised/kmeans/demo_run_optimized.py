@@ -34,6 +34,7 @@ param_dict = dict(
 )  # Assume first row of trading_params.csv
 
 # Extract trading parameters
+INSTRUMENT = param_dict["instrument"]
 MAX_CLUSTER_LABELS = int(param_dict["max_cluster_labels"])
 PRICE_HISTORY_LENGTH = int(param_dict["price_history_length"])
 NUM_PERCEPTUALLY_IMPORTANT_POINTS = int(param_dict["num_perceptually_important_points"])
@@ -439,7 +440,6 @@ def prepare_training_data(price_subset):
 
 
 def main():
-    INSTRUMENT = "EUR_CAD_M15"
     PROJECT_DIR = "/projects/genomic-ml/da2343/ml_project_2"
     # Load the config file
     config_path = f"{PROJECT_DIR}/settings/config.json"
