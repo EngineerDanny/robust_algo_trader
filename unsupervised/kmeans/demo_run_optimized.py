@@ -233,19 +233,9 @@ def evaluate_cluster_performance_df(
     Returns:
     pd.DataFrame: DataFrame of cluster performance metrics.
     """
-    price_data = price_data_df[
-        [
-            "price_point_0",
-            "price_point_1",
-            "price_point_2",
-            "price_point_3",
-            "price_point_4",
-            "day_of_week",
-            "hour",
-            "minute",
-            "trade_outcome",
-        ]
-    ].values
+    price_point_columns = [f"price_point_{i}" for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)]
+    all_columns = price_point_columns + ["day_of_week", "hour", "minute", "trade_outcome"]
+    price_data = price_data_df[all_columns].values
     train_best_clusters = train_best_clusters_df[["cluster_label", "signal"]].values
 
     # Predict cluster labels and evaluate performance
@@ -364,18 +354,10 @@ def calculate_evaluation_metrics(cumulative_return, trade_outcomes):
 
 
 def cluster_and_evaluate_price_data(price_data_df):
-    price_features = price_data_df[
-        [
-            "price_point_0",
-            "price_point_1",
-            "price_point_2",
-            "price_point_3",
-            "price_point_4",
-            "day_of_week",
-            "hour",
-            "minute",
-        ]
-    ].values
+    price_point_columns = [f"price_point_{i}" for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)]
+    feature_columns = price_point_columns + ["day_of_week", "hour", "minute"]
+    price_features = price_data_df[feature_columns].values
+
     clustering_model = clustering_estimator_dict[CLUSTERING_ALGORITHM]
     clustering_model.fit(price_features)
     price_data_df["cluster_label"] = clustering_model.predict(price_features)
