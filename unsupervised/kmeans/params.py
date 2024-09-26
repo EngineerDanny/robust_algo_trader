@@ -34,8 +34,8 @@ def main():
         'num_clusters': [70, 80, 90, 100, 110, 120],
         'atr_multiplier': [10],
         'clustering_algorithm': ['kmeans', 'gaussian_mixture'],
-        # 'random_seed': np.arange(1, 100),
-        'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
+        # 'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
+        'random_seed': np.random.choice(1000000, size=20, replace=False),
         'train_period': [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20], # weeks   
         'test_period': [2] # weeks
     }
