@@ -23,7 +23,6 @@ from utils import *
 warnings.filterwarnings("ignore")
 
 # Constants
-CANDLES_PER_DAY = 4 * 24  # 15-minute candles
 INITIAL_CAPITAL = 100
 RISK_FREE_RATE = 0.01
 
@@ -469,11 +468,15 @@ def main():
 
     # Filter date range and apply time scaling
     price_data = price_data.loc["2021-01-01":"2024-06-01"]
+    
+    # Round float columns to 6 decimal places
     time_columns = ["day_of_week", "hour", "minute"]
     price_data[time_columns] = np.round(
         time_scaler.transform(price_data[time_columns]), 6
     )
-    price_data[["atr", "atr_clipped"]] = price_data[["atr", "atr_clipped"]].round(6)
+    
+    columns_to_round = ['open', 'high', 'low', 'close', 'atr', 'atr_clipped']
+    price_data[columns_to_round] = price_data[columns_to_round].round(6)
 
     # Initialize the sliding window splitter for backtesting
     window_splitter = OrderedSlidingWindowSplitter(train_weeks=TRAIN_PERIOD, 
