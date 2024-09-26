@@ -2,6 +2,7 @@ import os
 import shutil
 from datetime import datetime
 import pandas as pd
+import numpy as np
 
 
 def create_batches(total_tasks, batch_size):
@@ -27,18 +28,18 @@ python run_one.py $SLURM_ARRAY_TASK_ID
 def main():
     # Setup hyperparameters
     params_dict = {
-        'instrument': ['EUR_USD_M15', 'EUR_CAD_M15'],
-        'max_cluster_labels': [1],
-        'price_history_length': [24],
-        'num_perceptually_important_points': [5, 6],
-        'distance_measure': [1],
-        'num_clusters': [70, 80, 90, 100, 110, 120],
-        'atr_multiplier': [10],
-        'clustering_algorithm': ['kmeans', 'gaussian_mixture'],
+        "instrument": ["EUR_USD_M15", "EUR_CAD_M15"],
+        "max_cluster_labels": [1],
+        "price_history_length": [24],
+        "num_perceptually_important_points": [5, 6],
+        "distance_measure": [1],
+        "num_clusters": [70, 80, 90, 100, 110, 120],
+        "atr_multiplier": [10],
+        "clustering_algorithm": ["kmeans", "gaussian_mixture"],
         # 'random_seed': [1, 2, 4, 7, 10, 12, 15, 18, 20, 21, 42, 50, 80, 90, 100, 200, 300],
-        'random_seed': np.random.choice(1000000, size=20, replace=False),
-        'train_period': [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20], # weeks   
-        'test_period': [2] # weeks
+        "random_seed": np.random.choice(1000000, size=20, replace=False),
+        "train_period": [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20],  # weeks
+        "test_period": [2],  # weeks
     }
     params_df = (
         pd.MultiIndex.from_product(params_dict.values(), names=params_dict.keys())
@@ -58,7 +59,7 @@ def main():
 
     # Setup batches
     n_tasks = len(params_df)
-    batch_size = 1000  # Adjust this value based on your system's capacity
+    batch_size = 10000  # Adjust this value based on your system's capacity
     batches = create_batches(n_tasks, batch_size)
 
     # Create submission script
