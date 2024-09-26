@@ -27,6 +27,7 @@ python run_one.py $SLURM_ARRAY_TASK_ID
 def main():
     # Setup hyperparameters
     params_dict = {
+        'instrument': ['EUR_USD_M15', 'EUR_CAD_M15'],
         'max_cluster_labels': [1],
         'price_history_length': [24],
         'num_perceptually_important_points': [5, 6],
