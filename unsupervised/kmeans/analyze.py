@@ -1,19 +1,6 @@
 import pandas as pd
 from glob import glob
 
-time = "2024-06-10_12:52" # EUR_USD_M15
-time = "2024-06-10_19:47" # GBP_USD_M15
-time = "2024-06-10_22:59" # USD_JPY_M15
-time = "2024-06-11_04:01" # USD_CHF_M15
-time = "2024-06-11_04:14" # USD_CAD_M15
-time = "2024-06-11_11:42" # AUD_USD_M15
-time = "2024-06-11_23:43" # AUD_JPY_M15
-time = "2024-06-11_23:48" # AUD_CAD_M15
-time = "2024-06-12_08:42" # EUR_GBP_M15
-time = "2024-06-12_08:44" # EUR_JPY_M15
-time = "2024-06-12_08:48" # GBP_CHF_M15
-time = "2024-06-12_08:52" # GBP_JPY_M15
-
 time = "2024-08-15_21:03" # EUR_USD_M15
 time = "2024-08-15_21:08" # GBP_USD_M15
 time = "2024-08-15_21:11" # USD_JPY_M15
@@ -26,12 +13,14 @@ time = "2024-08-15_21:23" # EUR_GBP_M15
 time = "2024-08-15_21:25" # EUR_JPY_M15
 time = "2024-08-15_21:27" # GBP_CHF_M15
 time = "2024-08-15_21:31" # GBP_JPY_M15
-
 time = "2024-08-15_21:33" # EUR_CHF_M15
 time = "2024-08-15_21:34" # AUD_NZD_M15
 time = "2024-08-15_21:36" # CAD_JPY_M15
 time = "2024-08-15_21:38" # NZD_USD_M15
 time = "2024-08-15_21:55" # EUR_CAD_M15
+
+time = "2024-09-27_03:27" # EUR_USD_M15 - AUD_CAD_M15
+time = "2024-09-27_03:35" # EUR_GBP_M15 - EUR_CAD_M15
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
