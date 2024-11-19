@@ -218,35 +218,6 @@ performance_dtype = np.dtype(
 )
 
 
-def ATR(high, low, close, timeperiod=14):
-    # Convert inputs to numpy arrays
-    high = np.array(high)
-    low = np.array(low)
-    close = np.array(close)
-    
-    # Calculate True Range
-    tr1 = high - low
-    tr2 = np.abs(high - np.roll(close, 1))
-    tr3 = np.abs(low - np.roll(close, 1))
-    tr = np.maximum.reduce([tr1, tr2, tr3])
-    
-    # Set first TR value
-    tr[0] = np.nan
-    
-    # Initialize ATR array with NaN
-    atr = np.full_like(tr, np.nan)
-    
-    # Calculate ATR using Wilder's smoothing
-    for i in range(1, len(tr)):
-        if i == 1:
-            atr[i] = tr[i]
-        else:
-            atr[i] = ((atr[i-1] * (timeperiod - 1)) + tr[i]) / timeperiod
-    
-    # Convert to pandas Series to match TA-Lib output
-    return pd.Series(atr)
-
-
 def evaluate_cluster_performance_df(
     price_data_df, train_best_clusters_df, clustering_model
 ):
@@ -486,7 +457,7 @@ def main():
     price_data["day_of_week"] = price_data.index.dayofweek
     price_data["hour"] = price_data.index.hour
     price_data["minute"] = price_data.index.minute
-    price_data["atr"] = ATR(
+    price_data["atr"] = talib.ATR(
         price_data["high"].values,
         price_data["low"].values,
         price_data["close"].values,
