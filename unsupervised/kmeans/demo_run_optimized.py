@@ -1,7 +1,6 @@
 import sys
 import numpy as np
 import pandas as pd
-import talib
 import warnings
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import *
@@ -56,7 +55,7 @@ clustering_estimator_dict = {
 }
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def calculate_sharpe_ratio(returns):
     excess_returns = returns - RISK_FREE_RATE
     return np.mean(excess_returns) / np.std(returns)
@@ -217,6 +216,35 @@ performance_dtype = np.dtype(
         ("num_trades", np.int64),
     ]
 )
+
+
+def ATR(high, low, close, timeperiod=14):
+    # Convert inputs to numpy arrays
+    high = np.array(high)
+    low = np.array(low)
+    close = np.array(close)
+    
+    # Calculate True Range
+    tr1 = high - low
+    tr2 = np.abs(high - np.roll(close, 1))
+    tr3 = np.abs(low - np.roll(close, 1))
+    tr = np.maximum.reduce([tr1, tr2, tr3])
+    
+    # Set first TR value
+    tr[0] = np.nan
+    
+    # Initialize ATR array with NaN
+    atr = np.full_like(tr, np.nan)
+    
+    # Calculate ATR using Wilder's smoothing
+    for i in range(1, len(tr)):
+        if i == 1:
+            atr[i] = tr[i]
+        else:
+            atr[i] = ((atr[i-1] * (timeperiod - 1)) + tr[i]) / timeperiod
+    
+    # Convert to pandas Series to match TA-Lib output
+    return pd.Series(atr)
 
 
 def evaluate_cluster_performance_df(
@@ -458,7 +486,7 @@ def main():
     price_data["day_of_week"] = price_data.index.dayofweek
     price_data["hour"] = price_data.index.hour
     price_data["minute"] = price_data.index.minute
-    price_data["atr"] = talib.ATR(
+    price_data["atr"] = ATR(
         price_data["high"].values,
         price_data["low"].values,
         price_data["close"].values,
@@ -467,7 +495,7 @@ def main():
     price_data["atr_clipped"] = np.clip(price_data["atr"], instrument_dict['atr_min'], instrument_dict['atr_max'])
 
     # Filter date range and apply time scaling
-    price_data = price_data.loc["2021-01-01":"2024-06-01"]
+    price_data = price_data.loc["2019-01-01":"2024-06-01"]
     
     # Round float columns to 6 decimal places
     time_columns = ["day_of_week", "hour", "minute"]
