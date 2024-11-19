@@ -8,14 +8,14 @@ import json
 
 params_df_list = []
 params_dict = {
-    # "instrument": ["EUR_USD_M15", "GBP_USD_M15", "USD_JPY_M15",
-    #                "USD_CHF_M15", "USD_CAD_M15", "AUD_USD_M15",
-    #                "AUD_JPY_M15", "AUD_CAD_M15"
-    #                ],
-    "instrument": ["EUR_GBP_M15", "EUR_JPY_M15", "GBP_CHF_M15",
-                   "GBP_JPY_M15", "EUR_CHF_M15", "AUD_NZD_M15",
-                   "CAD_JPY_M15", "NZD_USD_M15", "EUR_CAD_M15"
+    "instrument": ["EUR_USD_M15", "GBP_USD_M15", "USD_JPY_M15",
+                   "USD_CHF_M15", "USD_CAD_M15", "AUD_USD_M15",
+                   "AUD_JPY_M15", "AUD_CAD_M15"
                    ],
+    # "instrument": ["EUR_GBP_M15", "EUR_JPY_M15", "GBP_CHF_M15",
+    #                "GBP_JPY_M15", "EUR_CHF_M15", "AUD_NZD_M15",
+    #                "CAD_JPY_M15", "NZD_USD_M15", "EUR_CAD_M15"
+    #                ],
     "max_cluster_labels": [1],
     "price_history_length": [24],
     "num_perceptually_important_points": [5, 6],
