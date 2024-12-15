@@ -6,6 +6,7 @@ time = "2024-09-27_03:35" # EUR_GBP_M15 - EUR_CAD_M15
 time = "2024-12-12_12:01"
 time = "2024-12-12_14:03"
 time = "2024-12-12_15:48"
+time = "2024-12-14_04:20"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):

@@ -456,7 +456,7 @@ price_data = pd.read_csv(
 )
 
 # Filter date range and apply time scaling
-price_data = price_data.loc["2019-01-01":"2024-01-01"]
+price_data = price_data.loc["2019-01-01":"2024-06-01"]
 price_data['log_close'] = np.log(price_data['close'])
 price_data['log_open'] = np.log(price_data['open'])
 price_data["year"] = price_data.index.year
@@ -477,6 +477,8 @@ window_splitter = OrderedSlidingWindowSplitter(
 
 backtest_results = []
 for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
+    if window <= 200:
+        continue
     print(f"Processing window {window}...")
     train_data = price_data.iloc[train_indices, :]
     test_data = price_data.iloc[test_indices, :]
@@ -513,7 +515,7 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
     }
     backtest_results.append(window_result)
     # break
-    if window >= 200:
+    if window > 300:
         break
     
     
