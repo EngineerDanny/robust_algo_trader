@@ -7,6 +7,7 @@ time = "2024-12-12_12:01"
 time = "2024-12-12_14:03"
 time = "2024-12-12_15:48"
 time = "2024-12-14_04:20"
+time = "2024-12-26_13:35"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
