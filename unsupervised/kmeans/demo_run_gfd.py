@@ -477,8 +477,8 @@ window_splitter = OrderedSlidingWindowSplitter(
 
 backtest_results = []
 for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
-    if window <= 200:
-        continue
+    # if window <= 200:
+    #     continue
     print(f"Processing window {window}...")
     train_data = price_data.iloc[train_indices, :]
     test_data = price_data.iloc[test_indices, :]
@@ -515,7 +515,7 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
     }
     backtest_results.append(window_result)
     # break
-    if window > 300:
+    if window > 200:
         break
     
     
