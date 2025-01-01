@@ -477,8 +477,9 @@ window_splitter = OrderedSlidingWindowSplitter(
 
 backtest_results = []
 for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
-    # if window <= 200:
-    #     continue
+    if window <= 200:
+        continue
+    
     print(f"Processing window {window}...")
     train_data = price_data.iloc[train_indices, :]
     test_data = price_data.iloc[test_indices, :]
@@ -514,11 +515,9 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
         "test_direction": test_cluster_perf["trade_direction"]
     }
     backtest_results.append(window_result)
-    # break
-    if window > 200:
+    # if window > 200:
+    if window > 300:
         break
-    
-    
     
 
 # Create base DataFrame from backtest results
