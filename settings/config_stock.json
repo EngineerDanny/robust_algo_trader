@@ -1,0 +1,12 @@
+{
+  "paths": {
+    "data_dir": "/projects/genomic-ml/da2343/ml_project_2/data",
+    "oanda_dir": "/projects/genomic-ml/da2343/ml_project_2/data/gen_alpaca_data",
+    "config_file": "config_stock.json"
+  },
+  "risk_amount": 10,
+  "market_hours": {
+    "high_liquidity_start": 13,
+    "high_liquidity_end": 20
+  }
+}
