@@ -39,7 +39,6 @@ TEST_PERIOD = int(param_dict["test_period"])
 TRAIN_PERIOD = int(param_dict["train_period"])
 REVERSE_TEST = bool(param_dict["reverse_test"])
 
-
 # Define clustering algorithms
 clustering_estimator_dict = {
     "kmeans": KMeans(n_clusters=NUM_CLUSTERS, 
@@ -54,7 +53,7 @@ clustering_estimator_dict = {
 }
 
 
-def prepare_test_data(price_subset, max_trades_per_day=5):
+def prepare_test_data(price_subset, max_trades_per_day=1):
     data_list = []
     scaler = StandardScaler()
     
@@ -99,7 +98,7 @@ def prepare_test_data(price_subset, max_trades_per_day=5):
         # Find current day's end time (15 mins before actual EOD)
         eod_time = pd.Timestamp.combine(
             current_time.date(), 
-            pd.Timestamp('22:00').time()  # 15 mins before midnight
+            pd.Timestamp('21:45').time()  # 15 mins before midnight
         ).tz_localize('UTC')
 
         # Get the EOD price (23:45 current day)
@@ -228,7 +227,7 @@ def prepare_data(price_subset):
         # Find current day's end time (15 mins before actual EOD)
         eod_time = pd.Timestamp.combine(
             current_time.date(), 
-            pd.Timestamp('22:00').time()  # 15 mins before midnight
+            pd.Timestamp('21:45').time()  # 15 mins before midnight
         ).tz_localize('UTC')
 
         # Get the EOD price (23:45 current day)
