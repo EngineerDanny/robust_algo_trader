@@ -2,9 +2,11 @@ import pandas as pd
 from glob import glob
 
 time = "2025-01-16_23:42"
-
 time = "2025-01-17_12:11"
 time = "2025-01-18_09:53"
+
+time = "2025-01-19_01:28"
+time = "2025-01-19_08:02"
 
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):

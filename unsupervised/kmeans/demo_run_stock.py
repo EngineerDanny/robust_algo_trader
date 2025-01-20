@@ -491,7 +491,7 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
         continue
 
     # Prepare test data and evaluate cluster performance
-    test_price_data = prepare_data(test_data)
+    test_price_data = prepare_test_data(test_data)
     print("Preparing test data and evaluating cluster performance...")
     test_cluster_perf = evaluate_cluster_performance_df(test_price_data, train_cluster_perf, clustering_model)
     
