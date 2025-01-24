@@ -53,7 +53,7 @@ clustering_estimator_dict = {
 }
 
 
-def prepare_test_data(price_subset, max_trades_per_day=1):
+def prepare_test_data(price_subset, max_trades_per_day=5):
     data_list = []
     scaler = StandardScaler()
     
@@ -476,8 +476,8 @@ window_splitter = OrderedSlidingWindowSplitter(
 
 backtest_results = []
 for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
-    # if window <= 300:
-    #     continue
+    if window <= 300:
+        continue
     
     print(f"Processing window {window}...")
     train_data = price_data.iloc[train_indices, :]
@@ -514,8 +514,8 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
         "test_direction": test_cluster_perf["trade_direction"]
     }
     backtest_results.append(window_result)
-    if window > 300:
-    # if window > 400:
+    # if window > 300:
+    if window > 400:
         break
     
 

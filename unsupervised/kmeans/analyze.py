@@ -8,6 +8,10 @@ time = "2025-01-18_09:53"
 time = "2025-01-19_01:28"
 time = "2025-01-19_08:02"
 
+time = "2025-01-20_17:15"
+time = "2025-01-20_18:26"
+time = "2025-01-21_11:28"
+
 out_df_list = []
 for out_csv in glob(f"/scratch/da2343/ml_project_2_{time}/results/*.csv"):
     out_df_list.append(pd.read_csv(out_csv))
