@@ -351,12 +351,11 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
     window_result = {
         "window": window,
         # Training metrics (single best cluster)
-        "train_actual_return": train_cluster_perf["actual_return"], 
+        "train_actual_return": train_cluster_perf["sum_return"], 
         "train_num_trades": train_cluster_perf["num_trades"], 
         "train_direction": train_cluster_perf["trade_direction"],
-        
         # Test metrics (single cluster performance)
-        "test_actual_return": test_cluster_perf["actual_return"],
+        "test_actual_return": test_cluster_perf["sum_return"],
         "test_num_trades": test_cluster_perf["num_trades"], 
         "test_direction": test_cluster_perf["trade_direction"]
     }
@@ -364,12 +363,10 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
     # if window > 300:
     if window > 400:
         break
-    
 
 # Create base DataFrame from backtest results
 backtest_results_df = pd.DataFrame(backtest_results)
 
-# Get returns series
 # Calculate metrics for train returns
 train_returns = backtest_results_df['train_actual_return']
 train_sharpe = (
