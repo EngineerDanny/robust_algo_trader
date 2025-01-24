@@ -53,7 +53,7 @@ clustering_estimator_dict = {
 }
 
 
-def prepare_test_data(price_subset, max_trades_per_day=5):
+def prepare_data(price_subset, max_trades_per_day=5):
     data_list = []
     scaler = StandardScaler()
     
@@ -78,11 +78,11 @@ def prepare_test_data(price_subset, max_trades_per_day=5):
         j = index - 1
         current_time = price_subset.index[j]
         current_hour = current_time.hour
-        current_date = current_time.date()
-        
-        # Skip if we already took maximum trades for this day
-        if daily_trade_count.get(current_date, 0) >= max_trades_per_day:
-            continue
+
+        # # Skip if we already took maximum trades for this day
+        # current_date = current_time.date()
+        # if daily_trade_count.get(current_date, 0) >= max_trades_per_day:
+        #     continue
         
         # Check if current time is within high liquidity period
         # Handle cases where high liquidity period crosses midnight
@@ -129,9 +129,8 @@ def prepare_test_data(price_subset, max_trades_per_day=5):
         # Calculate log return from current point to EOD
         data_point["trade_outcome"] = (eod_row["log_close"] - price_subset["log_close"].iloc[j])
         
-        # Increment trade count for this day
-        daily_trade_count[current_date] = daily_trade_count.get(current_date, 0) + 1
-        
+        # # Increment trade count for this day
+        # daily_trade_count[current_date] = daily_trade_count.get(current_date, 0) + 1
         data_list.append(data_point)
 
     return pd.DataFrame(data_list)
@@ -190,87 +189,10 @@ def calculate_point_distance(
     ) ** 0.5
 
 
-def prepare_data(price_subset):
-    data_list = []
-    scaler = StandardScaler()
-    
-    # Get instrument's high liquidity hours
-    liquidity_start = 13
-    liquidity_end = 20
-
-    for index in range(PRICE_HISTORY_LENGTH, len(price_subset)):
-        # Get price history for PIP calculation
-        price_history = (
-            price_subset["close"]
-            .iloc[max(0, index - PRICE_HISTORY_LENGTH) : index]
-            .values
-        )
-        if len(price_history) < PRICE_HISTORY_LENGTH:
-            break
-
-        # Current row index
-        j = index - 1
-        current_time = price_subset.index[j]
-        current_hour = current_time.hour
-        
-        # Check if current time is within high liquidity period
-        # Handle cases where high liquidity period crosses midnight
-        is_liquid_time = False
-        if liquidity_start <= liquidity_end:
-            is_liquid_time = liquidity_start <= current_hour < liquidity_end
-        else:  # Period crosses midnight
-            is_liquid_time = current_hour >= liquidity_start or current_hour < liquidity_end
-            
-        if not is_liquid_time:
-            continue
-            
-        # Find current day's end time (15 mins before actual EOD)
-        eod_time = pd.Timestamp.combine(
-            current_time.date(), 
-            pd.Timestamp('21:45').time()  # 15 mins before midnight
-        ).tz_localize('UTC')
-
-        # Get the EOD price (23:45 current day)
-        eod_data = price_subset[price_subset.index <= eod_time]
-        if len(eod_data) == 0:
-            continue
-        eod_row = eod_data.iloc[-1]
-        
-        # Calculate PIPs and scale them
-        _, important_points = find_perceptually_important_points(
-            price_history, NUM_PERCEPTUALLY_IMPORTANT_POINTS
-        )
-        scaled_points = scaler.fit_transform(important_points.reshape(-1, 1)).flatten()
-        
-        # Create data point with scaled PIPs
-        data_point = {
-            f"price_point_{i}": scaled_points[i]
-            for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)
-        }
-
-        # Add time features
-        data_point.update(
-            price_subset.iloc[j][
-                ["year", "month", "day_of_week", "hour", "minute"]
-            ].to_dict()
-        )
-        
-        # Calculate log return from current point to EOD (next day 00:00)
-        data_point["trade_outcome"] = (eod_row["log_close"] -  price_subset["log_close"].iloc[j])
-        # print(f"Processing {current_time} to {eod_time}...")
-        data_list.append(data_point)
-
-    return pd.DataFrame(data_list)
-
 def evaluate_cluster_performance_df(price_data_df, train_best_cluster, clustering_model):
-    # Prepare features for prediction
     price_point_columns = [f"price_point_{i}" for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)]
     feature_columns = price_point_columns + ["day_of_week", "hour", "minute"]
-    
-    # Predict clusters for test data
     price_features = price_data_df[feature_columns].values
-    
-    # scale features to 2 decimal places
     price_features = np.round(price_features, 2)
     price_data_df["cluster_label"] = clustering_model.predict(price_features)
     
@@ -284,22 +206,15 @@ def evaluate_cluster_performance_df(price_data_df, train_best_cluster, clusterin
     # Get trade outcomes and adjust for direction
     cluster_trades = cluster_data['trade_outcome']
     
-    if REVERSE_TEST:
-        trade_direction = 'short' if trade_direction == 'long' else 'long'
-    
     if trade_direction == 'short':
         cluster_trades = -cluster_trades
-    
-    # Basic performance metrics
-    total_return = cluster_trades.sum()
-    num_trades = len(cluster_trades)
     
     # Create performance dictionary
     cluster_performance = {
         "cluster_label": cluster_label,
         "trade_direction": trade_direction,
-        "actual_return": total_return,
-        "num_trades": num_trades
+        "sum_return": cluster_trades.sum(),
+        "num_trades": len(cluster_trades)
     }
     return cluster_performance
 
@@ -307,10 +222,7 @@ def cluster_and_evaluate_price_data(price_data_df):
     price_point_columns = [f"price_point_{i}" for i in range(NUM_PERCEPTUALLY_IMPORTANT_POINTS)]
     feature_columns = price_point_columns + ["day_of_week", "hour", "minute"]
     price_features = price_data_df[feature_columns].values
-    
-    # scale features to 2 decimal places
     price_features = np.round(price_features, 2)
-    
     clustering_model = clustering_estimator_dict[CLUSTERING_ALGORITHM]
     clustering_model.fit(price_features)
     price_data_df["cluster_label"] = clustering_model.predict(price_features)
@@ -335,103 +247,39 @@ def cluster_and_evaluate_price_data(price_data_df):
         wins = cluster_trades > 0
         losses = cluster_trades < 0
         
-        # 1. Win Rate
-        win_rate = np.mean(wins) if len(cluster_trades) > 0 else 0
-        
-        # 2. Risk-adjusted return
-        # Consider dividing by another factor to normalize
-        returns_mean = cluster_trades.mean()
-        returns_std = cluster_trades.std()
-        annualization_factor = np.sqrt(252)
-        actual_returns_mean = (np.exp(returns_mean) - 1)
-        actual_returns_std = returns_std
-        # Add scaling factor for 15-min returns
-        scale_factor = 0.5  # This can be adjusted
-        sharpe = (actual_returns_mean / actual_returns_std) * annualization_factor * scale_factor if actual_returns_std != 0 else 0
-                
-        # 3. Maximum Drawdown
-        cumulative = cluster_trades.cumsum()
-        running_max = cumulative.expanding().max()
-        drawdowns = cumulative - running_max
-        max_drawdown = abs(drawdowns.min()) if len(drawdowns) > 0 else LARGE_VALUE
-        
-        # 4. Profit Factor
+        # Profit Factor
         gross_profits = cluster_trades[wins].sum() if any(wins) else 0
         gross_losses = abs(cluster_trades[losses].sum()) if any(losses) else 0
         profit_factor = gross_profits / gross_losses if gross_losses != 0 else LARGE_VALUE
         
-        # 5. Win/Loss Ratio
-        avg_win = cluster_trades[wins].mean() if any(wins) else 0
-        avg_loss = abs(cluster_trades[losses].mean()) if any(losses) else LARGE_VALUE
-        win_loss_ratio = avg_win / avg_loss if avg_loss != 0 else LARGE_VALUE
-        
-        # 6. Consistency Score (lower is better)
-        returns_volatility = cluster_trades.std()
         
         cluster_metrics.append({
             'cluster_label': cluster,
             'trade_direction': 'long' if is_long_cluster else 'short',
             'num_trades': len(cluster_trades),
-            'win_rate': win_rate,
-            'sharpe': sharpe,
-            'max_drawdown': max_drawdown,
+            'win_rate': np.mean(wins) if len(cluster_trades) > 0 else 0,
             'profit_factor': profit_factor,
-            'win_loss_ratio': win_loss_ratio,
-            'returns_volatility': returns_volatility,
-            'avg_return': returns_mean,
-            'actual_return': cluster_trades.sum(),
-            'mean_return': cluster_mean
+            'mean_return': cluster_trades.mean(),
+            'sum_return': cluster_trades.sum(),
+            'volatility': cluster_trades.std(),
         })
     metrics_df = pd.DataFrame(cluster_metrics)
-    
-    print(f"Found {sharpe} sharpe.")
-        
-#     # Filter for good clusters with realistic performance metrics
-#     mask = (
-#         (metrics_df['win_rate'].between(0.5, 0.65)) &     # 55-65% win rate
-#         (metrics_df['profit_factor'].between(1.5, 2.0)) &  # 1.6-2.0 profit factor
-#         (metrics_df['win_loss_ratio'].between(1.2, 2.0)) &  # 1.2-2.0 win/loss ratio
-#         (metrics_df['sharpe'].between(0.5, 2.0)) 
-#     )
-#     # Create an explicit copy of the filtered DataFrame
-#     good_clusters = metrics_df[mask].copy()   
-#     # Return empty DataFrame if no valid clusters
-#     if len(good_clusters) == 0:
-#        return {}, clustering_model 
-#    # Calculate composite score for filtered clusters
-#     good_clusters['consistency_score'] = (
-#         good_clusters['win_rate'] / 0.65 * 0.3 +            # Normalized to max 0.65, 30% weight
-#         good_clusters['profit_factor'] / 2.0 * 0.2 +        # Normalized to max 2.0, 30% weight
-#         good_clusters['win_loss_ratio'] / 2.0 * 0.2 +       # Normalized to max 2.0, 20% weight
-#         good_clusters['sharpe'] / 3.0 * 0.2                 # Normalized to max 2.0, 20% weight
-#     )
-#     print(f"Found {len(good_clusters)} good clusters.")
-
     mask = (
-        # (metrics_df['sharpe'] > 0)          # Win rate above 55%
-        (metrics_df['profit_factor'] > 1.5) 
-        # (metrics_df['sharpe'] <= 5)             # Sharpe above 0.5
-        # (metrics_df['win_loss_ratio'] > 1.2)    # Win/loss ratio above 1.2
+        (metrics_df['win_rate'] > 0.5) &     
+        (metrics_df['profit_factor'] > 1.4) 
     )
     # Create an explicit copy of the filtered DataFrame
     good_clusters = metrics_df[mask].copy()
     # Return empty DataFrame if no valid clusters
     if len(good_clusters) == 0:
         return {}, clustering_model 
-    # Calculate composite score for filtered clusters
-    good_clusters['consistency_score'] = (
-         good_clusters['sharpe']
-        # good_clusters['win_rate'] / 0.8 * 0.5 +          # Normalized to max 0.8, 30% weight
-        # good_clusters['profit_factor'] / 2.0 * 0.5      # Normalized to max 2.0, 20% weight
-        # good_clusters['win_loss_ratio'] / 2.0 * 0.2     # Normalized to max 2.0, 20% weight
-        # good_clusters['sharpe'] / 3.0 * 0.3              # Normalized to max 3.0, 30% weight
-    )
+    
     print(f"Found {len(good_clusters)} good clusters.")
             
     # Get single best cluster by consistency score
     best_cluster_df = (
         good_clusters
-        .sort_values('consistency_score', ascending=False)
+        .sort_values('volatility', ascending=True)
         .head(1)
         .reset_index(drop=True)
     )
@@ -446,7 +294,6 @@ config_path = f"{PROJECT_DIR}/settings/config_gfd.json"
 with open(config_path) as f:
     config = json.load(f)
 
-# instrument_dict = config["traded_instruments"][INSTRUMENT.split("_M15")[0]]
 time_scaler = joblib.load(f"{PROJECT_DIR}/unsupervised/kmeans/ts_scaler_2018.joblib")
 price_data = pd.read_csv(
     f"{PROJECT_DIR}/data/gen_alpaca_data/{INSTRUMENT}_raw_data.csv",
@@ -491,7 +338,7 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
         continue
 
     # Prepare test data and evaluate cluster performance
-    test_price_data = prepare_test_data(test_data)
+    test_price_data = prepare_data(test_data)
     print("Preparing test data and evaluating cluster performance...")
     test_cluster_perf = evaluate_cluster_performance_df(test_price_data, train_cluster_perf, clustering_model)
     
