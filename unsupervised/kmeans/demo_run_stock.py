@@ -316,17 +316,27 @@ price_data[time_columns] = time_scaler.transform(price_data[time_columns])
 columns_to_round = ['open', 'high', 'low', 'close', 'log_close', "log_open", "day_of_week", "hour", "minute"]
 price_data[columns_to_round] = price_data[columns_to_round].round(6)
 
-# Initialize the sliding window splitter for backtesting
+
+max_train_weeks = 14  # Maximum from your params
+weeks_to_skip = max_train_weeks - TRAIN_PERIOD  # How many weeks we need to skip
+window_tracker = 0  # Track how many windows we've skipped
+window = 0  # This will be our consistent window counter
+
 window_splitter = OrderedSlidingWindowSplitter(
-    train_weeks=TRAIN_PERIOD, test_weeks=TEST_PERIOD, step_size=1
+    train_weeks=TRAIN_PERIOD, 
+    test_weeks=TEST_PERIOD, 
+    step_size=1
 )
 
 backtest_results = []
-for window, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
-    if window <= 300:
+for _, (train_indices, test_indices) in enumerate(window_splitter.split(price_data), 1):
+    # Skip windows until we reach the point where windows align with max_train_weeks
+    if window_tracker < weeks_to_skip:
+        window_tracker += 1
         continue
-    
-    print(f"Processing window {window}...")
+        
+    window += 1
+    print(f"Processing window {window}...")  # Now using our consistent window counter
     train_data = price_data.iloc[train_indices, :]
     test_data = price_data.iloc[test_indices, :]
 
@@ -338,8 +348,8 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
         continue
 
     # Prepare test data and evaluate cluster performance
-    test_price_data = prepare_data(test_data)
     print("Preparing test data and evaluating cluster performance...")
+    test_price_data = prepare_data(test_data)
     test_cluster_perf = evaluate_cluster_performance_df(test_price_data, train_cluster_perf, clustering_model)
     
     # check if test_cluster_perf dict is empty
@@ -360,8 +370,9 @@ for window, (train_indices, test_indices) in enumerate(window_splitter.split(pri
         "test_direction": test_cluster_perf["trade_direction"]
     }
     backtest_results.append(window_result)
-    # if window > 300:
-    if window > 400:
+    
+    # if window > 400:
+    if window > 300:
         break
 
 # Create base DataFrame from backtest results
