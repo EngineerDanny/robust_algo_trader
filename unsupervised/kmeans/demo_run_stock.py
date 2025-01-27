@@ -336,6 +336,9 @@ for _, (train_indices, test_indices) in enumerate(window_splitter.split(price_da
         continue
         
     window += 1
+    if window < 300:
+        continue
+    
     print(f"Processing window {window}...")  # Now using our consistent window counter
     train_data = price_data.iloc[train_indices, :]
     test_data = price_data.iloc[test_indices, :]
@@ -371,8 +374,8 @@ for _, (train_indices, test_indices) in enumerate(window_splitter.split(price_da
     }
     backtest_results.append(window_result)
     
-    # if window > 400:
-    if window > 300:
+    if window > 400:
+    # if window > 300:
         break
 
 # Create base DataFrame from backtest results
