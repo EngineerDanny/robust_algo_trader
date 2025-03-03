@@ -18,3 +18,4 @@ dnn/data/FashionMNIST/raw/*
 *.out
 .env
 *.joblib
+drl/trade_env_logs/*
