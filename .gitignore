@@ -19,3 +19,4 @@ dnn/data/FashionMNIST/raw/*
 .env
 *.joblib
 drl/portfolio_env_logs/*
+portfolio_env_logs/*
