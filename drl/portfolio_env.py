@@ -11,12 +11,12 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
-from typing import Dict, List, Tuple, Optional
+from typing import List
 from sklearn.preprocessing import MinMaxScaler
 
 
 # save dir should add the current date and time
-SAVE_DIR = f"./models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # DATA_DIR must be appended before the filename
@@ -73,7 +73,6 @@ class PortfolioEnv(gym.Env):
         
         observation = self._get_observation()
         info = {}
-        
         return observation, info
     
     
@@ -100,8 +99,6 @@ class PortfolioEnv(gym.Env):
     
     # Then update the _convert_to_allocation method:
     def _convert_to_allocation(self, action_weights):
-        # No need to rescale the action_weights from [-1, 1]
-    
         # Softmax works fine with negative values
         # Apply softmax with temperature scaling
         raw_allocation = softmax(np.array(action_weights) / self.temperature)
@@ -260,9 +257,9 @@ def train_model(stock_data_list, total_timesteps=200_000):
     model = PPO(
         "MlpPolicy", 
         env,
-        tensorboard_log="./portfolio_env_logs",
-        device="mps",
+        tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
         verbose=1,
+        # device="mps",
         # learning_rate=3e-4,
         # gamma=0.99,
         # n_steps=2048,
@@ -380,9 +377,9 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
                  ha='center', va='bottom', rotation=0)
         
     # create results dir if it doesn't exist
-    results_dir = f'{SAVE_DIR}/results/'
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
+    RESULTS_DIR = f'{SAVE_DIR}/results'
+    if not os.path.exists(RESULTS_DIR):
+        os.makedirs(RESULTS_DIR)
     
     
     plt.xlabel('Stock')
@@ -390,7 +387,7 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
     plt.title('Average Portfolio Allocation')
     plt.xticks(range(len(avg_allocation)), [f'Stock {i}' for i in range(len(avg_allocation))])
     plt.ylim(0, max(avg_allocation) * 1.2)
-    plt.savefig(f'{SAVE_DIR}/results/portfolio_allocation.png')
+    plt.savefig(f'{RESULTS_DIR}/portfolio_allocation.png')
     
     plt.figure(figsize=(10, 6))
     plt.hist(returns, bins=10, alpha=0.7)
@@ -399,7 +396,7 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
     plt.xlabel('Average Monthly Return')
     plt.ylabel('Frequency')
     plt.title('Distribution of Average Monthly Returns')
-    plt.savefig(f'{SAVE_DIR}/results/returns_distribution.png')
+    plt.savefig(f'{RESULTS_DIR}/returns_distribution.png')
     
     plt.figure(figsize=(10, 6))
     plt.hist(final_values, bins=10, alpha=0.7)
@@ -408,7 +405,7 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
     plt.xlabel('Final Portfolio Value ($)')
     plt.ylabel('Frequency')
     plt.title('Distribution of Final Portfolio Values (12-month episodes)')
-    plt.savefig(f'{SAVE_DIR}/results/portfolio_values.png')
+    plt.savefig(f'{RESULTS_DIR}/portfolio_values.png')
     
     plt.figure(figsize=(12, 6))
     metrics = ['Return (%)', 'Sharpe', 'Drawdown (%)']
@@ -434,11 +431,9 @@ def get_stock_data_list(instrument_list):
     for instrument in instrument_list:
         file_path = f"{DATA_DIR}/preprocessed_{instrument}.csv"
         df = pd.read_csv(file_path)
-        
         if 'Date' in df.columns:
             df['Date'] = pd.to_datetime(df['Date'])
             df = df.sort_values('Date')
-        
         stock_data_list.append(df)
         print(f"Loaded {instrument} with {len(df)} data points")
     
@@ -446,10 +441,16 @@ def get_stock_data_list(instrument_list):
 
     
 
-# Load stock data from directory
+# TRAIN
 instrument_list = ["BIT", "CAQD", "CDUV", "CDZ", "CMA", "CQFV", "DEI", "DNW", "DPJE", "EZIG"] 
 stock_data_list = get_stock_data_list(instrument_list)
 print("Training model...")
-
 trained_model = train_model(stock_data_list)
 print("Training complete!")
+
+# EVALUATE
+eval_instrument_list = ["FLTF", "FLVU", "HCJ", "HQAO", "HYNC", "IPJU", "JDS", "JOSU", "KISO", "KTTK"] 
+eval_stock_data_list = get_stock_data_list(eval_instrument_list)
+print("Evaluating model...")
+evaluate_model(eval_stock_data_list, trained_model)
+print("Evaluation complete!")
