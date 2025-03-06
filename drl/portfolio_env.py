@@ -11,6 +11,7 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from typing import List
 from sklearn.preprocessing import MinMaxScaler
 
@@ -105,8 +106,8 @@ class PortfolioEnv(gym.Env):
         
         # Calculate initial percent allocations
         percentages = raw_allocation * 100
-        print("Percentage Allocation")
-        print(raw_allocation)
+        # print("Percentage Allocation")
+        # print(percentages)
         
         # Apply discretization constraint (0%, 10%, 20%, 30%)
         # First, find the nearest valid allocation (multiples of 10%)
@@ -247,68 +248,17 @@ class PortfolioEnv(gym.Env):
     def close(self):
         pass
 
-# Some helper functions to train and evaluate the model
-def train_model(stock_data_list, total_timesteps=200_000):
-    print("Creating environment...")
-    env = PortfolioEnv(stock_data_list)
-    check_env(env)
-    
-    print("Initializing PPO agent...")
-    model = PPO(
-        "MlpPolicy", 
-        env,
-        tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
-        verbose=1,
-        # device="mps",
-        # learning_rate=3e-4,
-        # gamma=0.99,
-        # n_steps=2048,
-        # ent_coef=0.01,
-        # vf_coef=0.5,
-        # max_grad_norm=0.5,
-        # policy_kwargs={'net_arch': [256, 128, dict(vf=[64], pi=[64])]}
-    )
-    
-    checkpoint_callback = CheckpointCallback(
-        save_freq=1000,
-        save_path=SAVE_DIR,
-        name_prefix="ppo",
-        save_replay_buffer=False,
-        save_vecnormalize=False,
-    )
-    
-    print(f"Training for {total_timesteps} timesteps...")
-    model.learn(
-        total_timesteps=total_timesteps,
-        callback=checkpoint_callback,
-        progress_bar=True
-    )
-    
-    final_model_path = os.path.join(SAVE_DIR, "ppo_portfolio_final")
-    model.save(final_model_path)
-    print(f"Final model saved to {final_model_path}")
-    return model
-
-
-def evaluate_model(stock_data_list, trained_model, n_episodes=10):
-    print(f"Evaluating agent over {n_episodes} episodes...")
-    eval_env = Monitor(PortfolioEnv(stock_data_list))
-    # eval_env = PortfolioEnv(stock_data_list)
-    mean_reward, std_reward = evaluate_policy(
-        trained_model, 
-        eval_env, 
-        deterministic=True
-    )
-    print(f"Mean reward: {mean_reward:.4f} ± {std_reward:.4f}")
-    results = detailed_evaluation(trained_model, eval_env)
-    
-    print("\nPerformance Summary:")
-    print(f"Average Monthly Return: {results['mean_return']:.4f}")
-    print(f"Average Sharpe Ratio: {results['mean_sharpe']:.4f}")
-    print(f"Average Max Drawdown: {results['mean_drawdown']:.4f}")
-    print(f"Average Portfolio Allocation: {results['avg_allocation']}")
-    print(f"Final Average Portfolio Value: ${results['mean_final_value']:.2f}")
-    return results
+def get_stock_data_list(instrument_list):
+    stock_data_list = []
+    for instrument in instrument_list:
+        file_path = f"{DATA_DIR}/preprocessed_{instrument}.csv"
+        df = pd.read_csv(file_path)
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'])
+            df = df.sort_values('Date')
+        stock_data_list.append(df)
+        print(f"Loaded {instrument} with {len(df)} data points")
+    return stock_data_list
 
 def detailed_evaluation(trained_model, eval_env, n_episodes=10):
     all_allocations = []
@@ -424,33 +374,92 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
     
     plt.savefig(f'{SAVE_DIR}/results/performance_metrics.png')
     print("Visualizations saved to 'results' directory")
-    
-    
-def get_stock_data_list(instrument_list):
-    stock_data_list = []
-    for instrument in instrument_list:
-        file_path = f"{DATA_DIR}/preprocessed_{instrument}.csv"
-        df = pd.read_csv(file_path)
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
-            df = df.sort_values('Date')
-        stock_data_list.append(df)
-        print(f"Loaded {instrument} with {len(df)} data points")
-    
-    return stock_data_list
 
+# Some helper functions to train and evaluate the model
+def make_env(stock_data_list, rank=0, seed=0):
+    def _init():
+        env = Monitor(PortfolioEnv(stock_data_list))
+        env.reset(seed=seed + rank)
+        return env
+    return _init    
+
+def train_model(stock_data_list, total_timesteps=200_000):
+    print("Creating environment...")
+    n_envs = 8
+    # Create multiple environments running in parallel
+    env = SubprocVecEnv([make_env(stock_data_list, i) for i in range(n_envs)])
     
+    # env = PortfolioEnv(stock_data_list)
+    # check_env(env)
+    
+    print("Initializing PPO agent...")
+    model = PPO(
+        "MlpPolicy", 
+        env,
+        tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
+        verbose=1,
+        device="mps",
+        # learning_rate=3e-4,
+        # gamma=0.99,
+        # n_steps=2048,
+        # ent_coef=0.01,
+        # vf_coef=0.5,
+        # max_grad_norm=0.5,
+        # policy_kwargs={'net_arch': [256, 128, dict(vf=[64], pi=[64])]}
+    )
+    
+    checkpoint_callback = CheckpointCallback(
+        save_freq=1000,
+        save_path=SAVE_DIR,
+        name_prefix="ppo",
+        save_replay_buffer=False,
+        save_vecnormalize=False,
+    )
+    
+    print(f"Training for {total_timesteps} timesteps...")
+    model.learn(
+        total_timesteps=total_timesteps,
+        callback=checkpoint_callback,
+        progress_bar=True
+    )
+    
+    final_model_path = os.path.join(SAVE_DIR, "ppo_portfolio_final")
+    model.save(final_model_path)
+    print(f"Final model saved to {final_model_path}")
+    return model
 
-# TRAIN
-instrument_list = ["BIT", "CAQD", "CDUV", "CDZ", "CMA", "CQFV", "DEI", "DNW", "DPJE", "EZIG"] 
-stock_data_list = get_stock_data_list(instrument_list)
-print("Training model...")
-trained_model = train_model(stock_data_list)
-print("Training complete!")
+def evaluate_model(stock_data_list, trained_model, n_episodes=10):
+    print(f"Evaluating agent over {n_episodes} episodes...")
+    eval_env = Monitor(PortfolioEnv(stock_data_list))
+    # eval_env = PortfolioEnv(stock_data_list)
+    mean_reward, std_reward = evaluate_policy(
+        trained_model, 
+        eval_env, 
+        deterministic=True
+    )
+    print(f"Mean reward: {mean_reward:.4f} ± {std_reward:.4f}")
+    results = detailed_evaluation(trained_model, eval_env)
+    
+    print("\nPerformance Summary:")
+    print(f"Average Monthly Return: {results['mean_return']:.4f}")
+    print(f"Average Sharpe Ratio: {results['mean_sharpe']:.4f}")
+    print(f"Average Max Drawdown: {results['mean_drawdown']:.4f}")
+    print(f"Average Portfolio Allocation: {results['avg_allocation']}")
+    print(f"Final Average Portfolio Value: ${results['mean_final_value']:.2f}")
+    return results
 
-# EVALUATE
-eval_instrument_list = ["FLTF", "FLVU", "HCJ", "HQAO", "HYNC", "IPJU", "JDS", "JOSU", "KISO", "KTTK"] 
-eval_stock_data_list = get_stock_data_list(eval_instrument_list)
-print("Evaluating model...")
-evaluate_model(eval_stock_data_list, trained_model)
-print("Evaluation complete!")
+
+if __name__ == "__main__":
+    # TRAIN
+    instrument_list = ["BIT", "CAQD", "CDUV", "CDZ", "CMA", "CQFV", "DEI", "DNW", "DPJE", "EZIG"] 
+    stock_data_list = get_stock_data_list(instrument_list)
+    print("Training model...")
+    trained_model = train_model(stock_data_list)
+    print("Training complete!")
+
+    # EVALUATE
+    eval_instrument_list = ["FLTF", "FLVU", "HCJ", "HQAO", "HYNC", "IPJU", "JDS", "JOSU", "KISO", "KTTK"] 
+    eval_stock_data_list = get_stock_data_list(eval_instrument_list)
+    print("Evaluating model...")
+    evaluate_model(eval_stock_data_list, trained_model)
+    print("Evaluation complete!")
