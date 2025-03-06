@@ -17,7 +17,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 # save dir should add the current date and time
-SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M')}"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # DATA_DIR must be appended before the filename
@@ -399,9 +399,10 @@ def train_model(stock_data_list, total_timesteps=200_000):
         tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
         verbose=1,
         device="mps",
-        # learning_rate=3e-4,
+        n_steps=256,
+        learning_rate=1e-4,
+        batch_size=128,
         # gamma=0.99,
-        # n_steps=2048,
         # ent_coef=0.01,
         # vf_coef=0.5,
         # max_grad_norm=0.5,
