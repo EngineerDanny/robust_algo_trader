@@ -25,16 +25,32 @@ DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/p
 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
-    
-    def __init__(self, stock_data_list: List[pd.DataFrame], episode_length: int = 12, temperature: float = 0.3, window_size: int = 252):
-        super(PortfolioEnv, self).__init__()
+
+    def __init__(self, 
+                 stock_data_list = None,
+                 use_synthetic_data = False,
+                 n_stocks = 10, 
+                 episode_length = 12, 
+                 temperature = 0.3, 
+                 window_size = 252,
+                 episodes_per_dataset=8):
         
-        self.stocks = {f'stock_{i}': df for i, df in enumerate(stock_data_list)}
-        self.n_stocks = len(self.stocks)
+        super(PortfolioEnv, self).__init__()
+
+        self.use_synthetic_data = use_synthetic_data
+        self.stock_data_list = stock_data_list
+        self.n_stocks = n_stocks if stock_data_list is None else len(stock_data_list)
+
+        # self.stocks = {f'stock_{i}': df for i, df in enumerate(stock_data_list)}
+        # self.n_stocks = len(self.stocks)
         self.episode_length = episode_length
         self.temperature = temperature
         self.window_size = window_size  # Window size for feature scaling (252 days = 1 year)
-        
+        self.episodes_per_dataset = episodes_per_dataset
+        # Track dataset usage
+        self.current_dataset_episodes = 0
+        self.stocks = None
+
         # Use raw features instead of pre-scaled ones
         self.features = [
             'Close', 'MA5', 'MA20', 'MA50', 'MA200',
@@ -42,41 +58,112 @@ class PortfolioEnv(gym.Env):
             'Return_1M', 'Return_3M', 'CurrentDrawdown',
             'MaxDrawdown_252d', 'Sharpe_20d', 'Sharpe_60d'
         ]
-        
+
         obs_dim = len(self.features) * self.n_stocks
         self.observation_space = spaces.Box(
             low=-1, high=1,
             shape=(obs_dim,), 
             dtype=np.float32
         )
-  
+
         self.action_space = spaces.Box(
             low=-1, high=1,
             shape=(self.n_stocks,),
             dtype=np.float32
         )
-        
         self.reset()
-    
+
+
+    def _generate_synthetic_data(self, seed=None):
+        """Internal method to generate synthetic stock data"""
+        if seed is not None:
+            np.random.seed(seed)
+            
+        synthetic_data_list = []
+        for i in range(self.n_stocks):
+            # Generate base price series (e.g., geometric Brownian motion)
+            n_days = self.episode_length * 30 + self.window_size + 100  # Add buffer
+            
+            # Example simple price generation - replace with your actual generator
+            mu = np.random.uniform(0.0001, 0.0010)  # Daily drift
+            sigma = np.random.uniform(0.005, 0.025)  # Daily volatility
+            
+            price = 100  # Starting price
+            prices = [price]
+            
+            for _ in range(n_days - 1):
+                daily_return = np.random.normal(mu, sigma)
+                price = price * (1 + daily_return)
+                prices.append(price)
+            
+            # Create DataFrame
+            df = pd.DataFrame({
+                'Date': pd.date_range(start='2020-01-01', periods=n_days),
+                'Close': prices
+            })
+            
+            # Calculate other required features (replace with your actual calculations)
+            df['MA5'] = df['Close'].rolling(window=5).mean()
+            df['MA20'] = df['Close'].rolling(window=20).mean()
+            df['MA50'] = df['Close'].rolling(window=50).mean()
+            df['MA200'] = df['Close'].rolling(window=200).mean()
+            
+            # Add other technical indicators
+            # ...
+            
+            # Fill NaN values (from rolling calculations)
+            df.fillna(method='bfill', inplace=True)
+            
+            synthetic_data_list.append(df)
+            
+        return synthetic_data_list
+
+
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        
+
+        # Generate new data only when needed
+        if self.use_synthetic_data:
+            # Only generate new data if we've exhausted the episodes for current dataset
+            if (
+                self.stocks is None
+                or self.current_dataset_episodes >= self.episodes_per_dataset
+            ):
+                # Generate new synthetic data
+                self.stocks = {
+                    f"stock_{i}": df
+                    for i, df in enumerate(self._generate_synthetic_data(seed=seed))
+                }
+                self.current_dataset_episodes = 0
+
+            # Increment dataset usage counter
+            self.current_dataset_episodes += 1
+        else:
+            # For real data, always use the provided dataset
+            if self.stock_data_list is None:
+                raise ValueError(
+                    "Real data mode selected but no stock_data_list provided"
+                )
+            self.stocks = {
+                f"stock_{i}": df 
+                for i, df in enumerate(self.stock_data_list)
+            }
+
         data_length = len(next(iter(self.stocks.values())))
         max_start_idx = data_length - self.episode_length * 30 - 20
-        
+
         # No minimum start index, as data is assumed to be clean
         self.current_step = np.random.randint(0, max_start_idx)
         self.current_month = 0
-        
+
         self.monthly_returns = []
         self.portfolio_value = 100.0
         self.previous_allocation = np.zeros(self.n_stocks)
-        
+
         observation = self._get_observation()
         info = {}
         return observation, info
-    
-    
+
     def _get_observation(self):
         observation = []
         for stock_name, stock_data in self.stocks.items():
@@ -84,44 +171,44 @@ class PortfolioEnv(gym.Env):
             window_start = max(0, self.current_step - self.window_size + 1)  # +1 to make room for current step
             window_end = self.current_step + 1  # +1 because slice is exclusive of end index
             window_data = stock_data.iloc[window_start:window_end]
-            
+
             # Scale all features for the entire window
             scaled_features = []
             for feature in self.features:
                 scaler = MinMaxScaler(feature_range=(-1, 1))
                 feature_values = window_data[feature].values.reshape(-1, 1)
                 scaled_window = scaler.fit_transform(feature_values)
-                
+
                 # Get the scaled value for the current step (last value in the window)
                 scaled_val = scaled_window[-1][0]  # Last row, first column
                 scaled_features.append(scaled_val)
             observation.extend(scaled_features)
         return np.array(observation, dtype=np.float32)
-    
+
     # Then update the _convert_to_allocation method:
     def _convert_to_allocation(self, action_weights):
         # Softmax works fine with negative values
         # Apply softmax with temperature scaling
         raw_allocation = softmax(np.array(action_weights) / self.temperature)
-        
+
         # Calculate initial percent allocations
         percentages = raw_allocation * 100
         # print("Percentage Allocation")
         # print(percentages)
-        
+
         # Apply discretization constraint (0%, 10%, 20%, 30%)
         # First, find the nearest valid allocation (multiples of 10%)
         allocations = np.round(percentages / 10) * 10
         allocations = np.clip(allocations, 0, 30)
-        
+
         # Determine adjustment needed to sum to 100%
         total_allocation = np.sum(allocations)
         adjustment_needed = 100 - total_allocation
-        
+
         if adjustment_needed != 0:
             # Calculate how close each stock was to the next discretization level
             distance_to_next = np.zeros_like(allocations)
-            
+
             for i in range(len(allocations)):
                 if adjustment_needed > 0 and allocations[i] < 30:
                     # If we need to add: how close to rounding up?
@@ -132,13 +219,13 @@ class PortfolioEnv(gym.Env):
                 else:
                     # Can't adjust this stock
                     distance_to_next[i] = float('inf')
-            
+
             # Prioritize adjustments for stocks closest to the next level
             num_adjustments = int(abs(adjustment_needed) // 10)
-            
+
             if num_adjustments > 0:
                 adjustment_indices = np.argsort(distance_to_next)[:num_adjustments]
-                
+
                 for idx in adjustment_indices:
                     if adjustment_needed > 0 and allocations[idx] < 30:
                         allocations[idx] += 10
@@ -152,20 +239,19 @@ class PortfolioEnv(gym.Env):
         # for stock_name, allocation in zip(self.stocks.keys(), allocations):
         #     print(f"{stock_name}: {allocation}%")
         return allocations
-    
-    
+
     def step(self, action):
         allocation = self._convert_to_allocation(action)
         self.previous_allocation = allocation.copy()
         portfolio_return, stock_returns = self._calculate_monthly_performance(allocation)
         self.portfolio_value *= (1 + portfolio_return)
-        
+
         # Get raw metrics (not scaled) for reward calculation
         sharpe = self._calculate_portfolio_metric('Sharpe_20d', allocation)
         max_drawdown = self._calculate_portfolio_metric('MaxDrawdown_252d', allocation)
         reward = self._calculate_reward(portfolio_return, sharpe, max_drawdown)
         self.monthly_returns.append(portfolio_return)
-        
+
         info = {
             'portfolio_return': portfolio_return,
             'portfolio_value': self.portfolio_value,
@@ -174,43 +260,43 @@ class PortfolioEnv(gym.Env):
             'allocation': allocation.copy(),
             'stock_returns': stock_returns
         }
-        
+
         self.current_step += 30
         self.current_month += 1
-        
+
         terminated = (self.current_month >= self.episode_length)
         truncated = False
         observation = self._get_observation()
-        
+
         return observation, reward, terminated, truncated, info
-    
+
     def _calculate_monthly_performance(self, allocation):
         current_prices = np.array([
             self.stocks[f'stock_{i}'].iloc[self.current_step]['Close'] 
             for i in range(self.n_stocks)
         ])
-        
+
         next_step = min(self.current_step + 30, len(next(iter(self.stocks.values()))) - 1)
         next_prices = np.array([
             self.stocks[f'stock_{i}'].iloc[next_step]['Close'] 
             for i in range(self.n_stocks)
         ])
-        
+
         stock_returns = (next_prices - current_prices) / current_prices
         portfolio_return = np.sum((allocation / 100) * stock_returns)
-        
+
         return portfolio_return, stock_returns
-    
+
     def _calculate_portfolio_metric(self, metric_name, allocation):
         if not all(metric_name in stock_df.columns for stock_df in self.stocks.values()):
             return 0.0
-        
+
         metric_values = np.array([
             self.stocks[f'stock_{i}'].iloc[self.current_step][metric_name] 
             for i in range(self.n_stocks)
         ])
         return np.sum((allocation / 100) * metric_values)
-    
+
     def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
         # Get the average return across all stocks as a benchmark for the current month
         # The Return_1M metric is the return over the past month, not the future month
@@ -218,33 +304,33 @@ class PortfolioEnv(gym.Env):
             self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
             for i in range(self.n_stocks)
         ])
-        
+
         # Calculate excess return over benchmark
         excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
-        
+
         # Base reward from excess return (higher weight for outperformance)
         base_reward = excess_return * 100
-        
+
         # Risk-adjusted components
         sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
         drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
-        
+
         # Apply higher penalty for large drawdowns but lower for small ones
         if max_drawdown < -0.1:  # Only penalize significant drawdowns
             drawdown_component *= 1.5
-        
+
         # Combine components
         reward = base_reward + sharpe_component + drawdown_component
-        
+
         return reward
-    
+
     def render(self, mode='human'):
         print(f"Month {self.current_month}")
         print(f"Allocation: {self.previous_allocation}")
         if self.monthly_returns:
             print(f"Last month return: {self.monthly_returns[-1]:.4f}")
             print(f"Portfolio value: {self.portfolio_value:.2f}")
-    
+
     def close(self):
         pass
 
