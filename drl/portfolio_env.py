@@ -35,7 +35,7 @@ class PortfolioEnv(gym.Env):
                  episode_length = 12, 
                  temperature = 0.3, 
                  window_size = 252,
-                 episodes_per_dataset=8):
+                 episodes_per_dataset=50):
         
         super(PortfolioEnv, self).__init__()
 
@@ -343,7 +343,7 @@ class PortfolioEnv(gym.Env):
         max_start_idx = data_length - self.episode_length * 30 - 20
 
         # No minimum start index, as data is assumed to be clean
-        self.current_step = np.random.randint(0, max_start_idx)
+        self.current_step = np.random.randint(0, max_start_idx) if self.use_synthetic_data else 0
         self.current_month = 0
 
         self.monthly_returns = []
