@@ -56,9 +56,7 @@ class PortfolioEnv(gym.Env):
             'Close', 'MA5', 'MA20', 'MA50', 'MA200',
             'RSI', 'BB_width', 'ATR', 'Return_1W',
             'Return_1M', 'Return_3M', 'CurrentDrawdown',
-            'MaxDrawdown_252d', 'Sharpe_20d', 'Sharpe_60d',
-            'Sharpe_252d', 'Bull_Bear', 'Regime_Strength',
-            'MA50_Deviation', 'MA200_Deviation'
+            'MaxDrawdown_252d', 'Sharpe_20d', 'Sharpe_60d'
         ]
 
         obs_dim = len(self.features) * self.n_stocks
@@ -285,11 +283,6 @@ class PortfolioEnv(gym.Env):
                 df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
                 df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
                 df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
-                
-                df['Bull_Bear'] = (df['MA50'] > df['MA200']).astype(int)
-                df['Regime_Strength'] = ((df['MA50'] / df['MA200']) - 1) * 100
-                df['MA50_Deviation'] = ((df['Close'] / df['MA50']) - 1) * 100
-                df['MA200_Deviation'] = ((df['Close'] / df['MA200']) - 1) * 100
                 
                 # Drop NaN values (from indicators that need lookback periods)
                 df.dropna(inplace=True)
@@ -685,10 +678,10 @@ def train_model(stock_data_list, total_timesteps=200_000):
         # ent_coef=0.01,
         # vf_coef=0.5,
         # max_grad_norm=0.5,
-        # policy_kwargs=dict(
-        #     net_arch=[256, 256, 128, 128, 64],
-        #     activation_fn=th.nn.Tanh,
-        # ),
+        policy_kwargs=dict(
+            net_arch=[256, 256, 128, 128, 64],
+            activation_fn=th.nn.Tanh,
+        ),
     )
     
     checkpoint_callback = CheckpointCallback(
