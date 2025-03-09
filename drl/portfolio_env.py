@@ -483,93 +483,33 @@ class PortfolioEnv(gym.Env):
         ])
         return np.sum((allocation / 100) * metric_values)
 
-    # def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
-    #     # Get the average return across all stocks as a benchmark for the current month
-    #     # The Return_1M metric is the return over the past month, not the future month
-    #     benchmark_returns = np.mean([
-    #         self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
-    #         for i in range(self.n_stocks)
-    #     ])
-
-    #     # Calculate excess return over benchmark
-    #     excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
-
-    #     # Base reward from excess return (higher weight for outperformance)
-    #     base_reward = excess_return * 100
-
-    #     # Risk-adjusted components
-    #     sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
-    #     drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
-
-    #     # Apply higher penalty for large drawdowns but lower for small ones
-    #     if max_drawdown < -0.1:  # Only penalize significant drawdowns
-    #         drawdown_component *= 1.5
-
-    #     # Combine components
-    #     reward = base_reward + sharpe_component + drawdown_component
-
-    #     return reward
-    
     def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
-        # 1. BENCHMARK COMPARISON
-        # Get the average return across all stocks as benchmark
+        # Get the average return across all stocks as a benchmark for the current month
+        # The Return_1M metric is the return over the past month, not the future month
         benchmark_returns = np.mean([
             self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
             for i in range(self.n_stocks)
         ])
-        
-        # Calculate excess return over benchmark (alpha)
-        alpha = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
-        
-        # 2. RETURN COMPONENT
-        # Use diminishing returns function to prevent excessive risk-taking
-        if alpha > 0:
-            # Reward positive alpha, but with diminishing returns for very high values
-            return_component = 80 * (1 - np.exp(-5 * alpha))  # Caps at ~80 for large alpha
-        else:
-            # Penalize negative alpha more aggressively
-            return_component = 100 * alpha  # Linear penalty for underperformance
-        
-        # 3. RISK-ADJUSTED COMPONENTS
-        # Increased weight on Sharpe ratio to emphasize risk-adjusted returns
-        sharpe_component = sharpe * 2.0
-        
-        # Progressive drawdown penalty (becomes more severe as drawdowns worsen)
-        if max_drawdown > -0.05:  # Minimal drawdowns (<5%)
-            drawdown_component = max_drawdown * -1.0  # Mild penalty
-        elif max_drawdown > -0.1:  # Moderate drawdowns (5-10%)
-            drawdown_component = max_drawdown * -2.0  # Medium penalty
-        else:  # Severe drawdowns (>10%)
-            drawdown_component = max_drawdown * -3.0  # Severe penalty
-        
-        # 4. CONSISTENCY BONUS
-        # Reward consistent returns (if we have enough history)
-        consistency_bonus = 0
-        if len(self.monthly_returns) >= 3:
-            recent_returns = np.array(self.monthly_returns[-3:])
-            # Lower standard deviation = higher consistency
-            std_dev = np.std(recent_returns)
-            # Reward low volatility in returns (max bonus of 5)
-            consistency_bonus = 5.0 * np.exp(-10 * std_dev)
-        
-        # 5. DIVERSIFICATION INCENTIVE
-        normalized_allocation = self.previous_allocation / 100.0  # Convert to percentages
-        hhi = np.sum(normalized_allocation ** 2)  # Sum of squared allocations
-        max_bonus = 3.0  # Maximum possible bonus
-        min_hhi = 1.0 / self.n_stocks  # Perfectly diversified portfolio
-        max_hhi = 1.0  # Completely concentrated portfolio
-        diversification_bonus = max_bonus * (1 - (hhi - min_hhi) / (max_hhi - min_hhi))
-        
-        # 6. COMBINE ALL COMPONENTS
-        reward = (
-            return_component +
-            sharpe_component + 
-            drawdown_component +
-            consistency_bonus +
-            diversification_bonus
-        )
-        return reward
 
+        # Calculate excess return over benchmark
+        excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
+
+        # Base reward from excess return (higher weight for outperformance)
+        base_reward = excess_return * 100
+
+        # Risk-adjusted components
+        sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
+        drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
+
+        # Apply higher penalty for large drawdowns but lower for small ones
+        if max_drawdown < -0.1:  # Only penalize significant drawdowns
+            drawdown_component *= 1.5
+
+        # Combine components
+        reward = base_reward + sharpe_component + drawdown_component
+
+        return reward
+    
     def render(self, mode='human'):
         print(f"Month {self.current_month}")
         print(f"Allocation: {self.previous_allocation}")
