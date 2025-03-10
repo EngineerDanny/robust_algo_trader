@@ -483,32 +483,125 @@ class PortfolioEnv(gym.Env):
         ])
         return np.sum((allocation / 100) * metric_values)
 
+    # def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
+    #     # Get the average return across all stocks as a benchmark for the current month
+    #     # The Return_1M metric is the return over the past month, not the future month
+    #     benchmark_returns = np.mean([
+    #         self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
+    #         for i in range(self.n_stocks)
+    #     ])
+
+    #     # Calculate excess return over benchmark
+    #     excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
+
+    #     # Base reward from excess return (higher weight for outperformance)
+    #     base_reward = excess_return * 100
+
+    #     # Risk-adjusted components
+    #     sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
+    #     drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
+
+    #     # Apply higher penalty for large drawdowns but lower for small ones
+    #     if max_drawdown < -0.1:  # Only penalize significant drawdowns
+    #         drawdown_component *= 1.5
+
+    #     # Combine components
+    #     reward = base_reward + sharpe_component + drawdown_component
+    #     return reward
+    
     def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
-        # Get the average return across all stocks as a benchmark for the current month
-        # The Return_1M metric is the return over the past month, not the future month
+        # 1. IMMEDIATE REWARD COMPONENT (based on actual past performance)
+        # Get the average return across all stocks as a benchmark
         benchmark_returns = np.mean([
             self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
             for i in range(self.n_stocks)
         ])
-
         # Calculate excess return over benchmark
-        excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
-
-        # Base reward from excess return (higher weight for outperformance)
+        excess_return = portfolio_return - max(0, benchmark_returns * 0.01)
         base_reward = excess_return * 100
-
-        # Risk-adjusted components
-        sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
-        drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
-
-        # Apply higher penalty for large drawdowns but lower for small ones
-        if max_drawdown < -0.1:  # Only penalize significant drawdowns
+        sharpe_component = sharpe * 1.0
+        drawdown_component = max_drawdown * -1.5
+        if max_drawdown < -0.1:
             drawdown_component *= 1.5
-
-        # Combine components
-        reward = base_reward + sharpe_component + drawdown_component
-
-        return reward
+        immediate_reward = base_reward + sharpe_component + drawdown_component
+        
+        # 2. FUTURE REWARD COMPONENT (based on simulated future performance)
+        weights = self.previous_allocation / 100.0
+        _, stock_stats = self._simulate_future_price_paths()
+        expected_future_return = 0
+        future_var = 0
+        for i in range(self.n_stocks):
+            stock_name = f'stock_{i}'
+            if weights[i] > 0:
+                stock_stat = stock_stats[stock_name]
+                expected_future_return += weights[i] * stock_stat['expected_returns'][-1]
+                future_var += weights[i] * abs(stock_stat['final_var_95'])
+        future_return_component = expected_future_return * 100
+        future_risk_penalty = future_var * -100
+        future_reward = future_return_component + future_risk_penalty
+        total_reward = (0.7 * immediate_reward) + (0.3 * future_reward)
+        return total_reward
+    
+    def _simulate_future_price_paths(self, n_simulations=50, horizon_months=3):
+        # Store simulation results for each stock
+        simulated_prices = {}
+        stock_stats = {}
+        
+        # Use only recent data (last ~1 month of trading)
+        recent_lookback = 21
+        
+        # Simulate future paths for each stock
+        for i, stock_name in enumerate(self.stocks.keys()):
+            stock_data = self.stocks[f'stock_{i}']
+            current_step = self.current_step
+            
+            # Get current price
+            current_price = stock_data.iloc[current_step]['Close']
+            
+            # Get only recent returns (what the agent can observe)
+            start_idx = max(0, current_step - recent_lookback)
+            recent_returns = stock_data['LogReturn'].iloc[start_idx:current_step+1].values
+            
+            # Calculate statistics from recent returns
+            mean_return = np.mean(recent_returns)
+            std_return = max(np.std(recent_returns), 1e-6)  # Prevent zero std
+            
+            # Initialize price paths for this stock
+            stock_price_paths = np.zeros((n_simulations, horizon_months + 1))
+            stock_price_paths[:, 0] = current_price  # Set initial price
+            
+            # Generate paths
+            for sim in range(n_simulations):
+                for month in range(1, horizon_months + 1):
+                    # Sample a monthly return based on recent return distribution
+                    # Scale daily mean and std to monthly
+                    monthly_return = np.random.normal(mean_return * 21, std_return * np.sqrt(21))
+                    
+                    # Update price
+                    stock_price_paths[sim, month] = stock_price_paths[sim, month-1] * np.exp(monthly_return)
+            
+            # Store price paths
+            simulated_prices[stock_name] = stock_price_paths
+            
+            # Calculate statistics for this stock
+            expected_prices = np.mean(stock_price_paths, axis=0)
+            expected_returns = expected_prices / current_price - 1
+            
+            # Calculate risk metrics at final horizon
+            final_prices = stock_price_paths[:, -1]
+            final_returns = final_prices / current_price - 1
+            var_95 = np.percentile(final_returns, 5)  # 5% worst case return
+            expected_shortfall = np.mean(final_returns[final_returns < var_95])
+            
+            # Store stock statistics
+            stock_stats[stock_name] = {
+                'expected_prices': expected_prices,
+                'expected_returns': expected_returns,
+                'final_var_95': var_95,
+                'expected_shortfall': expected_shortfall
+            }
+        
+        return simulated_prices, stock_stats
     
     def render(self, mode='human'):
         print(f"Month {self.current_month}")
@@ -520,6 +613,7 @@ class PortfolioEnv(gym.Env):
     def close(self):
         pass
 
+## Helper functions to load data and evaluate the model
 def get_stock_data_list(instrument_list):
     stock_data_list = []
     for instrument in instrument_list:
@@ -730,7 +824,7 @@ if __name__ == "__main__":
     instrument_list = ["BIT", "CAQD", "CDUV", "CDZ", "CMA", "CQFV", "DEI", "DNW", "DPJE", "EZIG"] 
     stock_data_list = get_stock_data_list(instrument_list)
     print("Training model...")
-    trained_model = train_model(stock_data_list, total_timesteps=1_000_000)
+    trained_model = train_model(stock_data_list, total_timesteps=2_000_000)
     print("Training complete!")
 
     # EVALUATE
