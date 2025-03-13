@@ -17,8 +17,6 @@ import talib
 from scipy.stats import t as student_t
 import torch as th
 import matplotlib.pyplot as plt
-import pandas_market_calendars as mcal
-from dateutil.relativedelta import relativedelta
 
 
 # save dir should add the current date and time
@@ -38,8 +36,7 @@ class PortfolioEnv(gym.Env):
                  episode_length = 12, 
                  temperature = 0.3, 
                  window_size = 252,
-                 episodes_per_dataset=50,
-                 exchange='NYSE'):
+                 episodes_per_dataset=50):
         
         super(PortfolioEnv, self).__init__()
 
@@ -53,14 +50,6 @@ class PortfolioEnv(gym.Env):
         # Track dataset usage
         self.current_dataset_episodes = 0
         self.stocks = None
-        
-            # Add market calendar
-        self.exchange = exchange
-        self.calendar = mcal.get_calendar(exchange)
-    
-        # Track dates and create a mapping between dates and indices
-        self.current_date = None
-        self.date_index = None  # Will map dates to positions in data
 
         # Use raw features instead of pre-scaled ones
         self.features = [
@@ -108,24 +97,13 @@ class PortfolioEnv(gym.Env):
             'correction_depth': (-0.10, -0.03),
         }
         
-        # Get trading days from market calendar
-        start_date = pd.Timestamp('2016-01-04')
-        end_date = start_date + pd.DateOffset(years=synthetic_data_years)
-        calendar_dates = self.calendar.valid_days(
-            start_date=start_date,
-            end_date=end_date
-        )
-        
-        # Format dates to match your data format
-        trading_days = [d.tz_localize(None).strftime('%Y-%m-%d') for d in calendar_dates]
-        N = len(trading_days)
-        
         synthetic_data_list = []
         
         while len(synthetic_data_list) < self.n_stocks:
             attempts = 0
             while attempts < max_attempts:
                 attempts += 1
+                
                 # Stock-specific parameters with randomization
                 bull_drift = np.random.normal(0.14, 0.03) 
                 bear_drift = np.random.normal(-0.10, 0.02)
@@ -133,7 +111,16 @@ class PortfolioEnv(gym.Env):
                 bull_vol = max(np.random.normal(0.15, 0.03), 0.02)
                 bear_vol = max(np.random.normal(0.25, 0.03), 0.05)
                 
+                # Generate dates
+                trading_days = synthetic_data_years * 252
+                dates = pd.date_range(
+                    start=pd.Timestamp('2010-01-01'),
+                    periods=trading_days,
+                    freq='B'  # Business days
+                )
+                
                 # Initialize arrays
+                N = len(dates)
                 close_prices = np.zeros(N)
                 open_prices = np.zeros(N)
                 high_prices = np.zeros(N)
@@ -253,14 +240,17 @@ class PortfolioEnv(gym.Env):
                 
                 # Create DataFrame
                 df = pd.DataFrame({
-                    'Date': trading_days,
+                    'Date': dates,
                     'Open': open_prices,
                     'High': high_prices,
                     'Low': low_prices,
-                    'Close': close_prices
-                }, index=trading_days)
+                    'Close': close_prices,
+                    'Regime': regimes
+                })
+                df.set_index('Date', inplace=True)
                 
                 # Calculate technical indicators using talib
+                # Moving Averages
                 df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
                 df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
                 df['MA50'] = talib.SMA(df['Close'].values, timeperiod=50)
@@ -294,7 +284,7 @@ class PortfolioEnv(gym.Env):
                 df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
                 df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
                 
-                # Drop NaN values
+                # Drop NaN values (from indicators that need lookback periods)
                 df.dropna(inplace=True)
                 
                 # Check if this data meets our criteria for good US equities
@@ -309,6 +299,7 @@ class PortfolioEnv(gym.Env):
                     df.attrs['max_drawdown'] = df['CurrentDrawdown'].min()
                     
                     synthetic_data_list.append(df)
+                    # print(f"Generated stock with Sharpe: {overall_sharpe:.2f}, Annual return: {annual_return:.2%}")
                     break
                     
                 if attempts == max_attempts:
@@ -316,6 +307,7 @@ class PortfolioEnv(gym.Env):
                     # If we've tried many times, relax the constraints
                     min_sharpe *= 0.8
                     min_annual_return *= 0.8
+        
         return synthetic_data_list
 
     def reset(self, seed=None, options=None):
@@ -334,6 +326,8 @@ class PortfolioEnv(gym.Env):
                     for i, df in enumerate(self._generate_synthetic_data(seed=seed))
                 }
                 self.current_dataset_episodes = 0
+
+            # Increment dataset usage counter
             self.current_dataset_episodes += 1
         else:
             # For real data, always use the provided dataset
@@ -345,29 +339,12 @@ class PortfolioEnv(gym.Env):
                 f"stock_{i}": df 
                 for i, df in enumerate(self.stock_data_list)
             }
-            
-        # Get a reference stock for date range
-        reference_stock = next(iter(self.stocks.values()))
-        min_date = reference_stock.index.min()
-        max_date = reference_stock.index.max()
-        
-        # Get valid market dates in range
-        market_dates = self.calendar.valid_days(start_date=min_date, end_date=max_date)
-        market_dates = pd.DatetimeIndex([d.tz_localize(None) for d in market_dates])
-        
-        # Create mapping between dates and indices
-        self.date_index = {date: i for i, date in enumerate(market_dates)}
-        
-        # Find valid starting dates with enough history and future data
-        valid_start_dates = [d for d in market_dates if 
-                            d >= min_date + pd.Timedelta(days=self.window_size) and
-                            d <= max_date - relativedelta(months=self.episode_length)]
-        
-        if not valid_start_dates:
-            raise ValueError("Not enough data for episode length and history window")
-        
-        # Select a random start date or the first valid date
-        self.current_date = np.random.choice(valid_start_dates) if self.use_synthetic_data else valid_start_dates[0]
+
+        data_length = len(next(iter(self.stocks.values())))
+        max_start_idx = data_length - self.episode_length * 30 - 20
+
+        # No minimum start index, as data is assumed to be clean
+        self.current_step = np.random.randint(0, max_start_idx) if self.use_synthetic_data else 0
         self.current_month = 0
 
         self.monthly_returns = []
@@ -381,9 +358,10 @@ class PortfolioEnv(gym.Env):
     def _get_observation(self):
         observation = []
         for stock_name, stock_data in self.stocks.items():
-            # Get window for scaling 
-            window_start_date = self._get_previous_trading_day(self.current_date, self.window_size - 1)
-            window_data = stock_data.loc[window_start_date:self.current_date]
+            # Get window for scaling (including current step)
+            window_start = max(0, self.current_step - self.window_size + 1)  # +1 to make room for current step
+            window_end = self.current_step + 1  # +1 because slice is exclusive of end index
+            window_data = stock_data.iloc[window_start:window_end]
 
             # Scale all features for the entire window
             scaled_features = []
@@ -391,7 +369,9 @@ class PortfolioEnv(gym.Env):
                 scaler = MinMaxScaler(feature_range=(-1, 1))
                 feature_values = window_data[feature].values.reshape(-1, 1)
                 scaled_window = scaler.fit_transform(feature_values)
-                scaled_val = scaled_window[-1][0]
+
+                # Get the scaled value for the current step (last value in the window)
+                scaled_val = scaled_window[-1][0]  # Last row, first column
                 scaled_features.append(scaled_val)
             observation.extend(scaled_features)
         return np.array(observation, dtype=np.float32)
@@ -449,7 +429,6 @@ class PortfolioEnv(gym.Env):
     def step(self, action):
         allocation = self._convert_to_allocation(action)
         self.previous_allocation = allocation.copy()
-        
         portfolio_return, stock_returns = self._calculate_monthly_performance(allocation)
         self.portfolio_value *= (1 + portfolio_return)
 
@@ -465,43 +444,27 @@ class PortfolioEnv(gym.Env):
             'sharpe': sharpe,
             'max_drawdown': max_drawdown,
             'allocation': allocation.copy(),
-            'stock_returns': stock_returns,
-            'current_date': self.current_date
+            'stock_returns': stock_returns
         }
 
-        # Move forward by one calendar month
-        next_month_date = self.current_date + relativedelta(months=1)
-        
-        # Find the closest valid trading day on or after the target date
-        valid_dates = [d for d in self.date_index.keys() if d >= next_month_date]
-        if valid_dates:
-            self.current_date = min(valid_dates)
-        else:
-            # Handle case where we've reached the end of data
-            self.current_date = max(self.date_index.keys())
-        
+        self.current_step += 30
         self.current_month += 1
+
         terminated = (self.current_month >= self.episode_length)
         truncated = False
-        
         observation = self._get_observation()
+
         return observation, reward, terminated, truncated, info
 
     def _calculate_monthly_performance(self, allocation):
-        # Calculate return based on current date and one month ahead
-        next_month_date = self.current_date + relativedelta(months=1)
-        
-        # Find closest valid trading day after target date
-        valid_dates = [d for d in self.date_index.keys() if d >= next_month_date]
-        next_date = min(valid_dates) if valid_dates else max(self.date_index.keys())
-        
         current_prices = np.array([
-            self.stocks[f'stock_{i}'].loc[self.current_date]['Close'] 
+            self.stocks[f'stock_{i}'].iloc[self.current_step]['Close'] 
             for i in range(self.n_stocks)
         ])
 
+        next_step = min(self.current_step + 30, len(next(iter(self.stocks.values()))) - 1)
         next_prices = np.array([
-            self.stocks[f'stock_{i}'].loc[next_date]['Close'] 
+            self.stocks[f'stock_{i}'].iloc[next_step]['Close'] 
             for i in range(self.n_stocks)
         ])
 
@@ -519,6 +482,32 @@ class PortfolioEnv(gym.Env):
             for i in range(self.n_stocks)
         ])
         return np.sum((allocation / 100) * metric_values)
+
+    # def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
+    #     # Get the average return across all stocks as a benchmark for the current month
+    #     # The Return_1M metric is the return over the past month, not the future month
+    #     benchmark_returns = np.mean([
+    #         self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
+    #         for i in range(self.n_stocks)
+    #     ])
+
+    #     # Calculate excess return over benchmark
+    #     excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
+
+    #     # Base reward from excess return (higher weight for outperformance)
+    #     base_reward = excess_return * 100
+
+    #     # Risk-adjusted components
+    #     sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
+    #     drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
+
+    #     # Apply higher penalty for large drawdowns but lower for small ones
+    #     if max_drawdown < -0.1:  # Only penalize significant drawdowns
+    #         drawdown_component *= 1.5
+
+    #     # Combine components
+    #     reward = base_reward + sharpe_component + drawdown_component
+    #     return reward
     
     def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
         # 1. IMMEDIATE REWARD COMPONENT (based on actual past performance)
@@ -613,13 +602,6 @@ class PortfolioEnv(gym.Env):
             }
         
         return simulated_prices, stock_stats
-    
-    def _get_previous_trading_day(self, date, n_days=1):
-        trading_days = sorted([d for d in self.date_index.keys() if d <= date])
-        if len(trading_days) <= n_days:
-            return trading_days[0]  # Return earliest available day
-        return trading_days[-n_days-1]  # -1 because we count back from the end
-    
     
     def render(self, mode='human'):
         print(f"Month {self.current_month}")
