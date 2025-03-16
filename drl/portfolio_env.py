@@ -31,7 +31,7 @@ class PortfolioEnv(gym.Env):
 
     def __init__(self, 
                  stock_data_list = None,
-                 use_synthetic_data = True,
+                 mode = "train",     
                  n_stocks = 10, 
                  episode_length = 12, 
                  temperature = 0.3, 
@@ -40,16 +40,31 @@ class PortfolioEnv(gym.Env):
         
         super(PortfolioEnv, self).__init__()
 
-        self.use_synthetic_data = use_synthetic_data
+        self.mode = mode
         self.stock_data_list = stock_data_list
-        self.n_stocks = n_stocks if self.use_synthetic_data else len(stock_data_list)
+        self.n_stocks = n_stocks
         self.episode_length = episode_length
         self.temperature = temperature
         self.window_size = window_size  # Window size for feature scaling (252 days = 1 year)
         self.episodes_per_dataset = episodes_per_dataset
-        # Track dataset usage
-        self.current_dataset_episodes = 0
-        self.stocks = None
+        
+        
+        assert mode in ["train", "test"], "Mode must be either 'train' or 'test'"
+        # Assert stock_data_list is provided and has enough stocks
+        assert stock_data_list is not None, "stock_data_list cannot be None"
+        assert len(stock_data_list) >= n_stocks, \
+            f"Not enough stocks provided. Required: {n_stocks}, provided: {len(stock_data_list)}"
+        
+        # For tracking training progression
+        if self.mode == "train":
+            self.training_stage = 1  # Start with pure synthetic
+            self.episode_count = 0
+            self.current_dataset_episodes = 0 
+            self.stage_transitions = {
+                1: 500,   # Move to stage 2 after 500 episodes
+                2: 1500   # Move to stage 3 after 1500 episodes
+            }
+    
 
         # Use raw features instead of pre-scaled ones
         self.features = [
@@ -73,7 +88,94 @@ class PortfolioEnv(gym.Env):
         )
         self.reset()
 
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        if self.mode == "train":
+            return self._train_reset(seed) 
+        else:  # test mode
+            return self._test_reset(seed)
 
+    def _train_reset(self, seed=None):
+        """Reset logic for training mode with staged progression"""
+        # Update training progression tracking
+        self.episode_count += 1
+        
+        # Stage transitions based on episode count
+        if self.episode_count == self.stage_transitions.get(1, 500):
+            self.training_stage = 2
+            print("Training stage 2: Using synthetic data based on real data properties")
+        elif self.episode_count == self.stage_transitions.get(2, 1500):
+            self.training_stage = 3 
+            print("Training stage 3: Using real data for training")
+        
+        # Stage 1: Pure Synthetic Data
+        if self.training_stage < 3:
+            if (self.stocks is None or self.current_dataset_episodes >= self.episodes_per_dataset):
+                # Stage 2: Synthetic Data Based on Real Data
+                synthetic_stocks = self._generate_synthetic_data(
+                    seed=seed, 
+                    use_real_data_properties=(self.training_stage == 2)
+                )
+                self.stocks = {
+                    f"stock_{i}": df for i, df in enumerate(synthetic_stocks)
+                }
+                self.current_dataset_episodes = 0
+            self.current_dataset_episodes += 1
+        # Stage 3: Real Data
+        else: 
+            selected_indices = np.random.choice(
+                len(self.stock_data_list), 
+                self.n_stocks, 
+                replace=False
+            )
+            # Create stocks dictionary with selected stocks
+            self.stocks = {
+                f"stock_{i}": self.stock_data_list[idx] 
+                for i, idx in enumerate(selected_indices)
+            }
+        
+        # Reset state variables
+        data_length = min(len(df) for df in self.stocks.values())
+        max_start_idx = max(0, data_length - self.episode_length * 30 - 20)
+        
+        # Random start point for training (even with real data)
+        self.current_step = np.random.randint(0, max_start_idx)
+        self.current_month = 0
+        self.monthly_returns = []
+        self.portfolio_value = 100.0
+        self.previous_allocation = np.zeros(self.n_stocks)
+        
+        observation = self._get_observation()
+        info = {
+            "mode": "train",
+            "training_stage": self.training_stage,
+            "episode_count": self.episode_count
+        }
+        return observation, info
+
+    def _test_reset(self, seed=None):
+        """Reset logic for test mode - strictly uses provided real data"""
+        # Select stocks for testing
+        selected_indices = list(range(self.n_stocks))
+        self.stocks = {
+            f"stock_{i}": self.stock_data_list[idx] 
+            for i, idx in enumerate(selected_indices)
+        }
+        # For testing, always start from the beginning of the time series
+        self.current_step = 0
+        self.current_month = 0
+        self.monthly_returns = []
+        self.portfolio_value = 100.0
+        self.previous_allocation = np.zeros(self.n_stocks)
+        
+        observation = self._get_observation()
+        info = {
+            "mode": "test",
+            "selected_stocks": selected_indices
+        }
+        return observation, info
+
+    
     def _generate_synthetic_data(self, synthetic_data_years=10, 
                                 min_sharpe=0.4, 
                                 min_annual_return=0.06, 
@@ -309,51 +411,6 @@ class PortfolioEnv(gym.Env):
                     min_annual_return *= 0.8
         
         return synthetic_data_list
-
-    def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
-
-        # Generate new data only when needed
-        if self.use_synthetic_data:
-            # Only generate new data if we've exhausted the episodes for current dataset
-            if (
-                self.stocks is None
-                or self.current_dataset_episodes >= self.episodes_per_dataset
-            ):
-                # Generate new synthetic data
-                self.stocks = {
-                    f"stock_{i}": df
-                    for i, df in enumerate(self._generate_synthetic_data(seed=seed))
-                }
-                self.current_dataset_episodes = 0
-
-            # Increment dataset usage counter
-            self.current_dataset_episodes += 1
-        else:
-            # For real data, always use the provided dataset
-            if self.stock_data_list is None:
-                raise ValueError(
-                    "Real data mode selected but no stock_data_list provided"
-                )
-            self.stocks = {
-                f"stock_{i}": df 
-                for i, df in enumerate(self.stock_data_list)
-            }
-
-        data_length = len(next(iter(self.stocks.values())))
-        max_start_idx = data_length - self.episode_length * 30 - 20
-
-        # No minimum start index, as data is assumed to be clean
-        self.current_step = np.random.randint(0, max_start_idx) if self.use_synthetic_data else 0
-        self.current_month = 0
-
-        self.monthly_returns = []
-        self.portfolio_value = 100.0
-        self.previous_allocation = np.zeros(self.n_stocks)
-
-        observation = self._get_observation()
-        info = {}
-        return observation, info
 
     def _get_observation(self):
         observation = []
