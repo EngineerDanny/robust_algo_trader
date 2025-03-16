@@ -58,6 +58,60 @@ class SimpleOHLCGenerator:
             
             # Validation checks
             if len(synthetic_data) > 1:
+                # Rename columns to match _generate_synthetic_data format
+                synthetic_data.rename(columns={
+                    'open': 'Open', 
+                    'high': 'High', 
+                    'low': 'Low', 
+                    'close': 'Close'
+                }, inplace=True)
+                
+                # Calculate technical indicators using talib
+                # Moving Averages
+                synthetic_data['MA5'] = talib.SMA(synthetic_data['Close'].values, timeperiod=5)
+                synthetic_data['MA20'] = talib.SMA(synthetic_data['Close'].values, timeperiod=20)
+                synthetic_data['MA50'] = talib.SMA(synthetic_data['Close'].values, timeperiod=50)
+                synthetic_data['MA200'] = talib.SMA(synthetic_data['Close'].values, timeperiod=200)
+                
+                # RSI
+                synthetic_data['RSI'] = talib.RSI(synthetic_data['Close'].values, timeperiod=14)
+                
+                # Bollinger Bands
+                upper, middle, lower = talib.BBANDS(synthetic_data['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+                synthetic_data['BB_width'] = (upper - lower) / middle
+                
+                # ATR
+                synthetic_data['ATR'] = talib.ATR(synthetic_data['High'].values, synthetic_data['Low'].values, synthetic_data['Close'].values, timeperiod=14)
+                
+                # Returns
+                synthetic_data['LogReturn'] = np.log(synthetic_data['Close'] / synthetic_data['Close'].shift(1))
+                synthetic_data['Return_1W'] = synthetic_data['Close'].pct_change(5)
+                synthetic_data['Return_1M'] = synthetic_data['Close'].pct_change(21)
+                synthetic_data['Return_3M'] = synthetic_data['Close'].pct_change(63)
+                
+                # Drawdowns
+                rolling_max = synthetic_data['Close'].cummax()
+                synthetic_data['CurrentDrawdown'] = (synthetic_data['Close'] / rolling_max) - 1
+                
+                # Max drawdown over rolling window
+                synthetic_data['MaxDrawdown_252d'] = synthetic_data['CurrentDrawdown'].rolling(252).min()
+                
+                # Sharpe ratios
+                synthetic_data['Sharpe_20d'] = (synthetic_data['LogReturn'].rolling(20).mean() / synthetic_data['LogReturn'].rolling(20).std()) * np.sqrt(252)
+                synthetic_data['Sharpe_60d'] = (synthetic_data['LogReturn'].rolling(60).mean() / synthetic_data['LogReturn'].rolling(60).std()) * np.sqrt(252)
+                synthetic_data['Sharpe_252d'] = (synthetic_data['LogReturn'].rolling(252).mean() / synthetic_data['LogReturn'].rolling(252).std()) * np.sqrt(252)
+                
+                # Calculate performance metrics as attributes
+                if len(synthetic_data['LogReturn'].dropna()) > 0:
+                    annual_return = (synthetic_data['Close'].iloc[-1] / synthetic_data['Close'].iloc[0]) ** (252 / len(synthetic_data)) - 1
+                    overall_sharpe = (synthetic_data['LogReturn'].dropna().mean() / synthetic_data['LogReturn'].dropna().std()) * np.sqrt(252)
+                    max_drawdown = synthetic_data['CurrentDrawdown'].min()
+                    
+                    # Add metadata about performance
+                    synthetic_data.attrs['annualized_return'] = annual_return
+                    synthetic_data.attrs['sharpe_ratio'] = overall_sharpe
+                    synthetic_data.attrs['max_drawdown'] = max_drawdown
+                
                 synthetic_datasets.append(synthetic_data)
  
         return synthetic_datasets
