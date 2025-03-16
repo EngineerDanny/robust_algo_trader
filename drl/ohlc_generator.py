@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
-from scipy.stats import student_t  # Add this import for the student_t distribution
-import talib  # Add this import for technical indicators
+from scipy.stats import student_t
+import talib
 
 class SimpleOHLCGenerator:
     def __init__(self, original_data=None):
@@ -14,7 +14,6 @@ class SimpleOHLCGenerator:
         if original_data is not None:
             self.original_data = self._preprocess_data(original_data)
             # Calculate volatility statistics from the original data
-            # Calculate the maximum candle size from original data
             self.max_candle_size = (self.original_data['high'] - self.original_data['low']).max()
             
             # Calculate maximum day-to-day change
@@ -32,6 +31,54 @@ class SimpleOHLCGenerator:
         for col in ['open', 'high', 'low', 'close']:
             df[col] = df[col].round(2)
         df = df.sort_index()  # Ensure data is sorted by time
+        return df
+    
+    def _add_technical_indicators(self, df):
+        # Moving Averages
+        df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
+        df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
+        df['MA50'] = talib.SMA(df['Close'].values, timeperiod=50)
+        df['MA200'] = talib.SMA(df['Close'].values, timeperiod=200)
+        
+        # RSI
+        df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
+        
+        # Bollinger Bands
+        upper, middle, lower = talib.BBANDS(df['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+        df['BB_width'] = (upper - lower) / middle
+        
+        # ATR
+        df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, df['Close'].values, timeperiod=14)
+        
+        # Returns
+        df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
+        df['Return_1W'] = df['Close'].pct_change(5)
+        df['Return_1M'] = df['Close'].pct_change(21)
+        df['Return_3M'] = df['Close'].pct_change(63)
+        
+        # Drawdowns
+        rolling_max = df['Close'].cummax()
+        df['CurrentDrawdown'] = (df['Close'] / rolling_max) - 1
+        
+        # Max drawdown over rolling window
+        df['MaxDrawdown_252d'] = df['CurrentDrawdown'].rolling(252).min()
+        
+        # Sharpe ratios
+        df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
+        df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
+        df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
+        
+        # Calculate performance metrics as attributes
+        if len(df) > 1 and len(df['LogReturn'].dropna()) > 0:
+            annual_return = (df['Close'].iloc[-1] / df['Close'].iloc[0]) ** (252 / len(df)) - 1
+            overall_sharpe = (df['LogReturn'].dropna().mean() / df['LogReturn'].dropna().std()) * np.sqrt(252)
+            max_drawdown = df['CurrentDrawdown'].min()
+            
+            # Add metadata about performance
+            df.attrs['annualized_return'] = annual_return
+            df.attrs['sharpe_ratio'] = overall_sharpe
+            df.attrs['max_drawdown'] = max_drawdown
+            
         return df
 
     def generate_bootstrap_data(self, num_samples=1, segment_length=5, days=2520):
@@ -66,51 +113,8 @@ class SimpleOHLCGenerator:
                     'close': 'Close'
                 }, inplace=True)
                 
-                # Calculate technical indicators using talib
-                # Moving Averages
-                synthetic_data['MA5'] = talib.SMA(synthetic_data['Close'].values, timeperiod=5)
-                synthetic_data['MA20'] = talib.SMA(synthetic_data['Close'].values, timeperiod=20)
-                synthetic_data['MA50'] = talib.SMA(synthetic_data['Close'].values, timeperiod=50)
-                synthetic_data['MA200'] = talib.SMA(synthetic_data['Close'].values, timeperiod=200)
-                
-                # RSI
-                synthetic_data['RSI'] = talib.RSI(synthetic_data['Close'].values, timeperiod=14)
-                
-                # Bollinger Bands
-                upper, middle, lower = talib.BBANDS(synthetic_data['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-                synthetic_data['BB_width'] = (upper - lower) / middle
-                
-                # ATR
-                synthetic_data['ATR'] = talib.ATR(synthetic_data['High'].values, synthetic_data['Low'].values, synthetic_data['Close'].values, timeperiod=14)
-                
-                # Returns
-                synthetic_data['LogReturn'] = np.log(synthetic_data['Close'] / synthetic_data['Close'].shift(1))
-                synthetic_data['Return_1W'] = synthetic_data['Close'].pct_change(5)
-                synthetic_data['Return_1M'] = synthetic_data['Close'].pct_change(21)
-                synthetic_data['Return_3M'] = synthetic_data['Close'].pct_change(63)
-                
-                # Drawdowns
-                rolling_max = synthetic_data['Close'].cummax()
-                synthetic_data['CurrentDrawdown'] = (synthetic_data['Close'] / rolling_max) - 1
-                
-                # Max drawdown over rolling window
-                synthetic_data['MaxDrawdown_252d'] = synthetic_data['CurrentDrawdown'].rolling(252).min()
-                
-                # Sharpe ratios
-                synthetic_data['Sharpe_20d'] = (synthetic_data['LogReturn'].rolling(20).mean() / synthetic_data['LogReturn'].rolling(20).std()) * np.sqrt(252)
-                synthetic_data['Sharpe_60d'] = (synthetic_data['LogReturn'].rolling(60).mean() / synthetic_data['LogReturn'].rolling(60).std()) * np.sqrt(252)
-                synthetic_data['Sharpe_252d'] = (synthetic_data['LogReturn'].rolling(252).mean() / synthetic_data['LogReturn'].rolling(252).std()) * np.sqrt(252)
-                
-                # Calculate performance metrics as attributes
-                if len(synthetic_data['LogReturn'].dropna()) > 0:
-                    annual_return = (synthetic_data['Close'].iloc[-1] / synthetic_data['Close'].iloc[0]) ** (252 / len(synthetic_data)) - 1
-                    overall_sharpe = (synthetic_data['LogReturn'].dropna().mean() / synthetic_data['LogReturn'].dropna().std()) * np.sqrt(252)
-                    max_drawdown = synthetic_data['CurrentDrawdown'].min()
-                    
-                    # Add metadata about performance
-                    synthetic_data.attrs['annualized_return'] = annual_return
-                    synthetic_data.attrs['sharpe_ratio'] = overall_sharpe
-                    synthetic_data.attrs['max_drawdown'] = max_drawdown
+                # Add technical indicators and metrics
+                synthetic_data = self._add_technical_indicators(synthetic_data)
                 
                 synthetic_datasets.append(synthetic_data)
  
@@ -241,10 +245,10 @@ class SimpleOHLCGenerator:
         
         return result
 
-    def generate_synthetic_data(self, n_stocks=1, synthetic_data_years=10, 
-                                min_sharpe=0.4, 
-                                min_annual_return=0.06, 
+    def generate_synthetic_data(self, n_stocks=None, synthetic_data_years=10, 
+                                min_sharpe=0.4, min_annual_return=0.06, 
                                 max_attempts=20, seed=None):
+     
         if seed is not None:
             np.random.seed(seed)
             
@@ -416,55 +420,14 @@ class SimpleOHLCGenerator:
                 })
                 df.set_index('Date', inplace=True)
                 
-                # Calculate technical indicators using talib
-                # Moving Averages
-                df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
-                df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
-                df['MA50'] = talib.SMA(df['Close'].values, timeperiod=50)
-                df['MA200'] = talib.SMA(df['Close'].values, timeperiod=200)
-                
-                # RSI
-                df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
-                
-                # Bollinger Bands
-                upper, middle, lower = talib.BBANDS(df['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-                df['BB_width'] = (upper - lower) / middle
-                
-                # ATR
-                df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, df['Close'].values, timeperiod=14)
-                
-                # Returns
-                df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
-                df['Return_1W'] = df['Close'].pct_change(5)
-                df['Return_1M'] = df['Close'].pct_change(21)
-                df['Return_3M'] = df['Close'].pct_change(63)
-                
-                # Drawdowns
-                rolling_max = df['Close'].cummax()
-                df['CurrentDrawdown'] = (df['Close'] / rolling_max) - 1
-                
-                # Max drawdown over rolling window
-                df['MaxDrawdown_252d'] = df['CurrentDrawdown'].rolling(252).min()
-                
-                # Sharpe ratios
-                df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
-                df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
-                df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
-                
-                # Drop NaN values (from indicators that need lookback periods)
-                df.dropna(inplace=True)
-                
-                # Check if this data meets our criteria for good US equities
-                annual_return = (df['Close'].iloc[-1] / df['Close'].iloc[0]) ** (252 / len(df)) - 1
-                overall_sharpe = (df['LogReturn'].mean() / df['LogReturn'].std()) * np.sqrt(252)
+                # Add technical indicators and metrics
+                df = self._add_technical_indicators(df)
                 
                 # Check if data meets criteria
+                annual_return = df.attrs.get('annualized_return', 0)
+                overall_sharpe = df.attrs.get('sharpe_ratio', 0)
+                
                 if overall_sharpe >= min_sharpe and annual_return >= min_annual_return:
-                    # Add metadata about performance
-                    df.attrs['annualized_return'] = annual_return
-                    df.attrs['sharpe_ratio'] = overall_sharpe
-                    df.attrs['max_drawdown'] = df['CurrentDrawdown'].min()
-                    
                     synthetic_data_list.append(df)
                     # print(f"Generated stock with Sharpe: {overall_sharpe:.2f}, Annual return: {annual_return:.2%}")
                     break
@@ -491,8 +454,25 @@ class SimpleOHLCGenerator:
         return fig
 
     def _plot_candles(self, ax, data, title):
+        # Check for capitalized column names first, then lowercase
+        if 'Open' in data.columns:
+            o_col, h_col, l_col, c_col = 'Open', 'High', 'Low', 'Close'
+        else:
+            o_col, h_col, l_col, c_col = 'open', 'high', 'low', 'close'
+            
         for i, row in enumerate(data.itertuples()):
-            o, h, l, c = row.open, row.high, row.low, row.close
+            try:
+                o = getattr(row, o_col)
+                h = getattr(row, h_col)
+                l = getattr(row, l_col)
+                c = getattr(row, c_col)
+            except AttributeError:
+                # Handle case where columns are in the dataframe but not in the namedtuple
+                o = data.iloc[i][o_col]
+                h = data.iloc[i][h_col]
+                l = data.iloc[i][l_col]
+                c = data.iloc[i][c_col]
+                
             color = 'green' if c >= o else 'red'
             bottom = o if c >= o else c
             height = abs(c - o)
