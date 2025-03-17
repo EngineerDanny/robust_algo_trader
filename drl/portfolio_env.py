@@ -17,6 +17,18 @@ import talib
 from scipy.stats import t as student_t
 import torch as th
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import random
+import sys
+import os
+
+# Instead of importing, copy the SimpleOHLCGenerator class 
+# that you shared earlier into your current file
+# Or use this simpler import:
+sys.path.append("/Users/newuser/Projects/robust_algo_trader/drl/")
+from ohlc_generator import SimpleOHLCGenerator  # Remove 'drl.' prefix
 
 
 # save dir should add the current date and time
@@ -24,7 +36,8 @@ SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.dat
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # DATA_DIR must be appended before the filename
-DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/preprocessed_data"
+# DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/preprocessed_data"
+DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -42,6 +55,7 @@ class PortfolioEnv(gym.Env):
 
         self.mode = mode
         self.stock_data_list = stock_data_list
+        self.stocks = None  # Placeholder for stock data
         self.n_stocks = n_stocks
         self.episode_length = episode_length
         self.temperature = temperature
@@ -112,10 +126,21 @@ class PortfolioEnv(gym.Env):
         if self.training_stage < 3:
             if (self.stocks is None or self.current_dataset_episodes >= self.episodes_per_dataset):
                 # Stage 2: Synthetic Data Based on Real Data
-                synthetic_stocks = self._generate_synthetic_data(
-                    seed=seed, 
-                    use_real_data_properties=(self.training_stage == 2)
-                )
+                if self.training_stage == 2:
+                    # Generate synthetic data based on real data properties
+                    generator = SimpleOHLCGenerator()
+                    synthetic_stocks = generator.generate_synthetic_data(
+                        n_stocks=self.n_stocks,
+                        seed=seed
+                    )
+                else:  
+                    df = self.stock_data_list[np.random.randint(len(self.stock_data_list))]
+                    generator = SimpleOHLCGenerator(df)
+                    synthetic_stocks = generator.generate_bootstrap_data(
+                        num_samples=self.n_stocks, 
+                        segment_length=5
+                        )
+    
                 self.stocks = {
                     f"stock_{i}": df for i, df in enumerate(synthetic_stocks)
                 }
@@ -157,8 +182,9 @@ class PortfolioEnv(gym.Env):
         """Reset logic for test mode - strictly uses provided real data"""
         # Select stocks for testing
         selected_indices = list(range(self.n_stocks))
+        generator = SimpleOHLCGenerator()
         self.stocks = {
-            f"stock_{i}": self.stock_data_list[idx] 
+            f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
             for i, idx in enumerate(selected_indices)
         }
         # For testing, always start from the beginning of the time series
@@ -176,242 +202,6 @@ class PortfolioEnv(gym.Env):
         return observation, info
 
     
-    def _generate_synthetic_data(self, synthetic_data_years=10, 
-                                min_sharpe=0.4, 
-                                min_annual_return=0.06, 
-                                max_attempts=20, seed=None):
-        if seed is not None:
-            np.random.seed(seed)
-            
-        # Market regime constants
-        BULL = "bull"
-        BEAR = "bear"
-        CORRECTION = "correction"
-        CRASH = "crash"
-        RECOVERY = "recovery"
-        
-        # Transition probabilities - adjusted for more realistic long-term trends
-        regime_transitions = {
-            'bull_to_bear': 0.008,      
-            'bull_to_correction': 0.03,  
-            'bear_to_bull': 0.15,       
-            'correction_length': (5, 12),
-            'correction_depth': (-0.10, -0.03),
-        }
-        
-        synthetic_data_list = []
-        
-        while len(synthetic_data_list) < self.n_stocks:
-            attempts = 0
-            while attempts < max_attempts:
-                attempts += 1
-                
-                # Stock-specific parameters with randomization
-                bull_drift = np.random.normal(0.14, 0.03) 
-                bear_drift = np.random.normal(-0.10, 0.02)
-                upward_bias = np.random.normal(0.09, 0.02) 
-                bull_vol = max(np.random.normal(0.15, 0.03), 0.02)
-                bear_vol = max(np.random.normal(0.25, 0.03), 0.05)
-                
-                # Generate dates
-                trading_days = synthetic_data_years * 252
-                dates = pd.date_range(
-                    start=pd.Timestamp('2010-01-01'),
-                    periods=trading_days,
-                    freq='B'  # Business days
-                )
-                
-                # Initialize arrays
-                N = len(dates)
-                close_prices = np.zeros(N)
-                open_prices = np.zeros(N)
-                high_prices = np.zeros(N)
-                low_prices = np.zeros(N)
-                regimes = np.array([BULL] * N, dtype=object)
-                
-                # Initial values
-                initial_price = np.random.uniform(50, 150)
-                close_prices[0] = initial_price
-                open_prices[0] = initial_price * (1 + np.random.normal(0, 0.005))
-                high_prices[0] = max(close_prices[0], open_prices[0]) * (1 + abs(np.random.normal(0, 0.01)))
-                low_prices[0] = min(close_prices[0], open_prices[0]) * (1 - abs(np.random.normal(0, 0.01)))
-                
-                # Track regime state
-                current_regime = BULL
-                correction_target = None
-                correction_end = None
-                
-                # Generate subsequent days
-                for j in range(1, N):
-                    # Update regime
-                    r = np.random.random()
-                    
-                    if current_regime == BULL:
-                        if r < regime_transitions['bull_to_bear']:
-                            current_regime = BEAR
-                        elif r < (regime_transitions['bull_to_bear'] + regime_transitions['bull_to_correction']):
-                            current_regime = CORRECTION
-                            dur = np.random.randint(*regime_transitions['correction_length'])
-                            correction_end = j + dur
-                            correction_target = np.random.uniform(*regime_transitions['correction_depth'])
-                    elif current_regime == BEAR:
-                        if r < regime_transitions['bear_to_bull']:
-                            current_regime = RECOVERY
-                            bear_days = np.sum(regimes[:j] == BEAR)
-                            correction_end = j + min(int(bear_days * 0.5), 30)  # Cap recovery period
-                    elif current_regime == CORRECTION:
-                        if correction_end is not None and j >= correction_end:
-                            current_regime = BULL
-                            correction_target = None
-                            correction_end = None
-                    elif current_regime == RECOVERY:
-                        if correction_end is not None and j >= correction_end:
-                            current_regime = BULL
-                            correction_end = None
-                    elif current_regime == CRASH:
-                        current_regime = RECOVERY
-                        correction_end = j + 10  # Short recovery after crash
-                        
-                    regimes[j] = current_regime
-                    
-                    # Set drift and volatility based on regime
-                    if current_regime == BULL:
-                        drift = bull_drift
-                        vol = bull_vol
-                    elif current_regime == BEAR:
-                        drift = bear_drift
-                        vol = bear_vol
-                    elif current_regime == CORRECTION:
-                        drift = correction_target if correction_target is not None else np.random.uniform(*regime_transitions['correction_depth'])
-                        vol = 0.5 * (bull_vol + bear_vol)
-                    elif current_regime == RECOVERY:
-                        drift = bull_drift * 1.5
-                        vol = bull_vol + 0.3 * (bear_vol - bull_vol)
-                    elif current_regime == CRASH:
-                        drift = np.random.uniform(-0.15, -0.05)
-                        vol = bear_vol * 2
-                    else:
-                        drift = bull_drift
-                        vol = bull_vol
-                        
-                    # Convert annual to daily
-                    daily_drift = np.log(1 + drift) / 252
-                    daily_drift += upward_bias / 252
-                    daily_vol = vol / np.sqrt(252)
-                    
-                    # Generate returns with t-distribution for fat tails
-                    shock = student_t.rvs(df=8)
-                    shock /= np.sqrt(8 / (8 - 2))  # Normalize t-distribution
-                    
-                    daily_log_return = daily_drift + daily_vol * shock
-                    
-                    # Add flash crashes occasionally (reduced frequency)
-                    if np.random.random() < 0.00015 and current_regime not in [CRASH, CORRECTION]:
-                        daily_log_return = np.random.uniform(-0.15, -0.05)
-                        current_regime = CRASH
-                    
-                    # Update price
-                    close_prices[j] = close_prices[j-1] * np.exp(daily_log_return)
-                    
-                    # Generate OHLC
-                    daily_range = 0.03 if current_regime in [BEAR, CRASH] else 0.02
-                    range_factor = daily_vol / (bull_vol / np.sqrt(252))
-                    daily_range *= range_factor
-                    
-                    # Open price typically between previous close and current close
-                    open_frac = np.clip(np.random.normal(0.5, 0.2), 0, 1)
-                    open_prices[j] = close_prices[j-1] + (close_prices[j] - close_prices[j-1]) * open_frac
-                    
-                    # High/Low based on direction of move
-                    if close_prices[j] > close_prices[j-1]:
-                        high_prices[j] = max(open_prices[j], close_prices[j]) * (1 + np.random.uniform(0, daily_range))
-                        low_prices[j] = min(open_prices[j], close_prices[j]) * (1 - np.random.uniform(0, daily_range * 0.5))
-                    else:
-                        high_prices[j] = max(open_prices[j], close_prices[j]) * (1 + np.random.uniform(0, daily_range * 0.5))
-                        low_prices[j] = min(open_prices[j], close_prices[j]) * (1 - np.random.uniform(0, daily_range))
-                    
-                    # Make sure OHLC relationships are valid
-                    high_prices[j] = max(high_prices[j], open_prices[j], close_prices[j])
-                    low_prices[j] = min(low_prices[j], open_prices[j], close_prices[j])
-                
-                # Round price values for realism
-                open_prices = np.round(open_prices, 2)
-                high_prices = np.round(high_prices, 2)
-                low_prices = np.round(low_prices, 2)
-                close_prices = np.round(close_prices, 2)
-                
-                # Create DataFrame
-                df = pd.DataFrame({
-                    'Date': dates,
-                    'Open': open_prices,
-                    'High': high_prices,
-                    'Low': low_prices,
-                    'Close': close_prices,
-                    'Regime': regimes
-                })
-                df.set_index('Date', inplace=True)
-                
-                # Calculate technical indicators using talib
-                # Moving Averages
-                df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
-                df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
-                df['MA50'] = talib.SMA(df['Close'].values, timeperiod=50)
-                df['MA200'] = talib.SMA(df['Close'].values, timeperiod=200)
-                
-                # RSI
-                df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
-                
-                # Bollinger Bands
-                upper, middle, lower = talib.BBANDS(df['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-                df['BB_width'] = (upper - lower) / middle
-                
-                # ATR
-                df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, df['Close'].values, timeperiod=14)
-                
-                # Returns
-                df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
-                df['Return_1W'] = df['Close'].pct_change(5)
-                df['Return_1M'] = df['Close'].pct_change(21)
-                df['Return_3M'] = df['Close'].pct_change(63)
-                
-                # Drawdowns
-                rolling_max = df['Close'].cummax()
-                df['CurrentDrawdown'] = (df['Close'] / rolling_max) - 1
-                
-                # Max drawdown over rolling window
-                df['MaxDrawdown_252d'] = df['CurrentDrawdown'].rolling(252).min()
-                
-                # Sharpe ratios
-                df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
-                df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
-                df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
-                
-                # Drop NaN values (from indicators that need lookback periods)
-                df.dropna(inplace=True)
-                
-                # Check if this data meets our criteria for good US equities
-                annual_return = (df['Close'].iloc[-1] / df['Close'].iloc[0]) ** (252 / len(df)) - 1
-                overall_sharpe = (df['LogReturn'].mean() / df['LogReturn'].std()) * np.sqrt(252)
-                
-                # Check if data meets criteria
-                if overall_sharpe >= min_sharpe and annual_return >= min_annual_return:
-                    # Add metadata about performance
-                    df.attrs['annualized_return'] = annual_return
-                    df.attrs['sharpe_ratio'] = overall_sharpe
-                    df.attrs['max_drawdown'] = df['CurrentDrawdown'].min()
-                    
-                    synthetic_data_list.append(df)
-                    # print(f"Generated stock with Sharpe: {overall_sharpe:.2f}, Annual return: {annual_return:.2%}")
-                    break
-                    
-                if attempts == max_attempts:
-                    print(f"Warning: Failed to generate a stock meeting criteria after {max_attempts} attempts. Relaxing constraints.")
-                    # If we've tried many times, relax the constraints
-                    min_sharpe *= 0.8
-                    min_annual_return *= 0.8
-        
-        return synthetic_data_list
-
     def _get_observation(self):
         observation = []
         for stock_name, stock_data in self.stocks.items():
@@ -674,11 +464,10 @@ class PortfolioEnv(gym.Env):
 def get_stock_data_list(instrument_list):
     stock_data_list = []
     for instrument in instrument_list:
-        file_path = f"{DATA_DIR}/preprocessed_{instrument}.csv"
+        file_path = f"{DATA_DIR}/{instrument}_D1_raw_data.csv"
         df = pd.read_csv(file_path)
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
-            df = df.sort_values('Date')
+        df['Time'] = pd.to_datetime(df['Time'])
+        df = df.sort_values('Time')
         stock_data_list.append(df)
         print(f"Loaded {instrument} with {len(df)} data points")
     return stock_data_list
@@ -801,7 +590,10 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
 # Some helper functions to train and evaluate the model
 def make_env(stock_data_list, rank=0, seed=0):
     def _init():
-        env = Monitor(PortfolioEnv())
+        env = Monitor(PortfolioEnv(
+            stock_data_list=stock_data_list, 
+            mode="train"
+        ))
         env.reset(seed=seed + rank)
         return env
     return _init    
@@ -857,7 +649,8 @@ def train_model(stock_data_list, total_timesteps=200_000):
 
 def evaluate_model(stock_data_list, trained_model, n_episodes=10):
     print(f"Evaluating agent over {n_episodes} episodes...")
-    eval_env = Monitor(PortfolioEnv(stock_data_list=stock_data_list, use_synthetic_data=False))
+    eval_env = Monitor(PortfolioEnv(stock_data_list=stock_data_list, 
+                                    mode="test"))
     # eval_env = PortfolioEnv(stock_data_list)
     mean_reward, std_reward = evaluate_policy(
         trained_model, 
@@ -878,14 +671,14 @@ def evaluate_model(stock_data_list, trained_model, n_episodes=10):
 
 if __name__ == "__main__":
     # TRAIN
-    instrument_list = ["BIT", "CAQD", "CDUV", "CDZ", "CMA", "CQFV", "DEI", "DNW", "DPJE", "EZIG"] 
+    instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"] 
     stock_data_list = get_stock_data_list(instrument_list)
     print("Training model...")
-    trained_model = train_model(stock_data_list, total_timesteps=2_000_000)
+    trained_model = train_model(stock_data_list, total_timesteps=2_000)
     print("Training complete!")
 
     # EVALUATE
-    eval_instrument_list = ["FLTF", "FLVU", "HCJ", "HQAO", "HYNC", "IPJU", "JDS", "JOSU", "KISO", "KTTK"] 
+    eval_instrument_list = ["KO", "WMT", "PFE", "VZ", "NEE", "SPY", "QQQ", "IWM", "XLF", "XLE"] 
     eval_stock_data_list = get_stock_data_list(eval_instrument_list)
     print("Evaluating model...")
     evaluate_model(eval_stock_data_list, trained_model)
