@@ -39,9 +39,9 @@ class PortfolioEnv(gym.Env):
                  stock_data_list,
                  mode = "train",     
                  n_stocks = 10, 
-                 episode_length = 12, 
+                 episode_length = 12, # 12 months
                  temperature = 0.3, 
-                 window_size = 252,
+                 window_size = 252, # 1 year of data
                  episodes_per_dataset=50):
         
         super(PortfolioEnv, self).__init__()
@@ -108,12 +108,11 @@ class PortfolioEnv(gym.Env):
             self.training_stage = 3 
             print("Training stage 3: Using real data for training")
         
-        # Stage 1: Pure Synthetic Data
+        # Stage 1 & 2: Synthetic Data
         if self.training_stage < 3:
             if (self.stocks is None or self.current_dataset_episodes >= self.episodes_per_dataset):
-                # Stage 2: Synthetic Data Based on Real Data
+                # Generate appropriate synthetic data based on stage
                 if self.training_stage == 2:
-                    # Generate synthetic data based on real data properties
                     generator = SimpleOHLCGenerator()
                     synthetic_stocks = generator.generate_synthetic_data(
                         n_stocks=self.n_stocks,
@@ -125,31 +124,50 @@ class PortfolioEnv(gym.Env):
                     synthetic_stocks = generator.generate_bootstrap_data(
                         num_samples=self.n_stocks, 
                         segment_length=5
-                        )
-    
+                    )
+                
+                # Create stocks dictionary with synthetic stocks
                 self.stocks = {
                     f"stock_{i}": df for i, df in enumerate(synthetic_stocks)
                 }
                 self.current_dataset_episodes = 0
             self.current_dataset_episodes += 1
+        
         # Stage 3: Real Data
-        else: 
+        else:
+            generator = SimpleOHLCGenerator()
+            
+            # Randomly select stocks
             selected_indices = np.random.choice(
                 len(self.stock_data_list), 
                 self.n_stocks, 
                 replace=False
             )
-            # Create stocks dictionary with selected stocks
-            self.stocks = {
-                f"stock_{i}": self.stock_data_list[idx] 
+            
+            # Process real data - add technical indicators
+            processed_stocks = {
+                f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
                 for i, idx in enumerate(selected_indices)
             }
+            
+            # Find minimum length and align all stocks
+            min_length = min(len(df) for df in processed_stocks.values())
+            aligned_length = (min_length // 30) * 30
+            
+            # Align all processed stocks
+            self.stocks = {
+                stock_name: df.iloc[-aligned_length:].reset_index(drop=True)
+                for stock_name, df in processed_stocks.items()
+            }
+            # (2273, 26)
+            print(f"Training with real data: aligned to {aligned_length} data points")
         
-        # Reset state variables
+        # Determine safe bounds for episode
         data_length = min(len(df) for df in self.stocks.values())
+        # Ensure we leave enough room for a full episode
         max_start_idx = max(0, data_length - self.episode_length * 30 - 20)
         
-        # Random start point for training (even with real data)
+        # Random start point (safely within bounds)
         self.current_step = np.random.randint(0, max_start_idx)
         self.current_month = 0
         self.monthly_returns = []
@@ -169,10 +187,29 @@ class PortfolioEnv(gym.Env):
         # Select stocks for testing
         selected_indices = list(range(self.n_stocks))
         generator = SimpleOHLCGenerator()
-        self.stocks = {
-            f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
+        
+        # First add technical indicators to all stocks
+        processed_stocks = {
+            f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx].copy())
             for i, idx in enumerate(selected_indices)
         }
+        
+        # Find minimum length after adding indicators
+        min_length = min(len(df) for df in processed_stocks.values())
+        aligned_length = (min_length // 30) * 30
+        if aligned_length < self.episode_length * 30:
+            raise ValueError(f"Not enough data for a full episode after adding indicators. " 
+                            f"Need at least {self.episode_length * 30} points, but only have {aligned_length}.")
+        
+        # Align all processed stocks
+        self.stocks = {
+            stock_name: df.iloc[-aligned_length:].reset_index(drop=True)
+            for stock_name, df in processed_stocks.items()
+        }
+        
+        print(f"Testing with stocks: {selected_indices}")
+        print(f"Aligned all test stocks to length {aligned_length} (multiple of 30)")
+        
         # For testing, always start from the beginning of the time series
         self.current_step = 0
         self.current_month = 0
@@ -183,7 +220,9 @@ class PortfolioEnv(gym.Env):
         observation = self._get_observation()
         info = {
             "mode": "test",
-            "selected_stocks": selected_indices
+            "selected_stocks": selected_indices,
+            "data_length": aligned_length,
+            "max_episodes": aligned_length // (30 * self.episode_length)
         }
         return observation, info
 
@@ -562,9 +601,9 @@ def train_model(stock_data_list, total_timesteps=200_000):
     print("Creating environment...")
     n_envs = 8
     # Create multiple environments running in parallel
-    env = SubprocVecEnv([make_env(stock_data_list, i) for i in range(n_envs)])
+    # env = SubprocVecEnv([make_env(stock_data_list, i) for i in range(n_envs)])
     
-    # env = PortfolioEnv(stock_data_list)
+    env = PortfolioEnv(stock_data_list)
     # check_env(env)
     
     print("Initializing PPO agent...")
