@@ -6,119 +6,36 @@ from scipy.stats import t as student_t
 import talib
 
 class SimpleOHLCGenerator:
-    def __init__(self, original_data=None):
-        self.original_data = None
+    def __init__(self, ohlcv_data=None):
+        self.ohlcv_data = None
         self.max_candle_size = None
         self.max_day_change = None
         
-        if original_data is not None:
-            self.original_data = self._preprocess_data(original_data)
-            # Calculate volatility statistics from the original data
-            self.max_candle_size = (self.original_data['High'] - self.original_data['Low']).max()
-            
+        if ohlcv_data is not None:
+            self.ohlcv_data = self._preprocess_data(ohlcv_data)
+            self.max_candle_size = (self.ohlcv_data['High'] - self.ohlcv_data['Low']).max()
             # Calculate maximum day-to-day change
-            self.original_data['prev_close'] = self.original_data['Close'].shift(1)
-            self.original_data['day_change'] = abs(self.original_data['Open'] - self.original_data['prev_close'])
-            self.max_day_change = self.original_data['day_change'].max()
+            self.ohlcv_data['prev_close'] = self.ohlcv_data['Close'].shift(1)
+            self.ohlcv_data['day_change'] = abs(self.ohlcv_data['Open'] - self.ohlcv_data['prev_close'])
+            self.max_day_change = self.ohlcv_data['day_change'].max()
     
     def _preprocess_data(self, data):
         df = data.copy()
-        # Standardize column names and set datetime index
         df['Time'] = pd.to_datetime(df['Time'])
         df.set_index('Time', inplace=True)
-        # Round OHLC values to two decimals
         for col in ['Open', 'High', 'Low', 'Close']:
             df[col] = df[col].round(2)
-        df = df.sort_index()  # Ensure data is sorted by Time
-        return df
-    
-    def add_technical_indicators(self, df):
-        # Moving Averages
-        df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
-        df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
-        df['MA50'] = talib.SMA(df['Close'].values, timeperiod=50)
-        df['MA200'] = talib.SMA(df['Close'].values, timeperiod=200)
-        
-        # RSI
-        df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
-        
-        # Bollinger Bands
-        upper, middle, lower = talib.BBANDS(df['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-        df['BB_width'] = (upper - lower) / middle
-        
-        # ATR
-        df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, df['Close'].values, timeperiod=14)
-        
-        # Returns
-        df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
-        df['Return_1W'] = df['Close'].pct_change(5)
-        df['Return_1M'] = df['Close'].pct_change(21)
-        df['Return_3M'] = df['Close'].pct_change(63)
-        
-        # Drawdowns
-        rolling_max = df['Close'].cummax()
-        df['CurrentDrawdown'] = (df['Close'] / rolling_max) - 1
-        
-        # Max drawdown over rolling window
-        df['MaxDrawdown_252d'] = df['CurrentDrawdown'].rolling(252).min()
-        
-        # Sharpe ratios
-        df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
-        df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
-        df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
-        df.dropna(inplace=True)
-        
-        # Calculate performance metrics as attributes
-        if len(df) > 1 and len(df['LogReturn'].dropna()) > 0:
-            annual_return = (df['Close'].iloc[-1] / df['Close'].iloc[0]) ** (252 / len(df)) - 1
-            overall_sharpe = (df['LogReturn'].dropna().mean() / df['LogReturn'].dropna().std()) * np.sqrt(252)
-            max_drawdown = df['CurrentDrawdown'].min()
-            
-            # Add metadata about performance
-            df.attrs['annualized_return'] = annual_return
-            df.attrs['sharpe_ratio'] = overall_sharpe
-            df.attrs['max_drawdown'] = max_drawdown
-            
+        df = df.sort_index() 
         return df
 
-    def generate_bootstrap_data(self, num_samples=1, segment_length=5, days=2520):
-        if self.original_data is None:
-            raise ValueError("Original data must be provided for bootstrap data generation")
-            
-        data_length = len(self.original_data)
-        segment_length = min(segment_length, data_length)
-        segments = [self.original_data.iloc[i:i+segment_length].copy() 
-                    for i in range(data_length - segment_length + 1)]
-        
-        num_segments_needed = days // segment_length + 1
-        synthetic_datasets = []
-        
-        for _ in range(num_samples):
-            sampled_segments = random.choices(segments, k=num_segments_needed)
-            synthetic_data = self._stitch_segments(sampled_segments)
-            
-            # Remove any negative price candles
-            synthetic_data = synthetic_data[(synthetic_data['Open'] > 0) & 
-                                            (synthetic_data['High'] > 0) & 
-                                            (synthetic_data['Low'] > 0) & 
-                                            (synthetic_data['Close'] > 0)]
-            
-            # Validation checks
-            if len(synthetic_data) > 1:
-                # Rename columns to match _generate_synthetic_data format
-                # Add technical indicators and metrics
-                synthetic_data = self.add_technical_indicators(synthetic_data)
-                synthetic_datasets.append(synthetic_data)
- 
-        return synthetic_datasets
 
     def _stitch_segments(self, segments):
-        if self.original_data is None:
+        if self.ohlcv_data is None:
             raise ValueError("Original data must be provided for segment stitching")
             
         # Start with the first segment
         result = segments[0].copy()
-        freq = pd.infer_freq(self.original_data.index) or 'B'
+        freq = pd.infer_freq(self.ohlcv_data.index) or 'B'
         
         for seg in segments[1:]:
             seg = seg.copy()
@@ -236,6 +153,84 @@ class SimpleOHLCGenerator:
             result = result.drop(columns=['candle_size', 'price_change'])
         
         return result
+
+    def add_technical_indicators(self, data):
+        df = data.copy()
+        # Moving Averages
+        df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
+        df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
+        df['MA50'] = talib.SMA(df['Close'].values, timeperiod=50)
+        df['MA200'] = talib.SMA(df['Close'].values, timeperiod=200)
+        
+        # RSI
+        df['RSI'] = talib.RSI(df['Close'].values, timeperiod=14)
+        
+        # Bollinger Bands
+        upper, middle, lower = talib.BBANDS(df['Close'].values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+        df['BB_width'] = (upper - lower) / middle
+        
+        # ATR
+        df['ATR'] = talib.ATR(df['High'].values, df['Low'].values, df['Close'].values, timeperiod=14)
+        
+        # Returns
+        df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
+        df['Return_1W'] = df['Close'].pct_change(5)
+        df['Return_1M'] = df['Close'].pct_change(21)
+        df['Return_3M'] = df['Close'].pct_change(63)
+        
+        # Drawdowns
+        rolling_max = df['Close'].cummax()
+        df['CurrentDrawdown'] = (df['Close'] / rolling_max) - 1
+        
+        # Max drawdown over rolling window
+        df['MaxDrawdown_252d'] = df['CurrentDrawdown'].rolling(252).min()
+        
+        # Sharpe ratios
+        df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
+        df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
+        df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
+        df.dropna(inplace=True)
+        
+        # Calculate performance metrics as attributes
+        if len(df) > 1 and len(df['LogReturn'].dropna()) > 0:
+            annual_return = (df['Close'].iloc[-1] / df['Close'].iloc[0]) ** (252 / len(df)) - 1
+            overall_sharpe = (df['LogReturn'].dropna().mean() / df['LogReturn'].dropna().std()) * np.sqrt(252)
+            max_drawdown = df['CurrentDrawdown'].min()
+            
+            # Add metadata about performance
+            df.attrs['annualized_return'] = annual_return
+            df.attrs['sharpe_ratio'] = overall_sharpe
+            df.attrs['max_drawdown'] = max_drawdown
+            
+        return df
+
+    def generate_bootstrap_data(self, num_samples=1, segment_length=5, days=2520):
+        if self.ohlcv_data is None:
+            raise ValueError("Original data must be provided for bootstrap data generation")
+            
+        data_length = len(self.ohlcv_data)
+        segment_length = min(segment_length, data_length)
+        segments = [self.ohlcv_data.iloc[i:i+segment_length].copy() 
+                    for i in range(data_length - segment_length + 1)]
+        
+        num_segments_needed = days // segment_length + 1
+        synthetic_datasets = []
+        
+        for _ in range(num_samples):
+            sampled_segments = random.choices(segments, k=num_segments_needed)
+            synthetic_data = self._stitch_segments(sampled_segments)
+            
+            # Remove any negative price candles
+            synthetic_data = synthetic_data[(synthetic_data['Open'] > 0) & 
+                                            (synthetic_data['High'] > 0) & 
+                                            (synthetic_data['Low'] > 0) & 
+                                            (synthetic_data['Close'] > 0)]
+            
+            # Validation checks
+            if len(synthetic_data) > 1:
+                synthetic_data = self.add_technical_indicators(synthetic_data)
+                synthetic_datasets.append(synthetic_data)
+        return synthetic_datasets
 
     def generate_synthetic_data(self, n_stocks=None, synthetic_data_years=10, 
                                 min_sharpe=0.4, min_annual_return=0.06, 
@@ -433,10 +428,9 @@ class SimpleOHLCGenerator:
         return synthetic_data_list
 
     def plot_comparison(self, synthetic_data, num_bars=350):
-        if self.original_data is None:
+        if self.ohlcv_data is None:
             raise ValueError("Original data must be provided for comparison plotting")
-            
-        original_slice = self.original_data.iloc[-num_bars:]
+        original_slice = self.ohlcv_data.iloc[-num_bars:]
         synthetic_slice = synthetic_data.iloc[:min(len(synthetic_data), num_bars)]
         
         fig, axes = plt.subplots(2, 1, figsize=(12, 8))

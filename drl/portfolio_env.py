@@ -13,10 +13,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from sklearn.preprocessing import MinMaxScaler
-import talib
-from scipy.stats import t as student_t
 import torch as th
-import random
 import sys
 import os
 
@@ -99,6 +96,37 @@ class PortfolioEnv(gym.Env):
         else:
             return self._test_reset(seed)
 
+
+    def step(self, action):
+        allocation = self._convert_to_allocation(action)
+        self.previous_allocation = allocation.copy()
+        portfolio_return, stock_returns = self._calculate_monthly_performance(allocation)
+        self.portfolio_value *= (1 + portfolio_return)
+
+        # Get raw metrics (not scaled) for reward calculation
+        sharpe = self._calculate_portfolio_metric('Sharpe_20d', allocation)
+        max_drawdown = self._calculate_portfolio_metric('MaxDrawdown_252d', allocation)
+        reward = self._calculate_reward(portfolio_return, sharpe, max_drawdown)
+        self.monthly_returns.append(portfolio_return)
+
+        info = {
+            'portfolio_return': portfolio_return,
+            'portfolio_value': self.portfolio_value,
+            'sharpe': sharpe,
+            'max_drawdown': max_drawdown,
+            'allocation': allocation.copy(),
+            'stock_returns': stock_returns
+        }
+
+        self.current_step += 30
+        self.current_month += 1
+
+        terminated = (self.current_month >= self.episode_length)
+        truncated = False
+        observation = self._get_observation()
+        return observation, reward, terminated, truncated, info
+
+
     def _train_reset(self, seed=None):
         self.episode_count += 1
         if self.episode_count == self.stage_transitions.get(1):
@@ -132,18 +160,15 @@ class PortfolioEnv(gym.Env):
                 }
                 self.current_dataset_episodes = 0
             self.current_dataset_episodes += 1
-        
         # Stage 3: Real Data
         else:
             generator = SimpleOHLCGenerator()
-            
             # Randomly select stocks
             selected_indices = np.random.choice(
                 len(self.stock_data_list), 
                 self.n_stocks, 
                 replace=False
             )
-            
             # Process real data - add technical indicators
             processed_stocks = {
                 f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
@@ -159,12 +184,10 @@ class PortfolioEnv(gym.Env):
                 stock_name: df.iloc[-aligned_length:].reset_index(drop=True)
                 for stock_name, df in processed_stocks.items()
             }
-            # (2273, 26)
             print(f"Training with real data: aligned to {aligned_length} data points")
         
         # Determine safe bounds for episode
         data_length = min(len(df) for df in self.stocks.values())
-        # Ensure we leave enough room for a full episode
         max_start_idx = max(0, data_length - self.episode_length * 30 - 20)
         
         # Random start point (safely within bounds)
@@ -183,14 +206,11 @@ class PortfolioEnv(gym.Env):
         return observation, info
 
     def _test_reset(self, seed=None):
-        """Reset logic for test mode - strictly uses provided real data"""
-        # Select stocks for testing
         selected_indices = list(range(self.n_stocks))
         generator = SimpleOHLCGenerator()
-        
         # First add technical indicators to all stocks
         processed_stocks = {
-            f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx].copy())
+            f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
             for i, idx in enumerate(selected_indices)
         }
         
@@ -225,14 +245,13 @@ class PortfolioEnv(gym.Env):
             "max_episodes": aligned_length // (30 * self.episode_length)
         }
         return observation, info
-
     
     def _get_observation(self):
         observation = []
         for stock_name, stock_data in self.stocks.items():
             # Get window for scaling (including current step)
-            window_start = max(0, self.current_step - self.window_size + 1)  # +1 to make room for current step
-            window_end = self.current_step + 1  # +1 because slice is exclusive of end index
+            window_start = max(0, self.current_step - self.window_size + 1) 
+            window_end = self.current_step + 1 
             window_data = stock_data.iloc[window_start:window_end]
 
             # Scale all features for the entire window
@@ -241,24 +260,15 @@ class PortfolioEnv(gym.Env):
                 scaler = MinMaxScaler(feature_range=(-1, 1))
                 feature_values = window_data[feature].values.reshape(-1, 1)
                 scaled_window = scaler.fit_transform(feature_values)
-
                 # Get the scaled value for the current step (last value in the window)
                 scaled_val = scaled_window[-1][0]  # Last row, first column
                 scaled_features.append(scaled_val)
             observation.extend(scaled_features)
         return np.array(observation, dtype=np.float32)
 
-    # Then update the _convert_to_allocation method:
     def _convert_to_allocation(self, action_weights):
-        # Softmax works fine with negative values
-        # Apply softmax with temperature scaling
         raw_allocation = softmax(np.array(action_weights) / self.temperature)
-
-        # Calculate initial percent allocations
         percentages = raw_allocation * 100
-        # print("Percentage Allocation")
-        # print(percentages)
-
         # Apply discretization constraint (0%, 10%, 20%, 30%)
         # First, find the nearest valid allocation (multiples of 10%)
         allocations = np.round(percentages / 10) * 10
@@ -271,24 +281,18 @@ class PortfolioEnv(gym.Env):
         if adjustment_needed != 0:
             # Calculate how close each stock was to the next discretization level
             distance_to_next = np.zeros_like(allocations)
-
             for i in range(len(allocations)):
                 if adjustment_needed > 0 and allocations[i] < 30:
-                    # If we need to add: how close to rounding up?
                     distance_to_next[i] = 10 - (percentages[i] % 10)
                 elif adjustment_needed < 0 and allocations[i] > 0:
-                    # If we need to subtract: how close to rounding down?
                     distance_to_next[i] = percentages[i] % 10
                 else:
-                    # Can't adjust this stock
                     distance_to_next[i] = float('inf')
 
             # Prioritize adjustments for stocks closest to the next level
             num_adjustments = int(abs(adjustment_needed) // 10)
-
             if num_adjustments > 0:
                 adjustment_indices = np.argsort(distance_to_next)[:num_adjustments]
-
                 for idx in adjustment_indices:
                     if adjustment_needed > 0 and allocations[idx] < 30:
                         allocations[idx] += 10
@@ -297,36 +301,6 @@ class PortfolioEnv(gym.Env):
                         allocations[idx] -= 10
                         adjustment_needed += 10
         return allocations
-
-    def step(self, action):
-        allocation = self._convert_to_allocation(action)
-        self.previous_allocation = allocation.copy()
-        portfolio_return, stock_returns = self._calculate_monthly_performance(allocation)
-        self.portfolio_value *= (1 + portfolio_return)
-
-        # Get raw metrics (not scaled) for reward calculation
-        sharpe = self._calculate_portfolio_metric('Sharpe_20d', allocation)
-        max_drawdown = self._calculate_portfolio_metric('MaxDrawdown_252d', allocation)
-        reward = self._calculate_reward(portfolio_return, sharpe, max_drawdown)
-        self.monthly_returns.append(portfolio_return)
-
-        info = {
-            'portfolio_return': portfolio_return,
-            'portfolio_value': self.portfolio_value,
-            'sharpe': sharpe,
-            'max_drawdown': max_drawdown,
-            'allocation': allocation.copy(),
-            'stock_returns': stock_returns
-        }
-
-        self.current_step += 30
-        self.current_month += 1
-
-        terminated = (self.current_month >= self.episode_length)
-        truncated = False
-        observation = self._get_observation()
-
-        return observation, reward, terminated, truncated, info
 
     def _calculate_monthly_performance(self, allocation):
         current_prices = np.array([
@@ -459,6 +433,8 @@ class PortfolioEnv(gym.Env):
     def close(self):
         pass
 
+#############################################################################
+#############################################################################
 ## Helper functions to load data and evaluate the model
 def get_stock_data_list(instrument_list):
     stock_data_list = []
@@ -677,7 +653,6 @@ if __name__ == "__main__":
     print("Training complete!")
 
     # EVALUATE
-    # eval_instrument_list = ["KO", "WMT", "PFE", "VZ", "NEE", "SPY", "QQQ", "IWM", "XLF", "XLE"]         
     eval_instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"]        
     eval_stock_data_list = get_stock_data_list(eval_instrument_list)
     print("Evaluating model...")
