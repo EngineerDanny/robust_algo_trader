@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
-from scipy.stats import student_t
+from scipy.stats import t as student_t
 import talib
 
 class SimpleOHLCGenerator:
@@ -14,26 +14,25 @@ class SimpleOHLCGenerator:
         if original_data is not None:
             self.original_data = self._preprocess_data(original_data)
             # Calculate volatility statistics from the original data
-            self.max_candle_size = (self.original_data['high'] - self.original_data['low']).max()
+            self.max_candle_size = (self.original_data['High'] - self.original_data['Low']).max()
             
             # Calculate maximum day-to-day change
-            self.original_data['prev_close'] = self.original_data['close'].shift(1)
-            self.original_data['day_change'] = abs(self.original_data['open'] - self.original_data['prev_close'])
+            self.original_data['prev_close'] = self.original_data['Close'].shift(1)
+            self.original_data['day_change'] = abs(self.original_data['Open'] - self.original_data['prev_close'])
             self.max_day_change = self.original_data['day_change'].max()
     
     def _preprocess_data(self, data):
         df = data.copy()
         # Standardize column names and set datetime index
-        df.columns = [col.lower() for col in df.columns]
-        df['time'] = pd.to_datetime(df['time'])
-        df.set_index('time', inplace=True)
+        df['Time'] = pd.to_datetime(df['Time'])
+        df.set_index('Time', inplace=True)
         # Round OHLC values to two decimals
-        for col in ['open', 'high', 'low', 'close']:
+        for col in ['Open', 'High', 'Low', 'Close']:
             df[col] = df[col].round(2)
-        df = df.sort_index()  # Ensure data is sorted by time
+        df = df.sort_index()  # Ensure data is sorted by Time
         return df
     
-    def _add_technical_indicators(self, df):
+    def add_technical_indicators(self, df):
         # Moving Averages
         df['MA5'] = talib.SMA(df['Close'].values, timeperiod=5)
         df['MA20'] = talib.SMA(df['Close'].values, timeperiod=20)
@@ -67,6 +66,7 @@ class SimpleOHLCGenerator:
         df['Sharpe_20d'] = (df['LogReturn'].rolling(20).mean() / df['LogReturn'].rolling(20).std()) * np.sqrt(252)
         df['Sharpe_60d'] = (df['LogReturn'].rolling(60).mean() / df['LogReturn'].rolling(60).std()) * np.sqrt(252)
         df['Sharpe_252d'] = (df['LogReturn'].rolling(252).mean() / df['LogReturn'].rolling(252).std()) * np.sqrt(252)
+        df.dropna(inplace=True)
         
         # Calculate performance metrics as attributes
         if len(df) > 1 and len(df['LogReturn'].dropna()) > 0:
@@ -98,24 +98,16 @@ class SimpleOHLCGenerator:
             synthetic_data = self._stitch_segments(sampled_segments)
             
             # Remove any negative price candles
-            synthetic_data = synthetic_data[(synthetic_data['open'] > 0) & 
-                                            (synthetic_data['high'] > 0) & 
-                                            (synthetic_data['low'] > 0) & 
-                                            (synthetic_data['close'] > 0)]
+            synthetic_data = synthetic_data[(synthetic_data['Open'] > 0) & 
+                                            (synthetic_data['High'] > 0) & 
+                                            (synthetic_data['Low'] > 0) & 
+                                            (synthetic_data['Close'] > 0)]
             
             # Validation checks
             if len(synthetic_data) > 1:
                 # Rename columns to match _generate_synthetic_data format
-                synthetic_data.rename(columns={
-                    'open': 'Open', 
-                    'high': 'High', 
-                    'low': 'Low', 
-                    'close': 'Close'
-                }, inplace=True)
-                
                 # Add technical indicators and metrics
-                synthetic_data = self._add_technical_indicators(synthetic_data)
-                
+                synthetic_data = self.add_technical_indicators(synthetic_data)
                 synthetic_datasets.append(synthetic_data)
  
         return synthetic_datasets
@@ -134,58 +126,58 @@ class SimpleOHLCGenerator:
                 result = seg.copy()
                 continue
                 
-            last_close = result['close'].iloc[-1]
+            last_close = result['Close'].iloc[-1]
             last_date = result.index[-1]
             
-            # Generate new dates for this segment
+            # Generate new times for this segment
             new_dates = pd.date_range(start=last_date + pd.Timedelta(days=1),
                                       periods=len(seg),
                                       freq=freq)
             seg.index = new_dates
             
-            # Strict Enforcement: First open exactly equals last close
-            first_open = seg['open'].iloc[0]
+            # Strict Enforcement: First Open exactly equals last Close
+            first_open = seg['Open'].iloc[0]
             scaling_factor = last_close / first_open if first_open != 0 else 1.0
             
             # Scale the entire segment to maintain relative proportions
-            for col in ['open', 'high', 'low', 'close']:
+            for col in ['Open', 'High', 'Low', 'Close']:
                 seg[col] = seg[col] * scaling_factor
             
-            # Strictly enforce first open equals last close
-            seg.iloc[0, seg.columns.get_loc('open')] = last_close
+            # Strictly enforce first Open equals last Close
+            seg.iloc[0, seg.columns.get_loc('Open')] = last_close
             
             # Process each row in the segment
             for i in range(len(seg)):
-                # For the first row, we already set the open
+                # For the first row, we already set the Open
                 if i > 0:
-                    # Set open to previous close for continuity
-                    prev_close = seg.iloc[i-1]['close']
-                    seg.iloc[i, seg.columns.get_loc('open')] = prev_close
+                    # Set Open to previous Close for continuity
+                    prev_close = seg.iloc[i-1]['Close']
+                    seg.iloc[i, seg.columns.get_loc('Open')] = prev_close
                 
                 # Get current values
-                o = seg.iloc[i]['open']
-                h = seg.iloc[i]['high']
-                l = seg.iloc[i]['low']
-                c = seg.iloc[i]['close']
+                o = seg.iloc[i]['Open']
+                h = seg.iloc[i]['High']
+                l = seg.iloc[i]['Low']
+                c = seg.iloc[i]['Close']
                 
-                # Check if this candle is too large (high-low range)
+                # Check if this candle is too large (High-Low range)
                 candle_size = h - l
                 if candle_size > self.max_candle_size * 1.1:  # Allow 10% extra
                     # Replace with a reasonable candle size
-                    # Center the new candle around the open
+                    # Center the new candle around the Open
                     avg_candle_size = self.max_candle_size * 0.5  # Use half of max as typical
                     h = o + (avg_candle_size / 2)
                     l = o - (avg_candle_size / 2)
                     
-                    # Set close to be in the same direction but with moderate movement
+                    # Set Close to be in the same direction but with moderate movement
                     if c > o:
                         c = o + (avg_candle_size * 0.3)  # 30% of avg candle size up
                     else:
                         c = o - (avg_candle_size * 0.3)  # 30% of avg candle size down
                 
-                # Check if open-to-close move is too large
+                # Check if Open-to-Close move is too large
                 if abs(c - o) > self.max_day_change * 1.1:  # Allow 10% extra
-                    # Limit the close to a reasonable range from open
+                    # Limit the Close to a reasonable range from Open
                     direction = 1 if c > o else -1
                     c = o + (direction * self.max_day_change * 0.8)  # 80% of max daily change
                 
@@ -199,13 +191,13 @@ class SimpleOHLCGenerator:
                 c = max(0.01, c)
                 
                 # Write back the adjusted values
-                seg.iloc[i, seg.columns.get_loc('high')] = round(h, 2)
-                seg.iloc[i, seg.columns.get_loc('low')] = round(l, 2)
-                seg.iloc[i, seg.columns.get_loc('close')] = round(c, 2)
+                seg.iloc[i, seg.columns.get_loc('High')] = round(h, 2)
+                seg.iloc[i, seg.columns.get_loc('Low')] = round(l, 2)
+                seg.iloc[i, seg.columns.get_loc('Close')] = round(c, 2)
             
             # Final continuity check
-            if seg.iloc[0]['open'] != result.iloc[-1]['close']:
-                seg.iloc[0, seg.columns.get_loc('open')] = result.iloc[-1]['close']
+            if seg.iloc[0]['Open'] != result.iloc[-1]['Close']:
+                seg.iloc[0, seg.columns.get_loc('Open')] = result.iloc[-1]['Close']
             
             # Concatenate with the result
             result = pd.concat([result, seg])
@@ -213,8 +205,8 @@ class SimpleOHLCGenerator:
         # Final pass to remove any extremely large candles that might have slipped through
         if len(result) > 0:
             # Create a temporary column for candle size
-            result['candle_size'] = result['high'] - result['low']
-            result['price_change'] = abs(result['close'] - result['open'])
+            result['candle_size'] = result['High'] - result['Low']
+            result['price_change'] = abs(result['Close'] - result['Open'])
             
             # Flag extreme candles (3x larger than max observed in original data)
             extreme_candles = (result['candle_size'] > self.max_candle_size * 3) | \
@@ -232,13 +224,13 @@ class SimpleOHLCGenerator:
                     if pos > 0:  # Not the first row
                         # Get the row before
                         prev_row = result.iloc[pos-1]
-                        prev_close = prev_row['close']
+                        prev_close = prev_row['Close']
                         
                         # Create a simple replacement candle
-                        result.loc[idx, 'open'] = prev_close
-                        result.loc[idx, 'close'] = prev_close * np.random.uniform(0.99, 1.01)
-                        result.loc[idx, 'high'] = max(result.loc[idx, 'open'], result.loc[idx, 'close']) * 1.005
-                        result.loc[idx, 'low'] = min(result.loc[idx, 'open'], result.loc[idx, 'close']) * 0.995
+                        result.loc[idx, 'Open'] = prev_close
+                        result.loc[idx, 'Close'] = prev_close * np.random.uniform(0.99, 1.01)
+                        result.loc[idx, 'High'] = max(result.loc[idx, 'Open'], result.loc[idx, 'Close']) * 1.005
+                        result.loc[idx, 'Low'] = min(result.loc[idx, 'Open'], result.loc[idx, 'Close']) * 0.995
             
             # Drop the temporary columns
             result = result.drop(columns=['candle_size', 'price_change'])
@@ -282,16 +274,16 @@ class SimpleOHLCGenerator:
                 bull_vol = max(np.random.normal(0.15, 0.03), 0.02)
                 bear_vol = max(np.random.normal(0.25, 0.03), 0.05)
                 
-                # Generate dates
+                # Generate times
                 trading_days = synthetic_data_years * 252
-                dates = pd.date_range(
+                times = pd.date_range(
                     start=pd.Timestamp('2010-01-01'),
                     periods=trading_days,
                     freq='B'  # Business days
                 )
                 
                 # Initialize arrays
-                N = len(dates)
+                N = len(times)
                 close_prices = np.zeros(N)
                 open_prices = np.zeros(N)
                 high_prices = np.zeros(N)
@@ -387,7 +379,7 @@ class SimpleOHLCGenerator:
                     range_factor = daily_vol / (bull_vol / np.sqrt(252))
                     daily_range *= range_factor
                     
-                    # Open price typically between previous close and current close
+                    # Open price typically between previous Close and current Close
                     open_frac = np.clip(np.random.normal(0.5, 0.2), 0, 1)
                     open_prices[j] = close_prices[j-1] + (close_prices[j] - close_prices[j-1]) * open_frac
                     
@@ -411,17 +403,17 @@ class SimpleOHLCGenerator:
                 
                 # Create DataFrame
                 df = pd.DataFrame({
-                    'Date': dates,
+                    'Time': times,
                     'Open': open_prices,
                     'High': high_prices,
                     'Low': low_prices,
                     'Close': close_prices,
                     'Regime': regimes
                 })
-                df.set_index('Date', inplace=True)
+                df.set_index('Time', inplace=True)
                 
                 # Add technical indicators and metrics
-                df = self._add_technical_indicators(df)
+                df = self.add_technical_indicators(df)
                 
                 # Check if data meets criteria
                 annual_return = df.attrs.get('annualized_return', 0)
@@ -454,12 +446,7 @@ class SimpleOHLCGenerator:
         return fig
 
     def _plot_candles(self, ax, data, title):
-        # Check for capitalized column names first, then lowercase
-        if 'Open' in data.columns:
-            o_col, h_col, l_col, c_col = 'Open', 'High', 'Low', 'Close'
-        else:
-            o_col, h_col, l_col, c_col = 'open', 'high', 'low', 'close'
-            
+        o_col, h_col, l_col, c_col = 'Open', 'High', 'Low', 'Close'
         for i, row in enumerate(data.itertuples()):
             try:
                 o = getattr(row, o_col)
