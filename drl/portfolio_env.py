@@ -39,7 +39,9 @@ class PortfolioEnv(gym.Env):
                  episode_length = 12, # 12 months
                  temperature = 0.3, 
                  window_size = 252, # 1 year of data
-                 episodes_per_dataset=50):
+                 episodes_per_dataset=50,
+                 days_per_step=20
+                 ):
         
         super(PortfolioEnv, self).__init__()
 
@@ -50,6 +52,7 @@ class PortfolioEnv(gym.Env):
         self.temperature = temperature
         self.window_size = window_size
         self.episodes_per_dataset = episodes_per_dataset
+        self.days_per_step = days_per_step
         self.stocks = None 
         
         assert mode in ["train", "test"], "Mode must be either 'train' or 'test'"
@@ -118,7 +121,7 @@ class PortfolioEnv(gym.Env):
             'stock_returns': stock_returns
         }
 
-        self.current_step += 30
+        self.current_step += self.days_per_step
         self.current_month += 1
 
         terminated = (self.current_month >= self.episode_length)
@@ -175,7 +178,7 @@ class PortfolioEnv(gym.Env):
             
             # Find minimum length and align all stocks
             min_length = min(len(df) for df in processed_stocks.values())
-            aligned_length = (min_length // 30) * 30
+            aligned_length = (min_length // self.days_per_step) * self.days_per_step
             
             # Align all processed stocks
             self.stocks = {
@@ -186,7 +189,7 @@ class PortfolioEnv(gym.Env):
         
         # Determine safe bounds for episode
         data_length = min(len(df) for df in self.stocks.values())
-        max_start_idx = max(0, data_length - self.episode_length * 30 - 20)
+        max_start_idx = max(0, data_length - self.episode_length * self.days_per_step - self.days_per_step) 
         
         # Random start point (safely within bounds)
         self.current_step = np.random.randint(0, max_start_idx)
@@ -214,10 +217,10 @@ class PortfolioEnv(gym.Env):
         
         # Find minimum length after adding indicators
         min_length = min(len(df) for df in processed_stocks.values())
-        aligned_length = (min_length // 30) * 30
-        if aligned_length < self.episode_length * 30:
+        aligned_length = (min_length // self.days_per_step) * self.days_per_step 
+        if aligned_length < self.episode_length * self.days_per_step:
             raise ValueError(f"Not enough data for a full episode after adding indicators. " 
-                            f"Need at least {self.episode_length * 30} points, but only have {aligned_length}.")
+                f"Need at least {self.episode_length * self.days_per_step} points, but only have {aligned_length}.")
         
         # Align all processed stocks
         self.stocks = {
@@ -226,7 +229,7 @@ class PortfolioEnv(gym.Env):
         }
         
         print(f"Testing with stocks: {selected_indices}")
-        print(f"Aligned all test stocks to length {aligned_length} (multiple of 30)")
+        print(f"Aligned all test stocks to length {aligned_length} (multiple of {self.days_per_step})")  # Changed from 30
         
         # For testing, always start from the beginning of the time series
         self.current_step = 0
@@ -240,7 +243,7 @@ class PortfolioEnv(gym.Env):
             "mode": "test",
             "selected_stocks": selected_indices,
             "data_length": aligned_length,
-            "max_episodes": aligned_length // (30 * self.episode_length)
+            "max_episodes": aligned_length // (self.days_per_step * self.episode_length)
         }
         return observation, info
     
@@ -305,7 +308,7 @@ class PortfolioEnv(gym.Env):
             self.stocks[f'stock_{i}'].iloc[self.current_step]['Close'] 
             for i in range(self.n_stocks)
         ])
-        next_step = min(self.current_step + 30, len(next(iter(self.stocks.values()))) - 1)
+        next_step = min(self.current_step + self.days_per_step, len(next(iter(self.stocks.values()))) - 1)
         next_prices = np.array([
             self.stocks[f'stock_{i}'].iloc[next_step]['Close'] 
             for i in range(self.n_stocks)
@@ -553,9 +556,9 @@ def train_model(stock_data_list, total_timesteps=200_000):
     print("Creating environment...")
     n_envs = 8
     # Create multiple environments running in parallel
-    # env = SubprocVecEnv([make_env(stock_data_list, i) for i in range(n_envs)])
+    env = SubprocVecEnv([make_env(stock_data_list, i) for i in range(n_envs)])
     
-    env = PortfolioEnv(stock_data_list)
+    # env = PortfolioEnv(stock_data_list)
     # check_env(env)
     
     print("Initializing PPO agent...")
@@ -625,11 +628,11 @@ if __name__ == "__main__":
     instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"] 
     stock_data_list = get_stock_data_list(instrument_list)
     print("Training model...")
-    trained_model = train_model(stock_data_list, total_timesteps=2_000)
+    trained_model = train_model(stock_data_list, total_timesteps=200_000)
     print("Training complete!")
 
     # EVALUATE
-    eval_instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"]        
+    eval_instrument_list = ["IWM", "GS", "NEE", "PFE", "QQQ", "SPY", "VZ", "WMT", "XLE", "XLF"]        
     eval_stock_data_list = get_stock_data_list(eval_instrument_list)
     print("Evaluating model...")
     evaluate_model(eval_stock_data_list, trained_model)
