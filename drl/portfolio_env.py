@@ -16,19 +16,12 @@ from sklearn.preprocessing import MinMaxScaler
 import talib
 from scipy.stats import t as student_t
 import torch as th
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import random
 import sys
 import os
 
-# Instead of importing, copy the SimpleOHLCGenerator class 
-# that you shared earlier into your current file
-# Or use this simpler import:
 sys.path.append("/Users/newuser/Projects/robust_algo_trader/drl/")
-from ohlc_generator import SimpleOHLCGenerator  # Remove 'drl.' prefix
+from ohlc_generator import SimpleOHLCGenerator 
 
 
 # save dir should add the current date and time
@@ -43,7 +36,7 @@ class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
     def __init__(self, 
-                 stock_data_list = None,
+                 stock_data_list,
                  mode = "train",     
                  n_stocks = 10, 
                  episode_length = 12, 
@@ -55,16 +48,15 @@ class PortfolioEnv(gym.Env):
 
         self.mode = mode
         self.stock_data_list = stock_data_list
-        self.stocks = None  # Placeholder for stock data
+        self.stocks = None 
         self.n_stocks = n_stocks
         self.episode_length = episode_length
         self.temperature = temperature
-        self.window_size = window_size  # Window size for feature scaling (252 days = 1 year)
+        self.window_size = window_size
         self.episodes_per_dataset = episodes_per_dataset
         
         
         assert mode in ["train", "test"], "Mode must be either 'train' or 'test'"
-        # Assert stock_data_list is provided and has enough stocks
         assert stock_data_list is not None, "stock_data_list cannot be None"
         assert len(stock_data_list) >= n_stocks, \
             f"Not enough stocks provided. Required: {n_stocks}, provided: {len(stock_data_list)}"
@@ -78,7 +70,6 @@ class PortfolioEnv(gym.Env):
                 1: 500,   # Move to stage 2 after 500 episodes
                 2: 1500   # Move to stage 3 after 1500 episodes
             }
-    
 
         # Use raw features instead of pre-scaled ones
         self.features = [
@@ -106,19 +97,15 @@ class PortfolioEnv(gym.Env):
         super().reset(seed=seed)
         if self.mode == "train":
             return self._train_reset(seed) 
-        else:  # test mode
+        else:
             return self._test_reset(seed)
 
     def _train_reset(self, seed=None):
-        """Reset logic for training mode with staged progression"""
-        # Update training progression tracking
         self.episode_count += 1
-        
-        # Stage transitions based on episode count
-        if self.episode_count == self.stage_transitions.get(1, 500):
+        if self.episode_count == self.stage_transitions.get(1):
             self.training_stage = 2
             print("Training stage 2: Using synthetic data based on real data properties")
-        elif self.episode_count == self.stage_transitions.get(2, 1500):
+        elif self.episode_count == self.stage_transitions.get(2):
             self.training_stage = 3 
             print("Training stage 3: Using real data for training")
         
@@ -330,32 +317,6 @@ class PortfolioEnv(gym.Env):
         ])
         return np.sum((allocation / 100) * metric_values)
 
-    # def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
-    #     # Get the average return across all stocks as a benchmark for the current month
-    #     # The Return_1M metric is the return over the past month, not the future month
-    #     benchmark_returns = np.mean([
-    #         self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
-    #         for i in range(self.n_stocks)
-    #     ])
-
-    #     # Calculate excess return over benchmark
-    #     excess_return = portfolio_return - max(0, benchmark_returns * 0.01)  # Scaled benchmark
-
-    #     # Base reward from excess return (higher weight for outperformance)
-    #     base_reward = excess_return * 100
-
-    #     # Risk-adjusted components
-    #     sharpe_component = sharpe * 1.0  # Increased weight on Sharpe
-    #     drawdown_component = max_drawdown * -1.5  # Slightly reduced drawdown penalty
-
-    #     # Apply higher penalty for large drawdowns but lower for small ones
-    #     if max_drawdown < -0.1:  # Only penalize significant drawdowns
-    #         drawdown_component *= 1.5
-
-    #     # Combine components
-    #     reward = base_reward + sharpe_component + drawdown_component
-    #     return reward
-    
     def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
         # 1. IMMEDIATE REWARD COMPONENT (based on actual past performance)
         # Get the average return across all stocks as a benchmark
@@ -591,7 +552,7 @@ def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_val
 def make_env(stock_data_list, rank=0, seed=0):
     def _init():
         env = Monitor(PortfolioEnv(
-            stock_data_list=stock_data_list, 
+            stock_data_list, 
             mode="train"
         ))
         env.reset(seed=seed + rank)
@@ -649,7 +610,7 @@ def train_model(stock_data_list, total_timesteps=200_000):
 
 def evaluate_model(stock_data_list, trained_model, n_episodes=10):
     print(f"Evaluating agent over {n_episodes} episodes...")
-    eval_env = Monitor(PortfolioEnv(stock_data_list=stock_data_list, 
+    eval_env = Monitor(PortfolioEnv(stock_data_list, 
                                     mode="test"))
     # eval_env = PortfolioEnv(stock_data_list)
     mean_reward, std_reward = evaluate_policy(
