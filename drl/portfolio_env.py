@@ -46,15 +46,14 @@ class PortfolioEnv(gym.Env):
         
         super(PortfolioEnv, self).__init__()
 
-        self.mode = mode
         self.stock_data_list = stock_data_list
-        self.stocks = None 
+        self.mode = mode
         self.n_stocks = n_stocks
         self.episode_length = episode_length
         self.temperature = temperature
         self.window_size = window_size
         self.episodes_per_dataset = episodes_per_dataset
-        
+        self.stocks = None 
         
         assert mode in ["train", "test"], "Mode must be either 'train' or 'test'"
         assert stock_data_list is not None, "stock_data_list cannot be None"
@@ -639,7 +638,8 @@ if __name__ == "__main__":
     print("Training complete!")
 
     # EVALUATE
-    eval_instrument_list = ["KO", "WMT", "PFE", "VZ", "NEE", "SPY", "QQQ", "IWM", "XLF", "XLE"] 
+    # eval_instrument_list = ["KO", "WMT", "PFE", "VZ", "NEE", "SPY", "QQQ", "IWM", "XLF", "XLE"]         
+    eval_instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"]        
     eval_stock_data_list = get_stock_data_list(eval_instrument_list)
     print("Evaluating model...")
     evaluate_model(eval_stock_data_list, trained_model)
