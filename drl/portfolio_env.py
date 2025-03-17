@@ -163,13 +163,11 @@ class PortfolioEnv(gym.Env):
         # Stage 3: Real Data
         else:
             generator = SimpleOHLCGenerator()
-            # Randomly select stocks
             selected_indices = np.random.choice(
                 len(self.stock_data_list), 
                 self.n_stocks, 
                 replace=False
             )
-            # Process real data - add technical indicators
             processed_stocks = {
                 f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
                 for i, idx in enumerate(selected_indices)
@@ -307,22 +305,18 @@ class PortfolioEnv(gym.Env):
             self.stocks[f'stock_{i}'].iloc[self.current_step]['Close'] 
             for i in range(self.n_stocks)
         ])
-
         next_step = min(self.current_step + 30, len(next(iter(self.stocks.values()))) - 1)
         next_prices = np.array([
             self.stocks[f'stock_{i}'].iloc[next_step]['Close'] 
             for i in range(self.n_stocks)
         ])
-
         stock_returns = (next_prices - current_prices) / current_prices
         portfolio_return = np.sum((allocation / 100) * stock_returns)
-
         return portfolio_return, stock_returns
 
     def _calculate_portfolio_metric(self, metric_name, allocation):
         if not all(metric_name in stock_df.columns for stock_df in self.stocks.values()):
             return 0.0
-
         metric_values = np.array([
             self.stocks[f'stock_{i}'].iloc[self.current_step][metric_name] 
             for i in range(self.n_stocks)
@@ -374,45 +368,28 @@ class PortfolioEnv(gym.Env):
         for i, stock_name in enumerate(self.stocks.keys()):
             stock_data = self.stocks[f'stock_{i}']
             current_step = self.current_step
-            
-            # Get current price
             current_price = stock_data.iloc[current_step]['Close']
-            
-            # Get only recent returns (what the agent can observe)
             start_idx = max(0, current_step - recent_lookback)
             recent_returns = stock_data['LogReturn'].iloc[start_idx:current_step+1].values
-            
-            # Calculate statistics from recent returns
             mean_return = np.mean(recent_returns)
             std_return = max(np.std(recent_returns), 1e-6)  # Prevent zero std
-            
-            # Initialize price paths for this stock
             stock_price_paths = np.zeros((n_simulations, horizon_months + 1))
             stock_price_paths[:, 0] = current_price  # Set initial price
-            
             # Generate paths
             for sim in range(n_simulations):
                 for month in range(1, horizon_months + 1):
-                    # Sample a monthly return based on recent return distribution
-                    # Scale daily mean and std to monthly
                     monthly_return = np.random.normal(mean_return * 21, std_return * np.sqrt(21))
-                    
-                    # Update price
                     stock_price_paths[sim, month] = stock_price_paths[sim, month-1] * np.exp(monthly_return)
-            
             # Store price paths
             simulated_prices[stock_name] = stock_price_paths
-            
             # Calculate statistics for this stock
             expected_prices = np.mean(stock_price_paths, axis=0)
             expected_returns = expected_prices / current_price - 1
-            
             # Calculate risk metrics at final horizon
             final_prices = stock_price_paths[:, -1]
             final_returns = final_prices / current_price - 1
             var_95 = np.percentile(final_returns, 5)  # 5% worst case return
             expected_shortfall = np.mean(final_returns[final_returns < var_95])
-            
             # Store stock statistics
             stock_stats[stock_name] = {
                 'expected_prices': expected_prices,
@@ -420,7 +397,6 @@ class PortfolioEnv(gym.Env):
                 'final_var_95': var_95,
                 'expected_shortfall': expected_shortfall
             }
-        
         return simulated_prices, stock_stats
     
     def render(self, mode='human'):
