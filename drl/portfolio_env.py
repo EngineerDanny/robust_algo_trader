@@ -40,8 +40,11 @@ class PortfolioEnv(gym.Env):
                  temperature = 0.3, 
                  window_size = 252, # 1 year of data
                  episodes_per_dataset=50,
-                 days_per_step=20
-                 ):
+                 days_per_step=20,
+                 total_timesteps=200_000,  # Default to the value in your train_model function
+                 stage_transition_percentages=(1.0, 1.0),  # Percentages for stage transitions
+                 n_parallel_envs=8 
+                ):
         
         super(PortfolioEnv, self).__init__()
 
@@ -65,11 +68,13 @@ class PortfolioEnv(gym.Env):
             self.training_stage = 1  # Start with pure synthetic
             self.episode_count = 0
             self.current_dataset_episodes = 0 
+            expected_episodes = (total_timesteps / self.episode_length) // n_parallel_envs
+            
             self.stage_transitions = {
-                1: 500,   # Move to stage 2 after 500 episodes
-                2: 1500   # Move to stage 3 after 1500 episodes
+                1: int(expected_episodes * stage_transition_percentages[0]),  # Move to stage 2
+                2: int(expected_episodes * stage_transition_percentages[1])   # Move to stage 3
             }
-
+        
         # Use raw features instead of pre-scaled ones
         self.features = [
             'Close', 'MA5', 'MA20', 'MA50', 'MA200',
@@ -426,127 +431,13 @@ def get_stock_data_list(instrument_list):
         print(f"Loaded {instrument} with {len(df)} data points")
     return stock_data_list
 
-def detailed_evaluation(trained_model, eval_env, n_episodes=10):
-    all_allocations = []
-    all_returns = []
-    all_sharpes = []
-    all_drawdowns = []
-    monthly_allocations = []
-    final_values = []
-    
-    for episode in range(n_episodes):
-        obs, info = eval_env.reset()
-        episode_allocations = []
-        episode_returns = []
-        episode_sharpes = []
-        episode_drawdowns = []
-        done = False
-        
-        while not done:
-            action, _ = trained_model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, info = eval_env.step(action)
-            done = terminated or truncated
-            episode_allocations.append(info['allocation'])
-            episode_returns.append(info['portfolio_return'])
-            episode_sharpes.append(info['sharpe'])
-            episode_drawdowns.append(info['max_drawdown'])
-            
-            if done:
-                final_values.append(info['portfolio_value'])
-        
-        all_allocations.append(episode_allocations)
-        monthly_allocations.extend(episode_allocations)
-        all_returns.append(np.mean(episode_returns))
-        all_sharpes.append(np.mean(episode_sharpes))
-        all_drawdowns.append(np.mean(episode_drawdowns))
-        
-        print(f"Episode {episode+1}: Return = {np.mean(episode_returns):.4f}, Final Value = ${final_values[-1]:.2f}")
-    
-    avg_allocation = np.mean(monthly_allocations, axis=0)
-    
-    create_visualizations(
-        avg_allocation, 
-        all_returns, 
-        all_sharpes, 
-        all_drawdowns,
-        final_values
-    )
-    
-    return {
-        'mean_return': np.mean(all_returns),
-        'mean_sharpe': np.mean(all_sharpes),
-        'mean_drawdown': np.mean(all_drawdowns),
-        'mean_final_value': np.mean(final_values),
-        'avg_allocation': avg_allocation
-    }
-
-def create_visualizations(avg_allocation, returns, sharpes, drawdowns, final_values):
-    os.makedirs('results', exist_ok=True)
-    
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(range(len(avg_allocation)), avg_allocation)
-    
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2., height + 1,
-                 f'{height:.1f}%',
-                 ha='center', va='bottom', rotation=0)
-        
-    # create results dir if it doesn't exist
-    RESULTS_DIR = f'{SAVE_DIR}/results'
-    if not os.path.exists(RESULTS_DIR):
-        os.makedirs(RESULTS_DIR)
-    
-    
-    plt.xlabel('Stock')
-    plt.ylabel('Average Allocation (%)')
-    plt.title('Average Portfolio Allocation')
-    plt.xticks(range(len(avg_allocation)), [f'Stock {i}' for i in range(len(avg_allocation))])
-    plt.ylim(0, max(avg_allocation) * 1.2)
-    plt.savefig(f'{RESULTS_DIR}/portfolio_allocation.png')
-    
-    plt.figure(figsize=(10, 6))
-    plt.hist(returns, bins=10, alpha=0.7)
-    plt.axvline(np.mean(returns), color='r', linestyle='dashed', linewidth=2)
-    plt.text(np.mean(returns)*1.1, plt.ylim()[1]*0.9, f'Mean: {np.mean(returns):.4f}')
-    plt.xlabel('Average Monthly Return')
-    plt.ylabel('Frequency')
-    plt.title('Distribution of Average Monthly Returns')
-    plt.savefig(f'{RESULTS_DIR}/returns_distribution.png')
-    
-    plt.figure(figsize=(10, 6))
-    plt.hist(final_values, bins=10, alpha=0.7)
-    plt.axvline(np.mean(final_values), color='r', linestyle='dashed', linewidth=2)
-    plt.text(np.mean(final_values)*1.02, plt.ylim()[1]*0.9, f'Mean: ${np.mean(final_values):.2f}')
-    plt.xlabel('Final Portfolio Value ($)')
-    plt.ylabel('Frequency')
-    plt.title('Distribution of Final Portfolio Values (12-month episodes)')
-    plt.savefig(f'{RESULTS_DIR}/portfolio_values.png')
-    
-    plt.figure(figsize=(12, 6))
-    metrics = ['Return (%)', 'Sharpe', 'Drawdown (%)']
-    values = [np.mean(returns)*100, np.mean(sharpes), np.mean(drawdowns)*100]
-    colors = ['green', 'blue', 'red']
-    
-    bars = plt.bar(metrics, values, color=colors)
-    plt.title('Average Performance Metrics')
-    
-    for bar in bars:
-        height = bar.get_height()
-        sign = "+" if height > 0 else ""
-        plt.text(bar.get_x() + bar.get_width()/2., height + 0.1 if height > 0 else height - 0.6,
-                 f'{sign}{height:.2f}',
-                 ha='center', va='bottom' if height > 0 else 'top')
-    
-    plt.savefig(f'{SAVE_DIR}/results/performance_metrics.png')
-    print("Visualizations saved to 'results' directory")
-
 # Some helper functions to train and evaluate the model
-def make_env(stock_data_list, rank=0, seed=0):
+def make_env(stock_data_list, total_timesteps = 200_000, rank=0, seed=0):
     def _init():
         env = Monitor(PortfolioEnv(
             stock_data_list, 
-            mode="train"
+            mode="train",
+            total_timesteps=total_timesteps,
         ))
         env.reset(seed=seed + rank)
         return env
@@ -556,11 +447,9 @@ def train_model(stock_data_list, total_timesteps=200_000):
     print("Creating environment...")
     n_envs = 8
     # Create multiple environments running in parallel
-    env = SubprocVecEnv([make_env(stock_data_list, i) for i in range(n_envs)])
-    
+    env = SubprocVecEnv([make_env(stock_data_list, total_timesteps=total_timesteps, rank=i) for i in range(n_envs)])
     # env = PortfolioEnv(stock_data_list)
     # check_env(env)
-    
     print("Initializing PPO agent...")
     model = PPO(
         "MlpPolicy", 
@@ -601,25 +490,411 @@ def train_model(stock_data_list, total_timesteps=200_000):
     print(f"Final model saved to {final_model_path}")
     return model
 
+
+def detailed_evaluation(trained_model, eval_env, n_episodes=10):
+    """
+    Evaluates model performance using a forward-looking approach and compares with equal-weight benchmark.
+    Both use identical calculation methods to ensure fair comparison.
+    """
+    # Result collection arrays
+    all_allocations = []
+    model_cumulative_returns = []
+    model_monthly_returns = []
+    model_sharpe_values = []
+    model_max_drawdowns = []
+    model_final_values = []
+    
+    benchmark_cumulative_returns = []
+    benchmark_monthly_returns = []
+    benchmark_sharpe_values = []
+    benchmark_max_drawdowns = []
+    benchmark_final_values = []
+    
+    # Arrays for visualization
+    all_portfolio_curves = []
+    all_benchmark_curves = []
+    
+    for episode in range(n_episodes):
+        # Reset environment for new episode
+        obs, info = eval_env.reset()
+        
+        # Initialize tracking variables
+        model_value = 100.0
+        benchmark_value = 100.0
+        model_values = [model_value]
+        benchmark_values = [benchmark_value]
+        episode_allocations = []
+        
+        # Initialize return arrays for this episode
+        model_returns = []
+        benchmark_returns = []
+        
+        # Equal-weight allocation (10% each)
+        n_stocks = eval_env.unwrapped.n_stocks
+        equal_weight = np.ones(n_stocks) * (100 / n_stocks)
+        
+        # For forward-looking evaluation
+        previous_allocation = equal_weight.copy()  # Start with equal weight
+        done = False
+        step = 0
+        
+        while not done:
+            # Get model's allocation decision
+            action, _ = trained_model.predict(obs, deterministic=True)
+            
+            # Save current allocation for performance evaluation in next period
+            current_allocation = previous_allocation.copy()
+            
+            # Step environment to get next state and reward
+            obs, reward, terminated, truncated, info = eval_env.step(action)
+            done = terminated or truncated
+            step += 1
+            
+            # Get model's new allocation and stock returns (these are FUTURE returns)
+            new_allocation = info['allocation'].copy()
+            stock_returns = info['stock_returns']  # Price movements from this step to next
+            
+            # Store new allocation for next iteration
+            previous_allocation = new_allocation
+            episode_allocations.append(new_allocation)
+            
+            # Calculate this period's returns using CURRENT allocation (decided in previous step)
+            # with CURRENT price movements (this step's stock_returns)
+            model_return = np.sum((current_allocation / 100) * stock_returns)
+            benchmark_return = np.sum((equal_weight / 100) * stock_returns)
+            
+            # Record returns for this step
+            model_returns.append(model_return)
+            benchmark_returns.append(benchmark_return)
+            
+            # Update portfolio values
+            model_value *= (1 + model_return)
+            benchmark_value *= (1 + benchmark_return)
+            
+            # Record portfolio values for visualization
+            model_values.append(model_value)
+            benchmark_values.append(benchmark_value)
+        
+        # Store complete episode data
+        all_allocations.append(episode_allocations)
+        all_portfolio_curves.append(model_values)
+        all_benchmark_curves.append(benchmark_values)
+        
+        # Calculate episode metrics - EXACTLY THE SAME WAY for both portfolios
+        
+        # 1. Calculate average monthly return
+        avg_model_return = np.mean(model_returns)
+        avg_benchmark_return = np.mean(benchmark_returns)
+        model_monthly_returns.append(avg_model_return)
+        benchmark_monthly_returns.append(avg_benchmark_return)
+        
+        # 2. Calculate cumulative return
+        model_cumulative_return = (model_value / 100.0) - 1
+        benchmark_cumulative_return = (benchmark_value / 100.0) - 1
+        model_cumulative_returns.append(model_cumulative_return)
+        benchmark_cumulative_returns.append(benchmark_cumulative_return)
+        
+        # 3. Calculate Sharpe ratio (annualized)
+        if len(model_returns) > 1:
+            model_sharpe = np.mean(model_returns) / (np.std(model_returns) + 1e-10) * np.sqrt(12)
+            benchmark_sharpe = np.mean(benchmark_returns) / (np.std(benchmark_returns) + 1e-10) * np.sqrt(12)
+        else:
+            model_sharpe = 0
+            benchmark_sharpe = 0
+        model_sharpe_values.append(model_sharpe)
+        benchmark_sharpe_values.append(benchmark_sharpe)
+        
+        # 4. Calculate maximum drawdown
+        model_max_dd = calculate_max_drawdown(model_values)
+        benchmark_max_dd = calculate_max_drawdown(benchmark_values)
+        model_max_drawdowns.append(model_max_dd)
+        benchmark_max_drawdowns.append(benchmark_max_dd)
+        
+        # Store final values
+        model_final_values.append(model_value)
+        benchmark_final_values.append(benchmark_value)
+        
+        # Print episode summary
+        print(f"Episode {episode+1}:")
+        print(f"  Model:     Monthly Return: {avg_model_return*100:.2f}%, "
+              f"Cumulative: {model_cumulative_return*100:.2f}%, "
+              f"Final Value: ${model_value:.2f}")
+        print(f"  Benchmark: Monthly Return: {avg_benchmark_return*100:.2f}%, "
+              f"Cumulative: {benchmark_cumulative_return*100:.2f}%, "
+              f"Final Value: ${benchmark_value:.2f}")
+    
+    # Calculate average metrics across all episodes
+    avg_allocation = np.mean([np.mean(ep_allocs, axis=0) for ep_allocs in all_allocations], axis=0)
+    
+    # Average portfolio value curves for visualization
+    avg_portfolio_curve = np.mean(all_portfolio_curves, axis=0)
+    avg_benchmark_curve = np.mean(all_benchmark_curves, axis=0)
+    
+    # Create visualizations
+    create_visualizations(
+        avg_allocation,
+        model_monthly_returns,
+        model_sharpe_values,
+        model_max_drawdowns,
+        model_final_values,
+        avg_portfolio_curve,
+        avg_benchmark_curve,
+        benchmark_monthly_returns,
+        benchmark_sharpe_values,
+        benchmark_max_drawdowns,
+        benchmark_final_values
+    )
+    
+    # Return consistent results
+    return {
+        'model_monthly_return': np.mean(model_monthly_returns),
+        'model_cumulative_return': np.mean(model_cumulative_returns),
+        'model_sharpe': np.mean(model_sharpe_values),
+        'model_max_drawdown': np.mean(model_max_drawdowns),
+        'model_final_value': np.mean(model_final_values),
+        'avg_allocation': avg_allocation,
+        'benchmark_monthly_return': np.mean(benchmark_monthly_returns),
+        'benchmark_cumulative_return': np.mean(benchmark_cumulative_returns),
+        'benchmark_sharpe': np.mean(benchmark_sharpe_values),
+        'benchmark_max_drawdown': np.mean(benchmark_max_drawdowns),
+        'benchmark_final_value': np.mean(benchmark_final_values)
+    }
+
+
+def calculate_max_drawdown(values):
+    """Helper function to calculate maximum drawdown from a series of values"""
+    peaks = np.maximum.accumulate(values)
+    drawdowns = (peaks - values) / peaks
+    return np.max(drawdowns)
+
+
+def create_visualizations(avg_allocation, model_returns, model_sharpes, model_drawdowns,
+                         model_final_values, portfolio_curve, benchmark_curve,
+                         benchmark_returns, benchmark_sharpes, benchmark_drawdowns,
+                         benchmark_final_values):
+    """
+    Creates comprehensive visualizations comparing model and benchmark performance.
+    Ensures consistent calculation methodologies for fair comparison.
+    """
+    RESULTS_DIR = f'{SAVE_DIR}/results'
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    
+    # 1. Portfolio Allocation Visualization
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(range(len(avg_allocation)), avg_allocation)
+    
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height + 1,
+                 f'{height:.1f}%',
+                 ha='center', va='bottom', rotation=0)
+    
+    plt.xlabel('Stock')
+    plt.ylabel('Average Allocation (%)')
+    plt.title('Average Portfolio Allocation')
+    plt.xticks(range(len(avg_allocation)), [f'Stock {i}' for i in range(len(avg_allocation))])
+    plt.ylim(0, max(avg_allocation) * 1.2)
+    plt.savefig(f'{RESULTS_DIR}/portfolio_allocation.png')
+    plt.close()
+    
+    # 2. Portfolio Growth Curves Comparison
+    plt.figure(figsize=(12, 6))
+    months = range(len(portfolio_curve))
+    plt.plot(months, portfolio_curve, 'b-', linewidth=2, label='Model Portfolio')
+    plt.plot(months, benchmark_curve, 'r--', linewidth=2, label='Equal-Weight Benchmark')
+    plt.xlabel('Month')
+    plt.ylabel('Portfolio Value ($)')
+    plt.title('Forward-Looking Portfolio Growth Comparison')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.savefig(f'{RESULTS_DIR}/forward_portfolio_growth.png')
+    plt.close()
+    
+    # 3. Comparative Performance Metrics
+    plt.figure(figsize=(12, 6))
+    
+    # Same calculation method for both values
+    model_monthly_return = np.mean(model_returns) * 100
+    benchmark_monthly_return = np.mean(benchmark_returns) * 100
+    
+    model_sharpe = np.mean(model_sharpes)
+    benchmark_sharpe = np.mean(benchmark_sharpes)
+    
+    model_max_dd = np.mean(model_drawdowns) * 100
+    benchmark_max_dd = np.mean(benchmark_drawdowns) * 100
+    
+    metrics = ['Monthly Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)']
+    model_values = [model_monthly_return, model_sharpe, model_max_dd]
+    benchmark_values = [benchmark_monthly_return, benchmark_sharpe, benchmark_max_dd]
+    
+    x = np.arange(len(metrics))
+    width = 0.35
+    
+    fig, ax = plt.subplots(figsize=(12, 6))
+    rects1 = ax.bar(x - width/2, model_values, width, label='Model Portfolio', color='blue', alpha=0.7)
+    rects2 = ax.bar(x + width/2, benchmark_values, width, label='Equal-Weight Benchmark', color='red', alpha=0.7)
+    
+    ax.set_ylabel('Value')
+    ax.set_title('Forward-Looking Performance Metrics Comparison')
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics)
+    ax.legend()
+    
+    # Add value labels to bars
+    for rect in rects1:
+        height = rect.get_height()
+        ax.annotate(f'+{height:.2f}' if height >= 0 else f'{height:.2f}',
+                   xy=(rect.get_x() + rect.get_width()/2, height),
+                   xytext=(0, 3),
+                   textcoords="offset points",
+                   ha='center', va='bottom')
+    
+    for rect in rects2:
+        height = rect.get_height()
+        ax.annotate(f'+{height:.2f}' if height >= 0 else f'{height:.2f}',
+                   xy=(rect.get_x() + rect.get_width()/2, height),
+                   xytext=(0, 3),
+                   textcoords="offset points",
+                   ha='center', va='bottom')
+    
+    plt.savefig(f'{RESULTS_DIR}/comparative_metrics.png')
+    plt.close()
+    
+    # 4. Outperformance Summary
+    plt.figure(figsize=(10, 6))
+    outperformance = [
+        model_monthly_return - benchmark_monthly_return,
+        model_sharpe - benchmark_sharpe,
+        benchmark_max_dd - model_max_dd  # For drawdown, lower is better
+    ]
+    
+    colors = ['green' if val >= 0 else 'red' for val in outperformance]
+    plt.bar(metrics, outperformance, color=colors, alpha=0.7)
+    plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+    plt.title('Model Outperformance vs Equal-Weight (% difference)')
+    
+    for i, v in enumerate(outperformance):
+        sign = '+' if v >= 0 else ''
+        plt.text(i, v + 0.1 if v >= 0 else v - 0.5, 
+                 f'{sign}{v:.2f}%',
+                 ha='center', va='bottom' if v >= 0 else 'top')
+    
+    plt.tight_layout()
+    plt.savefig(f'{RESULTS_DIR}/outperformance_summary.png')
+    plt.close()
+    
+    # 5. Final Values Distribution
+    plt.figure(figsize=(10, 6))
+    plt.hist(model_final_values, bins=10, alpha=0.7, label='Model Portfolio')
+    plt.hist(benchmark_final_values, bins=10, alpha=0.5, label='Equal-Weight Benchmark')
+    
+    plt.axvline(np.mean(model_final_values), color='blue', linestyle='dashed', linewidth=2)
+    plt.axvline(np.mean(benchmark_final_values), color='red', linestyle='dashed', linewidth=2)
+    
+    plt.text(np.mean(model_final_values)*1.02, plt.ylim()[1]*0.9, 
+             f'Model Mean: ${np.mean(model_final_values):.2f}', color='blue')
+    plt.text(np.mean(benchmark_final_values)*1.02, plt.ylim()[1]*0.8, 
+             f'Benchmark Mean: ${np.mean(benchmark_final_values):.2f}', color='red')
+    
+    plt.xlabel('Final Portfolio Value ($)')
+    plt.ylabel('Frequency')
+    plt.title('Distribution of Final Portfolio Values')
+    plt.legend()
+    plt.savefig(f'{RESULTS_DIR}/final_values_distribution.png')
+    plt.close()
+    
+    print("Visualizations saved to 'results' directory")
+
+
 def evaluate_model(stock_data_list, trained_model, n_episodes=10):
-    print(f"Evaluating agent over {n_episodes} episodes...")
+    """
+    Evaluates model performance using forward-looking metrics and provides
+    comprehensive comparison against equal-weight benchmark.
+    """
+    print(f"Evaluating agent over {n_episodes} episodes with forward-looking metrics...")
     eval_env = Monitor(PortfolioEnv(stock_data_list, 
-                                    mode="test"))
-    # eval_env = PortfolioEnv(stock_data_list)
+                                    mode="test",
+                                    episode_length=36,
+                                    ))
+    
+    # Run the standard evaluation for baseline metrics
     mean_reward, std_reward = evaluate_policy(
         trained_model, 
         eval_env, 
-        deterministic=True
+        deterministic=True,
+        n_eval_episodes=3  # Smaller sample for quick standard evaluation
     )
-    print(f"Mean reward: {mean_reward:.4f} ± {std_reward:.4f}")
-    results = detailed_evaluation(trained_model, eval_env)
+    print(f"Standard policy evaluation - Mean reward: {mean_reward:.4f} ± {std_reward:.4f}")
     
-    print("\nPerformance Summary:")
-    print(f"Average Monthly Return: {results['mean_return']:.4f}")
-    print(f"Average Sharpe Ratio: {results['mean_sharpe']:.4f}")
-    print(f"Average Max Drawdown: {results['mean_drawdown']:.4f}")
-    print(f"Average Portfolio Allocation: {results['avg_allocation']}")
-    print(f"Final Average Portfolio Value: ${results['mean_final_value']:.2f}")
+    # Run our detailed forward-looking evaluation
+    print(f"Running forward-looking evaluation...")
+    results = detailed_evaluation(trained_model, eval_env, n_episodes)
+    
+    # Display performance summary
+    print("\nForward-Looking Performance Summary:")
+    print(f"Average Monthly Return: {results['model_monthly_return']*100:.2f}%")
+    print(f"Cumulative Return: {results['model_cumulative_return']*100:.2f}%")
+    print(f"Average Sharpe Ratio: {results['model_sharpe']:.2f}")
+    print(f"Average Max Drawdown: {results['model_max_drawdown']*100:.2f}%")
+    print(f"Final Average Portfolio Value: ${results['model_final_value']:.2f}")
+    
+    print("\nAverage Portfolio Allocation:")
+    for i, alloc in enumerate(results['avg_allocation']):
+        print(f"  Stock {i}: {alloc:.1f}%")
+    
+    # Display benchmark comparison
+    print("\nForward-Looking Benchmark Comparison:")
+    print(f"┌─────────────────┬────────────┬─────────────────┬────────────┐")
+    print(f"│ Metric          │ Model      │ Equal-Weight    │ Difference │")
+    print(f"├─────────────────┼────────────┼─────────────────┼────────────┤")
+    
+    # Monthly Return
+    model_ret = results['model_monthly_return']*100
+    bench_ret = results['benchmark_monthly_return']*100
+    diff_ret = model_ret - bench_ret
+    sign_ret = "+" if diff_ret > 0 else ""
+    print(f"│ Monthly Return  │ {model_ret:8.2f}% │ {bench_ret:10.2f}% │ {sign_ret}{diff_ret:8.2f}% │")
+    
+    # Cumulative Return
+    model_cum = results['model_cumulative_return']*100
+    bench_cum = results['benchmark_cumulative_return']*100
+    diff_cum = model_cum - bench_cum
+    sign_cum = "+" if diff_cum > 0 else ""
+    print(f"│ Cumulative Ret. │ {model_cum:8.2f}% │ {bench_cum:10.2f}% │ {sign_cum}{diff_cum:8.2f}% │")
+    
+    # Sharpe
+    model_sharpe = results['model_sharpe']
+    bench_sharpe = results['benchmark_sharpe']
+    diff_sharpe = model_sharpe - bench_sharpe
+    sign_sharpe = "+" if diff_sharpe > 0 else ""
+    print(f"│ Sharpe Ratio    │ {model_sharpe:8.2f}  │ {bench_sharpe:10.2f}  │ {sign_sharpe}{diff_sharpe:8.2f}  │")
+    
+    # Drawdown
+    model_dd = results['model_max_drawdown']*100
+    bench_dd = results['benchmark_max_drawdown']*100
+    diff_dd = bench_dd - model_dd  # Note: For drawdown, lower is better
+    sign_dd = "+" if diff_dd > 0 else ""
+    print(f"│ Max Drawdown    │ {model_dd:8.2f}% │ {bench_dd:10.2f}% │ {sign_dd}{diff_dd:8.2f}% │")
+    
+    # Final Value
+    model_val = results['model_final_value']
+    bench_val = results['benchmark_final_value']
+    diff_val = model_val - bench_val
+    sign_val = "+" if diff_val > 0 else ""
+    print(f"│ Final Value     │ ${model_val:7.2f}  │ ${bench_val:9.2f}  │ {sign_val}${diff_val:7.2f}  │")
+    print(f"└─────────────────┴────────────┴─────────────────┴────────────┘")
+    
+    # Overall assessment
+    if abs(diff_val) < 0.01:
+        print(f"\nConclusion: Model performance is identical to the equal-weight benchmark")
+        print(f"(This is expected since the model is currently using equal-weight allocations)")
+    elif model_val > bench_val:
+        outperf = ((model_val / bench_val) - 1) * 100
+        print(f"\nConclusion: Model outperformed equal-weight benchmark by {outperf:.2f}%")
+    else:
+        underperf = ((bench_val / model_val) - 1) * 100
+        print(f"\nConclusion: Model underperformed equal-weight benchmark by {underperf:.2f}%")
+    
     return results
 
 
@@ -628,7 +903,7 @@ if __name__ == "__main__":
     instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"] 
     stock_data_list = get_stock_data_list(instrument_list)
     print("Training model...")
-    trained_model = train_model(stock_data_list, total_timesteps=200_000)
+    trained_model = train_model(stock_data_list, total_timesteps=300_000)
     print("Training complete!")
 
     # EVALUATE
