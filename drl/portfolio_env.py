@@ -30,7 +30,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 # DATA_DIR must be appended before the filename
 # DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/preprocessed_data"
 DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
-MASTER_SEED = 4200
+MASTER_SEED = 42
 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -467,7 +467,7 @@ def train_model(stock_data_list, total_timesteps=200_000):
             make_env(
                 stock_data_list,
                 total_timesteps=total_timesteps,
-                rank=(i + 1) * 100,
+                rank=(i + 1) * 100_000,
                 seed=MASTER_SEED,
             )
             for i in range(n_envs)
