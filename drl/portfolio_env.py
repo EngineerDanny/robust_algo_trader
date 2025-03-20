@@ -15,7 +15,9 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from sklearn.preprocessing import MinMaxScaler
 import torch as th
 import sys
-import os
+import tensorflow as tf
+import random
+
 
 sys.path.append("/Users/newuser/Projects/robust_algo_trader/drl/")
 from ohlc_generator import SimpleOHLCGenerator 
@@ -28,6 +30,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 # DATA_DIR must be appended before the filename
 # DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/preprocessed_data"
 DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
+MASTER_SEED = 4200
 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -43,7 +46,8 @@ class PortfolioEnv(gym.Env):
                  days_per_step=20,
                  total_timesteps=200_000,  # Default to the value in your train_model function
                  stage_transition_percentages=(1.0, 1.0),  # Percentages for stage transitions
-                 n_parallel_envs=8 
+                 n_parallel_envs=8,
+                 seed = None
                 ):
         
         super(PortfolioEnv, self).__init__()
@@ -95,15 +99,26 @@ class PortfolioEnv(gym.Env):
             shape=(self.n_stocks,),
             dtype=np.float32
         )
-        self.reset()
+        # self.reset()
+        self.seed_val = seed
+        self.np_random = np.random.RandomState(seed)
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        if self.mode == "train":
-            return self._train_reset(seed) 
-        else:
-            return self._test_reset(seed)
+        if seed is not None:
+            self.seed_val = seed
+        
+        episode_seed = None
+        
+        if self.seed_val is not None:
+            episode_seed = self.seed_val + self.episode_count
+            np.random.seed(episode_seed)
+            random.seed(episode_seed)
 
+        if self.mode == "train":
+            return self._train_reset(episode_seed) 
+        else:
+            return self._test_reset(episode_seed)
 
     def step(self, action):
         allocation = self._convert_to_allocation(action)
@@ -362,7 +377,7 @@ class PortfolioEnv(gym.Env):
         future_risk_penalty = future_var * -100
         future_reward = future_return_component + future_risk_penalty
         total_reward = (0.7 * immediate_reward) + (0.3 * future_reward)
-        return total_reward
+        return future_reward
     
     def _simulate_future_price_paths(self, n_simulations=50, horizon_months=3):
         # Store simulation results for each stock
@@ -438,8 +453,8 @@ def make_env(stock_data_list, total_timesteps = 200_000, rank=0, seed=0):
             stock_data_list, 
             mode="train",
             total_timesteps=total_timesteps,
+            seed= seed + rank, 
         ))
-        env.reset(seed=seed + rank)
         return env
     return _init    
 
@@ -447,7 +462,23 @@ def train_model(stock_data_list, total_timesteps=200_000):
     print("Creating environment...")
     n_envs = 8
     # Create multiple environments running in parallel
-    env = SubprocVecEnv([make_env(stock_data_list, total_timesteps=total_timesteps, rank=i) for i in range(n_envs)])
+    env = SubprocVecEnv(
+        [
+            make_env(
+                stock_data_list,
+                total_timesteps=total_timesteps,
+                rank=(i + 1) * 100,
+                seed=MASTER_SEED,
+            )
+            for i in range(n_envs)
+        ]
+    )
+    env = VecNormalize(
+        env,
+        norm_obs=True,
+        norm_reward=True,
+    )
+
     # env = PortfolioEnv(stock_data_list)
     # check_env(env)
     print("Initializing PPO agent...")
@@ -456,7 +487,7 @@ def train_model(stock_data_list, total_timesteps=200_000):
         env,
         tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
         verbose=1,
-        device="mps",
+        # device="mps",
         n_steps=256,
         learning_rate=1e-4,
         batch_size=128,
@@ -465,26 +496,27 @@ def train_model(stock_data_list, total_timesteps=200_000):
         # vf_coef=0.5,
         # max_grad_norm=0.5,
         policy_kwargs=dict(
-            net_arch=[256, 256, 128, 128, 64],
+            net_arch=dict(pi=[256, 256, 128, 64], 
+                          vf=[256, 256, 256, 128]),
             activation_fn=th.nn.Tanh,
-        ),
+        )
     )
-    
+
     checkpoint_callback = CheckpointCallback(
         save_freq=1000,
         save_path=SAVE_DIR,
         name_prefix="ppo",
         save_replay_buffer=False,
-        save_vecnormalize=False,
+        save_vecnormalize=True,
     )
-    
+
     print(f"Training for {total_timesteps} timesteps...")
     model.learn(
         total_timesteps=total_timesteps,
         callback=checkpoint_callback,
         progress_bar=True
     )
-    
+
     final_model_path = os.path.join(SAVE_DIR, "ppo_portfolio_final")
     model.save(final_model_path)
     print(f"Final model saved to {final_model_path}")
