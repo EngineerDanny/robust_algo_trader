@@ -7,6 +7,7 @@ from gymnasium import spaces
 from scipy.special import softmax
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -24,7 +25,7 @@ from ohlc_generator import SimpleOHLCGenerator
 
 
 # save dir should add the current date and time
-SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M')}"
+SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H')}"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # DATA_DIR must be appended before the filename
@@ -212,7 +213,8 @@ class PortfolioEnv(gym.Env):
         max_start_idx = max(0, data_length - self.episode_length * self.days_per_step - self.days_per_step) 
         
         # Random start point (safely within bounds)
-        self.current_step = np.random.randint(0, max_start_idx)
+        # self.current_step = np.random.randint(0, max_start_idx)
+        self.current_step = 0
         self.current_month = 0
         self.monthly_returns = []
         self.portfolio_value = 100.0
@@ -227,6 +229,7 @@ class PortfolioEnv(gym.Env):
         return observation, info
 
     def _test_reset(self, seed=None):
+        self.episode_count += 1
         selected_indices = list(range(self.n_stocks))
         generator = SimpleOHLCGenerator()
         # First add technical indicators to all stocks
@@ -481,9 +484,9 @@ def train_model(stock_data_list, total_timesteps=200_000):
 
     # env = PortfolioEnv(stock_data_list)
     # check_env(env)
-    print("Initializing PPO agent...")
-    model = PPO(
-        "MlpPolicy", 
+    print("Initializing RecurrentPPO agent...")
+    model = RecurrentPPO(
+        "MlpLstmPolicy", 
         env,
         tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
         verbose=1,
@@ -494,18 +497,20 @@ def train_model(stock_data_list, total_timesteps=200_000):
         # gamma=0.99,
         # ent_coef=0.01,
         # vf_coef=0.5,
-        # max_grad_norm=0.5,
+        max_grad_norm=1.0,
         policy_kwargs=dict(
             net_arch=dict(pi=[256, 256, 128, 64], 
                           vf=[256, 256, 256, 128]),
             activation_fn=th.nn.Tanh,
+            lstm_hidden_size=128,  # Size of LSTM hidden states
+            n_lstm_layers=1, 
         )
     )
 
     checkpoint_callback = CheckpointCallback(
         save_freq=1000,
         save_path=SAVE_DIR,
-        name_prefix="ppo",
+        name_prefix="rppo",
         save_replay_buffer=False,
         save_vecnormalize=True,
     )
@@ -524,10 +529,6 @@ def train_model(stock_data_list, total_timesteps=200_000):
 
 
 def detailed_evaluation(trained_model, eval_env, n_episodes=10):
-    """
-    Evaluates model performance using a forward-looking approach and compares with equal-weight benchmark.
-    Both use identical calculation methods to ensure fair comparison.
-    """
     # Result collection arrays
     all_allocations = []
     model_cumulative_returns = []
@@ -568,11 +569,16 @@ def detailed_evaluation(trained_model, eval_env, n_episodes=10):
         # For forward-looking evaluation
         previous_allocation = equal_weight.copy()  # Start with equal weight
         done = False
+        lstm_states = None
         step = 0
         
         while not done:
             # Get model's allocation decision
-            action, _ = trained_model.predict(obs, deterministic=True)
+            action, lstm_states = trained_model.predict(obs, 
+                                                        deterministic=True, 
+                                                        state=lstm_states,
+                                                        episode_start=np.array([done])
+                                                        )
             
             # Save current allocation for performance evaluation in next period
             current_allocation = previous_allocation.copy()
@@ -846,7 +852,8 @@ def evaluate_model(stock_data_list, trained_model, n_episodes=10):
     print(f"Evaluating agent over {n_episodes} episodes with forward-looking metrics...")
     eval_env = Monitor(PortfolioEnv(stock_data_list, 
                                     mode="test",
-                                    episode_length=36,
+                                    episode_length=58,
+                                    seed=MASTER_SEED
                                     ))
     
     # Run the standard evaluation for baseline metrics
@@ -854,7 +861,7 @@ def evaluate_model(stock_data_list, trained_model, n_episodes=10):
         trained_model, 
         eval_env, 
         deterministic=True,
-        n_eval_episodes=3  # Smaller sample for quick standard evaluation
+        n_eval_episodes=3 
     )
     print(f"Standard policy evaluation - Mean reward: {mean_reward:.4f} ± {std_reward:.4f}")
     
@@ -904,7 +911,7 @@ def evaluate_model(stock_data_list, trained_model, n_episodes=10):
     # Drawdown
     model_dd = results['model_max_drawdown']*100
     bench_dd = results['benchmark_max_drawdown']*100
-    diff_dd = bench_dd - model_dd  # Note: For drawdown, lower is better
+    diff_dd = bench_dd - model_dd
     sign_dd = "+" if diff_dd > 0 else ""
     print(f"│ Max Drawdown    │ {model_dd:8.2f}% │ {bench_dd:10.2f}% │ {sign_dd}{diff_dd:8.2f}% │")
     
