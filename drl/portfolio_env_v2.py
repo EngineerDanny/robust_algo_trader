@@ -43,7 +43,7 @@ class PortfolioEnv(gym.Env):
                  episode_length = 12, # 12 months
                  temperature = 0.3, 
                  window_size = 252, # 1 year of data
-                 episodes_per_dataset=50,
+                 episodes_per_dataset=500,
                  days_per_step=20,
                  total_timesteps=200_000,  # Default to the value in your train_model function
                  stage_transition_percentages=(1.0, 1.0),  # Percentages for stage transitions

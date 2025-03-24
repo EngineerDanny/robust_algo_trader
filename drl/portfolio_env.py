@@ -133,7 +133,7 @@ class PortfolioEnv(gym.Env):
         # Get raw metrics (not scaled) for reward calculation
         sharpe = self._calculate_portfolio_metric('Sharpe_20d', allocation)
         max_drawdown = self._calculate_portfolio_metric('MaxDrawdown_252d', allocation)
-        reward = self._calculate_reward(portfolio_return, sharpe, max_drawdown)
+        reward = self._calculate_reward(portfolio_return, sharpe, max_drawdown, stock_returns)
         self.monthly_returns.append(portfolio_return)
 
         info = {
@@ -349,38 +349,82 @@ class PortfolioEnv(gym.Env):
         ])
         return np.sum((allocation / 100) * metric_values)
 
-    def _calculate_reward(self, portfolio_return, sharpe, max_drawdown):
-        # 1. IMMEDIATE REWARD COMPONENT (based on actual past performance)
-       # Get the average return across all stocks as a benchmark
-        benchmark_returns = np.mean([
-            self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
-            for i in range(self.n_stocks)
-        ])
-        # Calculate excess return over benchmark
-        excess_return = portfolio_return - max(0, benchmark_returns * 0.01)
-        base_reward = excess_return * 100
-        sharpe_component = sharpe * 1.0
-        drawdown_component = max_drawdown * -1.5
-        if max_drawdown < -0.1:
-            drawdown_component *= 1.5
-        immediate_reward = base_reward + sharpe_component + drawdown_component
+    # def _calculate_reward(self, portfolio_return, sharpe, max_drawdown, stock_returns):
+    #     # 1. IMMEDIATE REWARD COMPONENT (based on actual past performance)
+    #    # Get the average return across all stocks as a benchmark
+    #     benchmark_returns = np.mean([
+    #         self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
+    #         for i in range(self.n_stocks)
+    #     ])
+    #     # Calculate excess return over benchmark
+    #     excess_return = portfolio_return - max(0, benchmark_returns * 0.01)
+    #     base_reward = excess_return * 100
+    #     sharpe_component = sharpe * 1.0
+    #     drawdown_component = max_drawdown * -1.5
+    #     if max_drawdown < -0.1:
+    #         drawdown_component *= 1.5
+    #     immediate_reward = base_reward + sharpe_component + drawdown_component
         
-        # 2. FUTURE REWARD COMPONENT (based on simulated future performance)
-        weights = self.previous_allocation / 100.0
-        _, stock_stats = self._simulate_future_price_paths()
-        expected_future_return = 0
-        future_var = 0
-        for i in range(self.n_stocks):
-            stock_name = f'stock_{i}'
-            if weights[i] > 0:
-                stock_stat = stock_stats[stock_name]
-                expected_future_return += weights[i] * stock_stat['expected_returns'][-1]
-                future_var += weights[i] * abs(stock_stat['final_var_95'])
-        future_return_component = expected_future_return * 100
-        future_risk_penalty = future_var * -100
-        future_reward = future_return_component + future_risk_penalty
-        total_reward = (0.7 * immediate_reward) + (0.3 * future_reward)
-        return future_reward
+    #     # 2. FUTURE REWARD COMPONENT (based on simulated future performance)
+    #     weights = self.previous_allocation / 100.0
+    #     _, stock_stats = self._simulate_future_price_paths()
+    #     expected_future_return = 0
+    #     future_var = 0
+    #     for i in range(self.n_stocks):
+    #         stock_name = f'stock_{i}'
+    #         if weights[i] > 0:
+    #             stock_stat = stock_stats[stock_name]
+    #             expected_future_return += weights[i] * stock_stat['expected_returns'][-1]
+    #             future_var += weights[i] * abs(stock_stat['final_var_95'])
+    #     future_return_component = expected_future_return * 100
+    #     future_risk_penalty = future_var * -100
+    #     future_reward = future_return_component + future_risk_penalty
+    #     total_reward = (0.7 * immediate_reward) + (0.3 * future_reward)
+    #     return immediate_reward
+    
+    
+    def _calculate_reward(self, portfolio_return, sharpe, max_drawdown, stock_returns):
+        # Calculate future benchmark as equal-weighted average
+        benchmark_return = np.mean(stock_returns)
+        
+        # Calculate outperformance
+        excess_return = portfolio_return - benchmark_return
+        
+        # Base performance reward using your threshold concept
+        if abs(excess_return) < 0.0005:  # Within ±0.05% is considered equal
+            performance_reward = 1
+        elif excess_return > 0:
+            if excess_return >= 0.01:  # Outperformed by 1% or more
+                performance_reward = 3
+            else:  # Outperformed but by less than 1%
+                performance_reward = 2
+        else:  # Underperformed
+            performance_reward = -1
+        
+        # Add risk adjustment factors
+        risk_reward = 0
+        
+        # # Reward good Sharpe ratio (risk-adjusted returns)
+        # if sharpe > 1.0:
+        #     risk_reward += 1
+        # elif sharpe > 0.5:
+        #     risk_reward += 0.5
+        
+        # # Penalize large drawdowns
+        # if max_drawdown < -0.1:  # Over 10% drawdown
+        #     risk_reward -= 2
+        # elif max_drawdown < -0.05:  # 5-10% drawdown
+        #     risk_reward -= 1
+        
+        # print(f"Performance Reward: {performance_reward}, Risk Reward: {risk_reward}")
+        # Normalize risk_reward to be between -1 and 1
+        # Scale performance_reward to be between -1 and 3
+        
+        # Combined reward
+        total_reward = performance_reward 
+        
+        return total_reward
+    
     
     def _simulate_future_price_paths(self, n_simulations=50, horizon_months=3):
         # Store simulation results for each stock
@@ -471,7 +515,8 @@ def train_model(stock_data_list, total_timesteps=200_000):
                 stock_data_list,
                 total_timesteps=total_timesteps,
                 # rank=(i + 1) * 100_000,
-                rank=(i + 1) * 10000,
+                # rank=(i + 1) * 10000,
+                rank=(i + 1) * 100,
                 seed=MASTER_SEED,
             )
             for i in range(n_envs)
