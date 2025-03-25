@@ -31,7 +31,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 # DATA_DIR must be appended before the filename
 # DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/preprocessed_data"
 DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
-MASTER_SEED = 56
+MASTER_SEED = 42
 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -40,10 +40,11 @@ class PortfolioEnv(gym.Env):
                  stock_data_list,
                  mode = "train",     
                  n_stocks = 10, 
-                 episode_length = 12, # 12 months
+                #  episode_length = 72, # 12 months
+                 episode_length = 72, # 12 months
                  temperature = 0.3, 
                  window_size = 252, # 1 year of data
-                 episodes_per_dataset=50,
+                 episodes_per_dataset=500,
                  days_per_step=20,
                  total_timesteps=200_000,  # Default to the value in your train_model function
                  stage_transition_percentages=(1.0, 1.0),  # Percentages for stage transitions
@@ -983,7 +984,7 @@ if __name__ == "__main__":
     instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"] 
     stock_data_list = get_stock_data_list(instrument_list)
     print("Training model...")
-    trained_model = train_model(stock_data_list, total_timesteps=1_000_000)
+    trained_model = train_model(stock_data_list, total_timesteps=10_000_000)
     print("Training complete!")
 
     # EVALUATE
