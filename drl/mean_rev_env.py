@@ -125,7 +125,7 @@ class TradingImitationEnv(gym.Env):
         else:  # SHORT
             return -1.0
 
-    def _get_expert_action(self):
+    def get_expert_action(self):
         expert_actions = self.datasets[self.current_symbol]['actions']
         # Handle both DataFrame and Series cases
         action_str = expert_actions.iloc[self.current_step]['action']
@@ -153,7 +153,7 @@ class TradingImitationEnv(gym.Env):
         return False
 
     def _calculate_reward(self, action):
-        expert_action = self._get_expert_action()
+        expert_action = self.get_expert_action()
         match_reward = 1.0 if action == expert_action else -1.0
         flow_reward = 0.5 if self._check_valid_transition(action) else -1.0
         total_reward = match_reward + flow_reward
@@ -260,10 +260,10 @@ def train_imitation_model(datasets, lookback_window=10, total_timesteps=1000000,
     print(f"Model saved to {final_model_path}")
     return model
 
-def evaluate_imitation(model, datasets, symbol, lookback_window=10, n_eval_episodes=10):
+def evaluate_imitation(model, datasets, symbol, lookback_window=60, n_eval_episodes=10):
     # Create single environment for evaluation
     eval_datasets = {symbol: datasets[symbol]}
-    eval_env = TradingImitationEnv(eval_datasets, lookback_window)
+    eval_env = Monitor(TradingImitationEnv(eval_datasets, lookback_window))
     
     # Evaluate
     mean_reward, std_reward = evaluate_policy(
@@ -283,7 +283,8 @@ def evaluate_imitation(model, datasets, symbol, lookback_window=10, n_eval_episo
     
     while not done:
         action, _ = model.predict(obs, deterministic=True)
-        expert_action = eval_env._get_expert_action()
+        action = int(action)
+        expert_action = eval_env.unwrapped.get_expert_action()
         
         actions.append(eval_env.reverse_action_map[action])
         expert_actions.append(eval_env.reverse_action_map[expert_action])
@@ -329,7 +330,7 @@ if __name__ == "__main__":
     }
     
     # Train model
-    model = train_imitation_model(datasets, lookback_window=60, total_timesteps=200_000)
+    model = train_imitation_model(datasets, lookback_window=60, total_timesteps=2_000)
     
     # Evaluate on one of the datasets
     eval_symbol = 'CRM'
