@@ -27,19 +27,17 @@ DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
 MASTER_SEED = 42
 
 
-
 class TradingImitationEnv(gym.Env):
     metadata = {'render_modes': ['human']}
-    
-    def __init__(self, datasets, lookback_window=10):
+    def __init__(self, datasets, lookback_window=60, max_episode_steps=1000):
         super(TradingImitationEnv, self).__init__()
-        
+
         # Store datasets (dictionary of {symbol: {'data': df, 'actions': series}})
         self.datasets = datasets
         self.symbols = list(datasets.keys())
         self.current_symbol = random.choice(self.symbols)
         self.lookback_window = lookback_window
-        
+
         # Define features we want to use from the dataset
         self.features = [
             'distance_from_mean',
@@ -53,11 +51,6 @@ class TradingImitationEnv(gym.Env):
             'mean_reversion_probability',
             'is_range_market'
         ]
-        
-        # Track current position in the data
-        
-        self.current_step = lookback_window + 60
-        
         # Action mapping
         self.action_map = {
             'NOTHING': 0,
@@ -67,55 +60,51 @@ class TradingImitationEnv(gym.Env):
             'SELL': 4
         }
         self.reverse_action_map = {v: k for k, v in self.action_map.items()}
-        
-        # Action space - discrete actions
         self.action_space = spaces.Discrete(len(self.action_map))
-        
-        # Observation space - features plus position state
         self.observation_space = spaces.Box(
             low=-1, 
             high=1, 
             shape=(lookback_window, len(self.features) + 1),
             dtype=np.float32
         )
-        
-        # Current state tracking
-        self.position = None
-        self.position_entry_step = None
-        self.last_action = None
-        
-    def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
-        
-        # Choose a random dataset for this episode
-        self.current_symbol = random.choice(self.symbols)
-        
-        # Reset to beginning of data (after lookback window)
+
         self.current_step = self.lookback_window + 60
         self.position = None
         self.position_entry_step = None
         self.last_action = None
-        
+        self.max_episode_steps = max_episode_steps
+        self.steps_in_episode = 0
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
+        # Choose a random dataset for this episode
+        self.current_symbol = random.choice(self.symbols)
+        self.position = None
+        self.position_entry_step = None
+        self.last_action = None
+        self.steps_in_episode = 0
+
         return self._get_observation(), {}
-    
+
     def _get_observation(self):
         # Get current dataset
         current_data = self.datasets[self.current_symbol]['data']
-        
+
         # Extract lookback window
         start_idx = self.current_step - self.lookback_window
         end_idx = self.current_step
         window_data = current_data.iloc[start_idx:end_idx]
-        
+
         # Create features array [lookback_window, features]
         observations = np.zeros((self.lookback_window, len(self.features) + 1), dtype=np.float32)
-        
+
         # Process each feature
         for i, feature in enumerate(self.features):
             feature_values = window_data[feature].astype(float).values.reshape(-1, 1)
             scaler = MinMaxScaler(feature_range=(-1, 1))
             scaled_values = scaler.fit_transform(feature_values)
-            
+
             # Add to observations
             observations[:, i] = scaled_values.flatten()
         # Add position state as the last feature for all timesteps
@@ -124,11 +113,10 @@ class TradingImitationEnv(gym.Env):
             position_value = 1.0
         elif self.position == 'SHORT':
             position_value = -1.0
-            
+
         observations[:, -1] = position_value
         return observations.astype(np.float32)
 
-    
     def _get_position_state(self):
         if self.position is None:
             return 0.0
@@ -136,46 +124,45 @@ class TradingImitationEnv(gym.Env):
             return 1.0
         else:  # SHORT
             return -1.0
-    
-    
+
     def _get_expert_action(self):
         expert_actions = self.datasets[self.current_symbol]['actions']
         # Handle both DataFrame and Series cases
         action_str = expert_actions.iloc[self.current_step]['action']
         return self.action_map.get(action_str, 0) 
-    
+
     def _check_valid_transition(self, action):
         action_str = self.reverse_action_map[action]
-        
+
         # Valid transitions
         if self.position is None:  # No position
             if action_str in ['NOTHING', 'BUY', 'SELL']:
                 return True
             return False
-        
+
         elif self.position == 'LONG':  # Long position
             if action_str in ['HOLD', 'CLOSE']:
                 return True
             return False
-            
+
         elif self.position == 'SHORT':  # Short position
             if action_str in ['HOLD', 'CLOSE']:
                 return True
             return False
-            
+
         return False
-    
+
     def _calculate_reward(self, action):
         expert_action = self._get_expert_action()
         match_reward = 1.0 if action == expert_action else -1.0
         flow_reward = 0.5 if self._check_valid_transition(action) else -1.0
         total_reward = match_reward + flow_reward
         return total_reward
-        
+
     def step(self, action):
         reward = self._calculate_reward(action)
         action_str = self.reverse_action_map[action]
-        
+
         if action_str == 'BUY':
             self.position = 'LONG'
             self.position_entry_step = self.current_step
@@ -185,18 +172,30 @@ class TradingImitationEnv(gym.Env):
         elif action_str == 'CLOSE':
             self.position = None
             self.position_entry_step = None
-            
+
         # Store last action
         self.last_action = action_str
         self.current_step += 1
+        self.steps_in_episode += 1
+
         current_data = self.datasets[self.current_symbol]['data']
-        # done = self.current_step >= len(current_data) - 1
-        done = self.current_step >= 1000
+        truncated = self.current_step >= len(current_data) - 1
+        terminated = self.steps_in_episode >= self.max_episode_steps
+        done = terminated or truncated
+        
+        if truncated:
+            self.current_step = self.lookback_window + 60
+
         obs = self._get_observation() if not done else None
-        info = {"reward": reward}
-        print(f"Step: {self.current_step}, Action: {action_str}, Reward: {reward:.2f}, Done: {done}")
-        return obs, reward, done, False, info
-    
+        info = {
+            "Reward": reward,
+            "Position": self.position,
+            "Action": action_str,
+            "Current Symbol": self.current_symbol,
+            "Done": done
+        }
+        return obs, reward, terminated, truncated, info
+
     def render(self, mode='human'):
         pass
 
@@ -321,12 +320,7 @@ def evaluate_imitation(model, datasets, symbol, lookback_window=10, n_eval_episo
 
 # Example usage
 if __name__ == "__main__":
-    # Here you would load your data and format it for training
-    # For each symbol:
-    # - 'data' contains all the features from your mean reversion strategy
-    # - 'actions' contains the expert actions at each timestep
     
-    # Example structure
     datasets = {
         'CRM': {
             'data': pd.read_csv(os.path.join(DATA_DIR, 'CRM_M1_train_data.csv')), 
@@ -335,7 +329,7 @@ if __name__ == "__main__":
     }
     
     # Train model
-    model = train_imitation_model(datasets, lookback_window=10, total_timesteps=100000)
+    model = train_imitation_model(datasets, lookback_window=60, total_timesteps=200_000)
     
     # Evaluate on one of the datasets
     eval_symbol = 'CRM'
