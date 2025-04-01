@@ -286,8 +286,8 @@ def evaluate_imitation(model, datasets, symbol, lookback_window=60, n_eval_episo
         action = int(action)
         expert_action = eval_env.unwrapped.get_expert_action()
         
-        actions.append(eval_env.reverse_action_map[action])
-        expert_actions.append(eval_env.reverse_action_map[expert_action])
+        actions.append(eval_env.unwrapped.reverse_action_map[action])
+        expert_actions.append(eval_env.unwrapped.reverse_action_map[expert_action])
         
         obs, _, done, _, _ = eval_env.step(action)
         if done:
