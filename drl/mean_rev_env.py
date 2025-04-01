@@ -29,7 +29,7 @@ MASTER_SEED = 42
 
 class TradingImitationEnv(gym.Env):
     metadata = {'render_modes': ['human']}
-    def __init__(self, datasets, lookback_window=60, max_episode_steps=1000):
+    def __init__(self, datasets, lookback_window=180, max_episode_steps=100):
         super(TradingImitationEnv, self).__init__()
 
         # Store datasets (dictionary of {symbol: {'data': df, 'actions': series}})
@@ -186,7 +186,7 @@ class TradingImitationEnv(gym.Env):
         if truncated:
             self.current_step = self.lookback_window + 60
 
-        obs = self._get_observation() if not done else None
+        obs = self._get_observation()
         info = {
             "Reward": reward,
             "Position": self.position,
@@ -202,18 +202,18 @@ class TradingImitationEnv(gym.Env):
     def close(self):
         pass
 
-def make_env(datasets, lookback_window, rank):
+def make_env(datasets, rank):
     def _init():
-        env = TradingImitationEnv(datasets, lookback_window)
+        env = TradingImitationEnv(datasets)
         env = Monitor(env)
         return env
     return _init
 
-def train_imitation_model(datasets, lookback_window=10, total_timesteps=1000000, n_envs=4):
+def train_imitation_model(datasets, total_timesteps=1000000, n_envs=4):
     # Create vectorized environment
-    env_fns = [make_env(datasets, lookback_window, i) for i in range(n_envs)]
+    env_fns = [make_env(datasets, i) for i in range(n_envs)]
     vec_env = SubprocVecEnv(env_fns)
-    # vec_env = VecNormalize(vec_env, norm_obs=False, norm_reward=False)
+    # vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
     
     # Checkpoint callback
     checkpoint_callback = CheckpointCallback(
@@ -239,8 +239,7 @@ def train_imitation_model(datasets, lookback_window=10, total_timesteps=1000000,
         ent_coef=0.01,
         verbose=1,
         policy_kwargs=dict(
-            net_arch=dict(pi=[256, 256, 128, 64], 
-                          vf=[256, 256, 256, 128]),
+            net_arch=[256, 128, 64],
             activation_fn=th.nn.Tanh,
             lstm_hidden_size=128,  # Size of LSTM hidden states
             n_lstm_layers=1, 
@@ -260,10 +259,10 @@ def train_imitation_model(datasets, lookback_window=10, total_timesteps=1000000,
     print(f"Model saved to {final_model_path}")
     return model
 
-def evaluate_imitation(model, datasets, symbol, lookback_window=60, n_eval_episodes=10):
+def evaluate_imitation(model, datasets, symbol, n_eval_episodes=10):
     # Create single environment for evaluation
     eval_datasets = {symbol: datasets[symbol]}
-    eval_env = Monitor(TradingImitationEnv(eval_datasets, lookback_window))
+    eval_env = Monitor(TradingImitationEnv(eval_datasets))
     
     # Evaluate
     mean_reward, std_reward = evaluate_policy(
@@ -280,9 +279,17 @@ def evaluate_imitation(model, datasets, symbol, lookback_window=60, n_eval_episo
     done = False
     actions = []
     expert_actions = []
+    lstm_states = None
     
     while not done:
-        action, _ = model.predict(obs, deterministic=True)
+        action, lstm_states = model.predict(
+            obs, 
+            deterministic=True,
+            state=lstm_states, 
+            episode_start=np.array([done])
+        )
+        
+        
         action = int(action)
         expert_action = eval_env.unwrapped.get_expert_action()
         
@@ -330,7 +337,7 @@ if __name__ == "__main__":
     }
     
     # Train model
-    model = train_imitation_model(datasets, lookback_window=60, total_timesteps=2_000)
+    model = train_imitation_model(datasets, total_timesteps=500_000)
     
     # Evaluate on one of the datasets
     eval_symbol = 'CRM'
