@@ -29,7 +29,7 @@ MASTER_SEED = 42
 
 class TradingImitationEnv(gym.Env):
     metadata = {'render_modes': ['human']}
-    def __init__(self, datasets, lookback_window=180, max_episode_steps=100):
+    def __init__(self, datasets, lookback_window=180, max_episode_steps=1000):
         super(TradingImitationEnv, self).__init__()
 
         # Store datasets (dictionary of {symbol: {'data': df, 'actions': series}})
@@ -44,9 +44,9 @@ class TradingImitationEnv(gym.Env):
             'distance_from_upper',
             'distance_from_lower',
             'rsi',
-            'bollinger_upper',
-            'bollinger_lower',
-            'bollinger_mid',
+            # 'bollinger_upper',
+            # 'bollinger_lower',
+            # 'bollinger_mid',
             'range_strength',
             'mean_reversion_probability',
             'is_range_market'
@@ -99,22 +99,48 @@ class TradingImitationEnv(gym.Env):
         # Create features array [lookback_window, features]
         observations = np.zeros((self.lookback_window, len(self.features) + 1), dtype=np.float32)
 
-        # Process each feature
+        # Process each feature with appropriate scaling
         for i, feature in enumerate(self.features):
-            feature_values = window_data[feature].astype(float).values.reshape(-1, 1)
-            scaler = MinMaxScaler(feature_range=(-1, 1))
-            scaled_values = scaler.fit_transform(feature_values)
+            window_values = window_data[feature].astype(float).values
+            
+            # Apply appropriate scaling based on feature type
+            if feature == 'rsi':
+                # RSI is already 0-100, scale to -1 to 1
+                scaled_values = 2 * (window_values / 100) - 1
+            elif feature == 'mean_reversion_probability':
+                # Assuming this is 0-1 probability, scale to -1 to 1
+                scaled_values = 2 * window_values - 1
+            elif feature == 'is_range_market':
+                # Boolean feature, convert to -1 or 1
+                # Assuming True/False or 1/0
+                scaled_values = 2 * window_values - 1
+            elif feature in ['distance_from_mean']:
+                # These are already relative distances, may need capping
+                scaled_values = window_values / 10
+            # For percentage features (0-100 range like distance_from_upper)
+            elif feature in ['distance_from_upper', 'distance_from_lower']:
+                # Simple linear scaling from [0,100] to [-1,1]
+                scaled_values = 2 * (window_values / 100) - 1
+            # elif feature in ['bollinger_upper', 'bollinger_lower', 'bollinger_mid']:
+            #     # Scale price-based indicators relative to the mid price
+            #     if 'bollinger_mid' in window_data.columns:
+            #         mid_prices = window_data['bollinger_mid'].astype(float).values
+            #         scaled_values = (window_values - mid_prices) / mid_prices
+            #         # Cap at ±10% which is typical for Bollinger Bands
+            #         scaled_values = np.clip(scaled_values * 10, -1, 1)
+            #     else:
+            #         # Fallback if mid price not available
+            #         scaled_values = np.zeros_like(window_values)
+            elif feature == 'range_strength':
+                scaled_values = 2 * window_values - 1
+               
+            
+            # Ensure all values are within [-1, 1]
+            scaled_values = np.clip(scaled_values, -1, 1)
+            observations[:, i] = scaled_values
 
-            # Add to observations
-            observations[:, i] = scaled_values.flatten()
-        # Add position state as the last feature for all timesteps
-        position_value = 0.0  # No position
-        if self.position == 'LONG':
-            position_value = 1.0
-        elif self.position == 'SHORT':
-            position_value = -1.0
-
-        observations[:, -1] = position_value
+        # Position state remains unchanged (already -1 to 1)
+        observations[:, -1] = self._get_position_state()
         return observations.astype(np.float32)
 
     def _get_position_state(self):
@@ -130,6 +156,7 @@ class TradingImitationEnv(gym.Env):
         # Handle both DataFrame and Series cases
         action_str = expert_actions.iloc[self.current_step]['action']
         return self.action_map.get(action_str, 0) 
+    
 
     def _check_valid_transition(self, action):
         action_str = self.reverse_action_map[action]
@@ -151,13 +178,40 @@ class TradingImitationEnv(gym.Env):
             return False
 
         return False
-
+    
     def _calculate_reward(self, action):
         expert_action = self.get_expert_action()
-        match_reward = 1.0 if action == expert_action else -1.0
-        flow_reward = 0.5 if self._check_valid_transition(action) else -1.0
-        total_reward = match_reward + flow_reward
-        return total_reward
+        expert_action_str = self.reverse_action_map[expert_action]
+        
+        # Inverse frequency weights (adjusted for relative importance)
+        action_weights = {
+            'NOTHING': 0.2,   # 1/(0.79*5) ≈ 0.2, downweighted common action
+            'HOLD': 0.6,      # 1/(0.21*5) ≈ 0.6, slightly downweighted
+            'CLOSE': 5.0,     # 1/0.04 = 25, but adjusted to 5
+            'BUY': 6.7,       # 1/0.03 ≈ 33, but adjusted to 6.7
+            'SELL': 10.0      # 1/0.01 = 100, but adjusted to 10
+        }
+        
+        # Calculate reward based on whether prediction matches expert
+        if action == expert_action:
+            match_reward = action_weights.get(expert_action_str, 1.0)
+        else:
+            # For mismatched predictions, penalize less for common actions
+            # and more for missing rare actions
+            if expert_action_str in ['BUY', 'SELL', 'CLOSE']:
+                miss_penalty = -2.0  # Stronger penalty for missing important signals
+            else:
+                miss_penalty = -0.5  # Lighter penalty for missing NOTHING/HOLD
+            match_reward = miss_penalty
+        return match_reward
+
+    # def _calculate_reward(self, action):
+    #     expert_action = self.get_expert_action()
+    #     match_reward = 1.0 if action == expert_action else -1.0
+    #     # flow_reward = 0.5 if self._check_valid_transition(action) else -1.0
+    #     flow_reward = 0
+    #     total_reward = match_reward + flow_reward
+    #     return total_reward
 
     def step(self, action):
         reward = self._calculate_reward(action)
@@ -204,16 +258,17 @@ class TradingImitationEnv(gym.Env):
 
 def make_env(datasets, rank):
     def _init():
-        env = TradingImitationEnv(datasets)
-        env = Monitor(env)
+        env = Monitor(TradingImitationEnv(datasets))
         return env
     return _init
 
-def train_imitation_model(datasets, total_timesteps=1000000, n_envs=4):
+def train_imitation_model(datasets, total_timesteps=1_000_000, n_envs=8):
     # Create vectorized environment
     env_fns = [make_env(datasets, i) for i in range(n_envs)]
     vec_env = SubprocVecEnv(env_fns)
-    # vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
+    vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
+    
+    # vec_env = Monitor(TradingImitationEnv(datasets))
     
     # Checkpoint callback
     checkpoint_callback = CheckpointCallback(
@@ -225,24 +280,26 @@ def train_imitation_model(datasets, total_timesteps=1000000, n_envs=4):
     )
     
     # Initialize model
-    model = RecurrentPPO(
-        "MlpLstmPolicy",
+    # model = RecurrentPPO(
+    model = PPO(
+        # "MlpLstmPolicy",
+        "MlpPolicy",
         vec_env,
         tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/mean_rev_env_logs",
         learning_rate=3e-4,
         n_steps=1024,
         batch_size=64,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
+        n_epochs=5,
+        gamma=0.9,
+        gae_lambda=0.8,
         clip_range=0.2,
-        ent_coef=0.01,
+        ent_coef=0.005,
         verbose=1,
         policy_kwargs=dict(
             net_arch=[256, 128, 64],
             activation_fn=th.nn.Tanh,
-            lstm_hidden_size=128,  # Size of LSTM hidden states
-            n_lstm_layers=1, 
+            # lstm_hidden_size=256,
+            # n_lstm_layers=1, 
         )
     )
     
@@ -282,12 +339,15 @@ def evaluate_imitation(model, datasets, symbol, n_eval_episodes=10):
     lstm_states = None
     
     while not done:
-        action, lstm_states = model.predict(
-            obs, 
-            deterministic=True,
-            state=lstm_states, 
-            episode_start=np.array([done])
-        )
+        # action, lstm_states = model.predict(
+        #     obs, 
+        #     deterministic=True,
+        #     state=lstm_states, 
+        #     episode_start=np.array([done])
+        # )
+
+        # In your evaluation function
+        action, _ = model.predict(obs, deterministic=True)
         
         
         action = int(action)
@@ -337,7 +397,7 @@ if __name__ == "__main__":
     }
     
     # Train model
-    model = train_imitation_model(datasets, total_timesteps=500_000)
+    model = train_imitation_model(datasets, total_timesteps=1_000_000)
     
     # Evaluate on one of the datasets
     eval_symbol = 'CRM'
