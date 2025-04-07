@@ -37,12 +37,12 @@ class TradingProfitEnv(gym.Env):
         
         self.features = [
             'distance_from_mean',
-            'distance_from_upper',
-            'distance_from_lower',
+            # 'distance_from_upper',
+            # 'distance_from_lower',
             'rsi',
             'range_strength',
             'mean_reversion_probability',
-            'is_range_market'
+            # 'is_range_market'
         ]
         
         self.action_map = {
@@ -55,7 +55,7 @@ class TradingProfitEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-1, 
             high=1, 
-            shape=(lookback_window, len(self.features) + 3),
+            shape=(lookback_window, len(self.features) + 1),
             dtype=np.float32
         )
 
@@ -70,7 +70,6 @@ class TradingProfitEnv(gym.Env):
         
     def _find_next_entry_signal(self):
         signals = self.signals_data[self.current_symbol]
-        
         start_idx = self.lookback_window + random.randint(0, 100)
         
         for i in range(start_idx, len(signals) - self.max_steps_per_trade):
@@ -98,7 +97,6 @@ class TradingProfitEnv(gym.Env):
         super().reset(seed=seed)
 
         self.current_symbol = random.choice(self.symbols)
-        
         self.position = None
         self.position_type = None
         self.position_entry_step = None
@@ -117,7 +115,7 @@ class TradingProfitEnv(gym.Env):
         end_idx = self.current_step
         window_data = signals.iloc[start_idx:end_idx]
 
-        observations = np.zeros((self.lookback_window, len(self.features) + 3), dtype=np.float32)
+        observations = np.zeros((self.lookback_window, len(self.features) + 1), dtype=np.float32)
 
         for i, feature in enumerate(self.features):
             window_values = window_data[feature].astype(float).values
@@ -138,19 +136,7 @@ class TradingProfitEnv(gym.Env):
             scaled_values = np.clip(scaled_values, -1, 1)
             observations[:, i] = scaled_values
 
-        observations[:, -3] = self._get_position_state()
-        
-        current_price = signals.iloc[self.current_step]['price']
-        unrealized_pnl = self._calculate_unrealized_pnl(current_price)
-        normalized_pnl = np.clip(unrealized_pnl / 0.05, -1, 1)
-        observations[:, -2] = normalized_pnl
-        
-        if self.position is not None:
-            time_in_position = (self.current_step - self.position_entry_step) / self.max_steps_per_trade
-        else:
-            time_in_position = 0
-        observations[:, -1] = time_in_position * 2 - 1
-        
+        observations[:, -1] = self._get_position_state()
         return observations.astype(np.float32)
 
     def _get_position_state(self):
@@ -164,7 +150,6 @@ class TradingProfitEnv(gym.Env):
     def _calculate_unrealized_pnl(self, current_price):
         if self.position is None or self.entry_price is None:
             return 0.0
-            
         pnl = 0.0
         if self.position == 'LONG':
             pnl = (current_price - self.entry_price) / self.entry_price
@@ -187,21 +172,16 @@ class TradingProfitEnv(gym.Env):
             entry_commission = self.entry_price * self.commission_rate
             entry_slippage = self.entry_price * self.slippage_factor
             exit_commission = current_price * self.commission_rate
-            exit_slippage = current_price * self.slippage_factor
-            
-            total_costs = (entry_commission + entry_slippage + exit_commission + exit_slippage) / self.entry_price
+            total_costs = (entry_commission + entry_slippage + exit_commission) / self.entry_price
             
             net_pnl = pnl - total_costs
             
-            time_penalty = -0.0005 * (self.current_step - self.position_entry_step)
+            # Simple reward based on scaled net P&L
+            reward = net_pnl * 25
             
-            drawdown_penalty = -0.2 * self.max_adverse_move
-            
-            reward = net_pnl * 20
-            reward += time_penalty + drawdown_penalty
-            
+            # Bonus for profitable trades
             if net_pnl > 0:
-                reward += 0.5
+                reward += 1.0
                 
             self.trade_history.append({
                 'symbol': self.current_symbol,
@@ -218,21 +198,23 @@ class TradingProfitEnv(gym.Env):
             })
             
             return reward
-            
-        else:
-            hold_penalty = -0.001
+
+        else:  # HOLD action
+            # Neutral starting point
+            hold_reward = 0.0
             
             unrealized_pnl = self._calculate_unrealized_pnl(current_price)
             if unrealized_pnl < 0 and abs(unrealized_pnl) > self.max_adverse_move:
                 self.max_adverse_move = abs(unrealized_pnl)
                 
-            if unrealized_pnl < -0.02:
-                hold_penalty -= 0.005
-                
+            # Stronger incentive for holding profitable positions
             if unrealized_pnl > 0.01:
-                hold_penalty += 0.001
+                hold_reward += 0.05  # Much larger reward (25x increase)
+            
+            # Add a small positive bias to encourage exploration
+            hold_reward += 0.001
                 
-            return hold_penalty
+            return hold_reward
 
     def step(self, action):
         signals = self.signals_data[self.current_symbol]
@@ -242,6 +224,10 @@ class TradingProfitEnv(gym.Env):
         
         action_str = self.reverse_action_map[action]
         
+        # This is the important part:
+        # Set done=True when action is CLOSE
+        done = False
+        
         if action_str == 'CLOSE':
             self.position = None
             self.position_type = None
@@ -249,15 +235,13 @@ class TradingProfitEnv(gym.Env):
             self.entry_price = None
             self.max_adverse_move = 0
             
-            self.current_step += 1
-            self._find_next_entry_signal()
-            
-            self.steps_in_trade = 0
+            # Set done=True to end the episode
+            done = True
         else:
             self.current_step += 1
             self.steps_in_trade += 1
-        
-        done = (self.steps_in_trade >= self.max_steps_per_trade) or (self.current_step >= len(signals) - 1)
+            # Also end episode if max steps reached or end of data
+            done = (self.steps_in_trade >= self.max_steps_per_trade) or (self.current_step >= len(signals) - 1)
         
         obs = self._get_observation()
         
@@ -305,7 +289,7 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
     model = PPO(
         "MlpPolicy",
         vec_env,
-        tensorboard_log="./profit_trading_logs",
+        tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/mean_rev_env_logs",
         learning_rate=3e-4,
         n_steps=1024,
         batch_size=64,
