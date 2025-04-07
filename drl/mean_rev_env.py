@@ -69,10 +69,18 @@ class TradingProfitEnv(gym.Env):
         self.trade_history = []
         
     def _find_next_entry_signal(self):
+        """Find the next BUY or SELL signal in the dataset sequentially"""
         signals = self.signals_data[self.current_symbol]
-        start_idx = self.lookback_window + random.randint(0, 100)
         
-        for i in range(start_idx, len(signals) - self.max_steps_per_trade):
+        # If this is the first call (initialization), start after lookback window
+        if self.current_step is None:
+            start_idx = self.lookback_window
+        else:
+            # Otherwise, start from the step after current position
+            start_idx = self.current_step + 1
+        
+        # Look for the next entry signal in sequential order
+        for i in range(start_idx, len(signals) - 1):
             action = signals.iloc[i]['action']
             if action in ['BUY', 'SELL']:
                 self.current_step = i
@@ -80,31 +88,34 @@ class TradingProfitEnv(gym.Env):
                 self.position = 'LONG' if action == 'BUY' else 'SHORT'
                 self.position_entry_step = i
                 self.entry_price = signals.iloc[i]['price']
-                break
+                return
         
-        if self.current_step is None:
-            for i in range(self.lookback_window, len(signals) - self.max_steps_per_trade):
-                action = signals.iloc[i]['action']
-                if action in ['BUY', 'SELL']:
-                    self.current_step = i
-                    self.position_type = action
-                    self.position = 'LONG' if action == 'BUY' else 'SHORT'
-                    self.position_entry_step = i
-                    self.entry_price = signals.iloc[i]['price']
-                    break
+        # If no more signals are found, set a flag to indicate end of data
+        self.end_of_data = True
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        self.current_symbol = random.choice(self.symbols)
+        # Only change symbol when explicitly told to or at the beginning
+        if self.current_symbol is None:
+            self.current_symbol = random.choice(self.symbols)
+        
         self.position = None
         self.position_type = None
         self.position_entry_step = None
         self.entry_price = None
         self.max_adverse_move = 0
         self.steps_in_trade = 0
+        self.end_of_data = False
         
+        # Find next entry signal (sequential)
         self._find_next_entry_signal()
+        
+        # If we've reached the end of data, wrap around to the beginning
+        if hasattr(self, 'end_of_data') and self.end_of_data:
+            self.current_step = self.lookback_window
+            self.end_of_data = False
+            self._find_next_entry_signal()
         
         return self._get_observation(), {}
 
@@ -198,22 +209,19 @@ class TradingProfitEnv(gym.Env):
             })
             
             return reward
-
         else:  # HOLD action
-            # Neutral starting point
-            hold_reward = 0.0
+            # Start with a very small positive bias
+            hold_reward = 0.001
             
             unrealized_pnl = self._calculate_unrealized_pnl(current_price)
             if unrealized_pnl < 0 and abs(unrealized_pnl) > self.max_adverse_move:
                 self.max_adverse_move = abs(unrealized_pnl)
-                
-            # Stronger incentive for holding profitable positions
-            if unrealized_pnl > 0.01:
-                hold_reward += 0.05  # Much larger reward (25x increase)
             
-            # Add a small positive bias to encourage exploration
-            hold_reward += 0.001
-                
+            # Create a stronger, continuous incentive for profitable positions
+            if unrealized_pnl > 0:
+                # Scaled reward proportional to profit size
+                hold_reward += unrealized_pnl * 5  # Significant scaling
+            
             return hold_reward
 
     def step(self, action):
