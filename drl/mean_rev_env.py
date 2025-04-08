@@ -63,13 +63,11 @@ class TradingProfitEnv(gym.Env):
         self.position_type = None
         self.position_entry_step = None
         self.entry_price = None
-        self.max_adverse_move = 0
         self.steps_in_trade = 0
         self.current_step = None
         self.trade_history = []
         
     def _find_next_entry_signal(self):
-        """Find the next BUY or SELL signal in the dataset sequentially"""
         signals = self.signals_data[self.current_symbol]
         
         # If this is the first call (initialization), start after lookback window
@@ -104,7 +102,6 @@ class TradingProfitEnv(gym.Env):
         self.position_type = None
         self.position_entry_step = None
         self.entry_price = None
-        self.max_adverse_move = 0
         self.steps_in_trade = 0
         self.end_of_data = False
         
@@ -204,22 +201,14 @@ class TradingProfitEnv(gym.Env):
                 'pnl': pnl,
                 'net_pnl': net_pnl,
                 'costs': total_costs,
-                'max_drawdown': self.max_adverse_move,
                 'duration': self.current_step - self.position_entry_step
             })
             
             return reward
         else:  # HOLD action
-            # Start with a very small positive bias
-            hold_reward = 0.001
-            
+            hold_reward = 0
             unrealized_pnl = self._calculate_unrealized_pnl(current_price)
-            if unrealized_pnl < 0 and abs(unrealized_pnl) > self.max_adverse_move:
-                self.max_adverse_move = abs(unrealized_pnl)
-            
-            # Create a stronger, continuous incentive for profitable positions
             if unrealized_pnl > 0:
-                # Scaled reward proportional to profit size
                 hold_reward += unrealized_pnl * 5  # Significant scaling
             
             return hold_reward
@@ -335,43 +324,7 @@ def evaluate_profit_model(model, signals_data, symbol, n_eval_episodes=20):
         n_eval_episodes=n_eval_episodes,
         deterministic=True
     )
-    
     print(f"Mean reward: {mean_reward:.2f} +/- {std_reward:.2f}")
-    
-    all_trades = eval_env.unwrapped.trade_history
-    
-    if all_trades:
-        total_trades = len(all_trades)
-        profitable_trades = sum(1 for t in all_trades if t['net_pnl'] > 0)
-        win_rate = profitable_trades / total_trades if total_trades > 0 else 0
-        
-        avg_profit = np.mean([t['net_pnl'] for t in all_trades if t['net_pnl'] > 0]) if profitable_trades > 0 else 0
-        avg_loss = np.mean([t['net_pnl'] for t in all_trades if t['net_pnl'] <= 0]) if total_trades - profitable_trades > 0 else 0
-        
-        profit_factor = abs(sum([t['net_pnl'] for t in all_trades if t['net_pnl'] > 0])) / abs(sum([t['net_pnl'] for t in all_trades if t['net_pnl'] < 0])) if sum([t['net_pnl'] for t in all_trades if t['net_pnl'] < 0]) != 0 else float('inf')
-        
-        avg_trade_duration = np.mean([t['duration'] for t in all_trades])
-        
-        print("\nTrading Performance Summary:")
-        print(f"Total Trades: {total_trades}")
-        print(f"Win Rate: {win_rate:.2%}")
-        print(f"Average Profit: {avg_profit:.2%}")
-        print(f"Average Loss: {avg_loss:.2%}")
-        print(f"Profit Factor: {profit_factor:.2f}")
-        print(f"Average Trade Duration: {avg_trade_duration:.1f} steps")
-        
-        cumulative_returns = np.cumsum([t['net_pnl'] for t in all_trades])
-        
-        plt.figure(figsize=(12, 6))
-        plt.plot(cumulative_returns * 100)
-        plt.title(f"Cumulative Returns for {symbol}")
-        plt.xlabel("Trade Number")
-        plt.ylabel("Cumulative Return (%)")
-        plt.grid(True)
-        plt.savefig(os.path.join(SAVE_DIR, f"{symbol}_returns.png"))
-        plt.show()
-    
-    return all_trades
 
 
 if __name__ == "__main__":
@@ -379,7 +332,7 @@ if __name__ == "__main__":
         'CRM': pd.read_csv(os.path.join(DATA_DIR, 'CRM_M1_signals.csv'))
     }
     
-    model = train_profit_model(signals_data, total_timesteps=1_000_000)
+    model = train_profit_model(signals_data, total_timesteps=5_000_000)
     
     eval_symbol = 'CRM'
     trade_history = evaluate_profit_model(model, signals_data, eval_symbol)
