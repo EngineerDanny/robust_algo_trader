@@ -22,8 +22,8 @@ MASTER_SEED = 42
 
 class TradingProfitEnv(gym.Env):
     metadata = {'render_modes': ['human']}
-    def __init__(self, signals_data, lookback_window=180, max_steps_per_trade=500,
-                 commission_rate=0.001, slippage_factor=0.0005):
+    def __init__(self, signals_data, lookback_window=180, max_steps_per_trade=100,
+                 commission_rate=0.001):
         super(TradingProfitEnv, self).__init__()
 
         self.signals_data = signals_data
@@ -31,9 +31,7 @@ class TradingProfitEnv(gym.Env):
         self.current_symbol = None
         self.lookback_window = lookback_window
         self.max_steps_per_trade = max_steps_per_trade
-        
         self.commission_rate = commission_rate
-        self.slippage_factor = slippage_factor
         
         self.features = [
             'distance_from_mean',
@@ -69,8 +67,7 @@ class TradingProfitEnv(gym.Env):
         
     def _find_next_entry_signal(self):
         signals = self.signals_data[self.current_symbol]
-        
-        # If this is the first call (initialization), start after lookback window
+       
         if self.current_step is None:
             start_idx = self.lookback_window
         else:
@@ -178,9 +175,7 @@ class TradingProfitEnv(gym.Env):
                 return 0.0
                 
             entry_commission = self.entry_price * self.commission_rate
-            entry_slippage = self.entry_price * self.slippage_factor
-            exit_commission = current_price * self.commission_rate
-            total_costs = (entry_commission + entry_slippage + exit_commission) / self.entry_price
+            total_costs = (entry_commission) / self.entry_price
             
             net_pnl = pnl - total_costs
             
@@ -188,8 +183,8 @@ class TradingProfitEnv(gym.Env):
             reward = net_pnl * 25
             
             # Bonus for profitable trades
-            if net_pnl > 0:
-                reward += 1.0
+            # if net_pnl > 0:
+            #     reward += 1.0
                 
             self.trade_history.append({
                 'symbol': self.current_symbol,
@@ -206,40 +201,33 @@ class TradingProfitEnv(gym.Env):
             
             return reward
         else:  # HOLD action
+            return 0
             hold_reward = 0
             unrealized_pnl = self._calculate_unrealized_pnl(current_price)
             if unrealized_pnl > 0:
                 hold_reward += unrealized_pnl * 5  # Significant scaling
-            
             return hold_reward
 
     def step(self, action):
         signals = self.signals_data[self.current_symbol]
         current_price = signals.iloc[self.current_step]['price']
+        done = (self.steps_in_trade >= self.max_steps_per_trade) or (self.current_step >= len(signals) - 1)
+        if done:
+            action = self.action_map['CLOSE']
+        
         
         reward = self._calculate_reward(action, current_price)
-        
         action_str = self.reverse_action_map[action]
-        
-        # This is the important part:
-        # Set done=True when action is CLOSE
-        done = False
         
         if action_str == 'CLOSE':
             self.position = None
             self.position_type = None
             self.position_entry_step = None
             self.entry_price = None
-            self.max_adverse_move = 0
-            
-            # Set done=True to end the episode
             done = True
         else:
             self.current_step += 1
             self.steps_in_trade += 1
-            # Also end episode if max steps reached or end of data
-            done = (self.steps_in_trade >= self.max_steps_per_trade) or (self.current_step >= len(signals) - 1)
-        
         obs = self._get_observation()
         
         info = {
@@ -273,7 +261,7 @@ def make_env(signals_data, rank):
 def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
     env_fns = [make_env(signals_data, i) for i in range(n_envs)]
     vec_env = SubprocVecEnv(env_fns)
-    vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
+    # vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
     
     checkpoint_callback = CheckpointCallback(
         save_freq=10000,
@@ -314,18 +302,6 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
     return model
 
 
-def evaluate_profit_model(model, signals_data, symbol, n_eval_episodes=20):
-    eval_data = {symbol: signals_data[symbol]}
-    eval_env = Monitor(TradingProfitEnv(eval_data))
-    
-    mean_reward, std_reward = evaluate_policy(
-        model, 
-        eval_env, 
-        n_eval_episodes=n_eval_episodes,
-        deterministic=True
-    )
-    print(f"Mean reward: {mean_reward:.2f} +/- {std_reward:.2f}")
-
 
 if __name__ == "__main__":
     signals_data = {
@@ -334,5 +310,13 @@ if __name__ == "__main__":
     
     model = train_profit_model(signals_data, total_timesteps=5_000_000)
     
-    eval_symbol = 'CRM'
-    trade_history = evaluate_profit_model(model, signals_data, eval_symbol)
+    symbol = 'CRM'
+    eval_data = {symbol: signals_data[symbol]}
+    eval_env = Monitor(TradingProfitEnv(eval_data))
+    mean_reward, std_reward = evaluate_policy(
+        model, 
+        eval_env, 
+        n_eval_episodes=10,
+        deterministic=True
+    )
+    print(f"Mean reward: {mean_reward:.2f} +/- {std_reward:.2f}")
