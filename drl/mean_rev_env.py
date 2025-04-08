@@ -13,10 +13,10 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 import torch as th
 
-SAVE_DIR = f"./models/model_{dt.datetime.now().strftime('%Y%m%d_%H')}"
+SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H')}"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-DATA_DIR = "./data/gen_alpaca_data"
+DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
 MASTER_SEED = 42
 
 
@@ -267,8 +267,7 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
         save_freq=10000,
         save_path=SAVE_DIR,
         name_prefix="profit_model",
-        save_replay_buffer=False,
-        save_vecnormalize=True,
+        # save_vecnormalize=True,
     )
     
     model = PPO(
@@ -308,7 +307,7 @@ if __name__ == "__main__":
         'CRM': pd.read_csv(os.path.join(DATA_DIR, 'CRM_M1_signals.csv'))
     }
     
-    model = train_profit_model(signals_data, total_timesteps=5_000_000)
+    model = train_profit_model(signals_data, total_timesteps=1_000_000)
     
     symbol = 'CRM'
     eval_data = {symbol: signals_data[symbol]}
