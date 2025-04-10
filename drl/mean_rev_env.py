@@ -12,6 +12,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 import torch as th
+from sb3_contrib import RecurrentPPO
 
 SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H')}"
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -23,7 +24,7 @@ MASTER_SEED = 42
 class TradingProfitEnv(gym.Env):
     metadata = {'render_modes': ['human']}
     def __init__(self, signals_data, lookback_window=180, max_steps_per_trade=100,
-                 commission_rate=0.001):
+                 commission_rate=0.002):
         super(TradingProfitEnv, self).__init__()
 
         self.signals_data = signals_data
@@ -168,20 +169,19 @@ class TradingProfitEnv(gym.Env):
         
         if action_str == 'CLOSE':
             if self.position == 'LONG':
+                pnl = np.log(current_price / self.entry_price)
                 pnl = (current_price - self.entry_price) / self.entry_price
             elif self.position == 'SHORT':
+                pnl = np.log(self.entry_price / current_price)
                 pnl = (self.entry_price - current_price) / self.entry_price
             else:
                 return 0.0
                 
-            entry_commission = self.entry_price * self.commission_rate
-            total_costs = (entry_commission) / self.entry_price
+            total_costs = np.log(self.entry_price * self.commission_rate)
             
+            total_costs = self.commission_rate
             net_pnl = pnl - total_costs
-            
-            # Simple reward based on scaled net P&L
-            reward = net_pnl * 25
-            
+            reward = net_pnl * 100
             # Bonus for profitable trades
             # if net_pnl > 0:
             #     reward += 1.0
@@ -270,24 +270,47 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
         # save_vecnormalize=True,
     )
     
-    model = PPO(
-        "MlpPolicy",
+    # model = PPO(
+    #     "MlpPolicy",
+    #     vec_env,
+    #     tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/mean_rev_env_logs",
+    #     learning_rate=3e-4,
+    #     n_steps=1024,
+    #     batch_size=64,
+    #     n_epochs=5,
+    #     gamma=0.99,
+    #     gae_lambda=0.95,
+    #     clip_range=0.2,
+    #     ent_coef=0.01,
+    #     verbose=1,
+    #     policy_kwargs=dict(
+    #         net_arch=[256, 128, 64],
+    #         activation_fn=th.nn.Tanh,
+    #     )
+    # )
+    
+    print("Initializing RecurrentPPO agent...")
+    model = RecurrentPPO(
+        "MlpLstmPolicy", 
         vec_env,
         tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/mean_rev_env_logs",
+        verbose=1,
+        # device="mps",
         learning_rate=3e-4,
         n_steps=1024,
         batch_size=64,
-        n_epochs=5,
         gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.01,
-        verbose=1,
+        # ent_coef=0.01,
+        # vf_coef=0.5,
+        # max_grad_norm=1.0,
         policy_kwargs=dict(
             net_arch=[256, 128, 64],
             activation_fn=th.nn.Tanh,
+            lstm_hidden_size=128,  # Size of LSTM hidden states
+            n_lstm_layers=1, 
         )
     )
+
     
     model.learn(
         total_timesteps=total_timesteps,
@@ -307,7 +330,7 @@ if __name__ == "__main__":
         'CRM': pd.read_csv(os.path.join(DATA_DIR, 'CRM_M1_signals.csv'))
     }
     
-    model = train_profit_model(signals_data, total_timesteps=1_000_000)
+    model = train_profit_model(signals_data, total_timesteps=2_000_000)
     
     symbol = 'CRM'
     eval_data = {symbol: signals_data[symbol]}
