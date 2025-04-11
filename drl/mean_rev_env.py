@@ -169,19 +169,22 @@ class TradingProfitEnv(gym.Env):
         
         if action_str == 'CLOSE':
             if self.position == 'LONG':
-                pnl = np.log(current_price / self.entry_price)
+                # pnl = np.log(current_price / self.entry_price)
                 pnl = (current_price - self.entry_price) / self.entry_price
             elif self.position == 'SHORT':
-                pnl = np.log(self.entry_price / current_price)
+                # pnl = np.log(self.entry_price / current_price)
                 pnl = (self.entry_price - current_price) / self.entry_price
             else:
                 return 0.0
-                
-            total_costs = np.log(self.entry_price * self.commission_rate)
             
+            # print(f"PnL: {pnl:.4f}")    
+            # total_costs = np.log(self.entry_price * self.commission_rate)
             total_costs = self.commission_rate
             net_pnl = pnl - total_costs
-            reward = net_pnl * 100
+            # reward = net_pnl * 100
+            
+            # Instead of: reward = net_pnl * 100
+            reward = np.tanh(net_pnl * 10) * 3  
             # Bonus for profitable trades
             # if net_pnl > 0:
             #     reward += 1.0
@@ -202,11 +205,6 @@ class TradingProfitEnv(gym.Env):
             return reward
         else:  # HOLD action
             return 0
-            hold_reward = 0
-            unrealized_pnl = self._calculate_unrealized_pnl(current_price)
-            if unrealized_pnl > 0:
-                hold_reward += unrealized_pnl * 5  # Significant scaling
-            return hold_reward
 
     def step(self, action):
         signals = self.signals_data[self.current_symbol]
@@ -214,7 +212,6 @@ class TradingProfitEnv(gym.Env):
         done = (self.steps_in_trade >= self.max_steps_per_trade) or (self.current_step >= len(signals) - 1)
         if done:
             action = self.action_map['CLOSE']
-        
         
         reward = self._calculate_reward(action, current_price)
         action_str = self.reverse_action_map[action]
@@ -264,7 +261,7 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
     # vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
     
     checkpoint_callback = CheckpointCallback(
-        save_freq=10000,
+        save_freq=10_000,
         save_path=SAVE_DIR,
         name_prefix="profit_model",
         # save_vecnormalize=True,
@@ -300,7 +297,7 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
         n_steps=1024,
         batch_size=64,
         gamma=0.99,
-        # ent_coef=0.01,
+        ent_coef=0.01,
         # vf_coef=0.5,
         # max_grad_norm=1.0,
         policy_kwargs=dict(
@@ -330,7 +327,7 @@ if __name__ == "__main__":
         'CRM': pd.read_csv(os.path.join(DATA_DIR, 'CRM_M1_signals.csv'))
     }
     
-    model = train_profit_model(signals_data, total_timesteps=2_000_000)
+    model = train_profit_model(signals_data, total_timesteps=500_000)
     
     symbol = 'CRM'
     eval_data = {symbol: signals_data[symbol]}
