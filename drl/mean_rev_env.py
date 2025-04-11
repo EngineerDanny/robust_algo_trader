@@ -23,7 +23,9 @@ MASTER_SEED = 42
 
 class TradingProfitEnv(gym.Env):
     metadata = {'render_modes': ['human']}
-    def __init__(self, signals_data, lookback_window=180, max_steps_per_trade=100,
+    def __init__(self, signals_data, 
+                 lookback_window=180, 
+                 max_steps_per_trade=100,
                  commission_rate=0.002):
         super(TradingProfitEnv, self).__init__()
 
@@ -34,14 +36,14 @@ class TradingProfitEnv(gym.Env):
         self.max_steps_per_trade = max_steps_per_trade
         self.commission_rate = commission_rate
         
+        
         self.features = [
             'distance_from_mean',
-            # 'distance_from_upper',
-            # 'distance_from_lower',
             'rsi',
             'range_strength',
             'mean_reversion_probability',
-            # 'is_range_market'
+            'atr',                     # Added
+            'price'                    # Added
         ]
         
         self.action_map = {
@@ -114,36 +116,54 @@ class TradingProfitEnv(gym.Env):
         
         return self._get_observation(), {}
 
+
     def _get_observation(self):
         signals = self.signals_data[self.current_symbol]
 
+        # Get the current observation window
         start_idx = self.current_step - self.lookback_window
         end_idx = self.current_step
         window_data = signals.iloc[start_idx:end_idx]
-
+        
+        # Define which features use adaptive min/max scaling
+        adaptive_features = ['distance_from_mean',  'price', 'atr']
+        
+        # Calculate min/max from the current window
+        rolling_stats = {}
+        for feature in adaptive_features:
+            feature_min = window_data[feature].min()
+            feature_max = window_data[feature].max()
+            # Only add to rolling_stats if there's a range to normalize
+            if feature_max > feature_min:
+                rolling_stats[feature] = {'min': feature_min, 'max': feature_max}
+        
+        # Create observation array
         observations = np.zeros((self.lookback_window, len(self.features) + 1), dtype=np.float32)
 
         for i, feature in enumerate(self.features):
-            window_values = window_data[feature].astype(float).values
+            window_values = window_data[feature].values
             
-            if feature == 'rsi':
+            # Apply appropriate scaling based on feature type
+            if feature in adaptive_features and feature in rolling_stats:
+                # Adaptive scaling using min/max from the current window
+                feature_min = rolling_stats[feature]['min']
+                feature_max = rolling_stats[feature]['max']
+                scaled_values = 2 * ((window_values - feature_min) / (feature_max - feature_min)) - 1
+            elif feature == 'rsi':
                 scaled_values = 2 * (window_values / 100) - 1
-            elif feature == 'mean_reversion_probability':
+            elif feature in ['mean_reversion_probability', 'range_strength']:
                 scaled_values = 2 * window_values - 1
-            elif feature == 'is_range_market':
-                scaled_values = 2 * window_values - 1
-            elif feature in ['distance_from_mean']:
+            else:
                 scaled_values = window_values / 10
-            elif feature in ['distance_from_upper', 'distance_from_lower']:
-                scaled_values = 2 * (window_values / 100) - 1
-            elif feature == 'range_strength':
-                scaled_values = 2 * window_values - 1
             
+            # Ensure all values are within [-1, 1] range
             scaled_values = np.clip(scaled_values, -1, 1)
             observations[:, i] = scaled_values
 
+        # Add position state to the last column
         observations[:, -1] = self._get_position_state()
         return observations.astype(np.float32)
+
 
     def _get_position_state(self):
         if self.position is None:
@@ -256,7 +276,12 @@ def make_env(signals_data, rank):
 
 
 def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
-    env_fns = [make_env(signals_data, i) for i in range(n_envs)]
+    
+    env_fns = []
+    for i, symbol in enumerate(signals_data.keys()):
+        for i in range(4):
+            env_fns.append(make_env(signals_data, i))
+
     vec_env = SubprocVecEnv(env_fns)
     # vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
     
@@ -320,16 +345,21 @@ def train_profit_model(signals_data, total_timesteps=1_000_000, n_envs=8):
     print(f"Model saved to {final_model_path}")
     return model
 
-
-
+    
 if __name__ == "__main__":
-    signals_data = {
-        'CRM': pd.read_csv(os.path.join(DATA_DIR, 'CRM_M1_signals.csv'))
-    }
+    # Load multiple symbol datasets
+    symbols = ['CRM', 'QQQ']  # Add all symbols
+    signals_data = {}
+    
+    for symbol in symbols:
+        file_path = os.path.join(DATA_DIR, f'{symbol}_M1_signals.csv')
+        if os.path.exists(file_path):
+            signals_data[symbol] = pd.read_csv(file_path)
+            # remove the first 180 rows
+            signals_data[symbol] = signals_data[symbol].iloc[250:]
     
     model = train_profit_model(signals_data, total_timesteps=500_000)
-    
-    symbol = 'CRM'
+    symbol = 'QQQ'
     eval_data = {symbol: signals_data[symbol]}
     eval_env = Monitor(TradingProfitEnv(eval_data))
     mean_reward, std_reward = evaluate_policy(
