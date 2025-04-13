@@ -26,7 +26,7 @@ class TradingProfitEnv(gym.Env):
     def __init__(self, signals_data, 
                  lookback_window=180, 
                  max_steps_per_trade=100,
-                 commission_rate=0.002):
+                 commission_rate=0.001):
         super(TradingProfitEnv, self).__init__()
 
         self.signals_data = signals_data
@@ -358,7 +358,7 @@ if __name__ == "__main__":
             # remove the first 180 rows
             signals_data[symbol] = signals_data[symbol].iloc[250:]
     
-    model = train_profit_model(signals_data, total_timesteps=500_000)
+    model = train_profit_model(signals_data, total_timesteps=1_000_000)
     symbol = 'QQQ'
     eval_data = {symbol: signals_data[symbol]}
     eval_env = Monitor(TradingProfitEnv(eval_data))
