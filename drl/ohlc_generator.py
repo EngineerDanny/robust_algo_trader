@@ -238,6 +238,7 @@ class SimpleOHLCGenerator:
      
         if seed is not None:
             np.random.seed(seed)
+            random.seed(seed)
             
         # Market regime constants
         BULL = "bull"

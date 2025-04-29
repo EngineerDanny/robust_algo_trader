@@ -20,7 +20,7 @@ import tensorflow as tf
 import random
 
 
-sys.path.append("/projects/genomic-ml/da2343/ml_project_2/drl/")
+sys.path.append("/Users/newuser/Projects/robust_algo_trader/drl/")
 from ohlc_generator import SimpleOHLCGenerator 
 
 
@@ -40,8 +40,7 @@ class PortfolioEnv(gym.Env):
                  stock_data_list,
                  mode = "train",     
                  n_stocks = 10, 
-                #  episode_length = 72, # 12 months
-                 episode_length = 72, # 12 months
+                 episode_length = 12, # 12 months
                  temperature = 0.3, 
                  window_size = 252, # 1 year of data
                  episodes_per_dataset=500,
@@ -82,17 +81,22 @@ class PortfolioEnv(gym.Env):
             }
         
         # Use raw features instead of pre-scaled ones
-        # self.features = [
-        #     'Close', 'MA5', 'MA20', 'MA50', 'MA200',
-        #     'RSI', 'BB_width', 'ATR', 'Return_1W',
-        #     'Return_1M', 'Return_3M', 'CurrentDrawdown',
-        #     'MaxDrawdown_252d', 'Sharpe_20d', 'Sharpe_60d'
-        # ]
         self.features = [
-            'Close','MA5','MA20', 'MA50', 'MA200'
+            'Close', 'MA5', 'MA20', 'MA50', 'MA200',
+            'RSI', 'BB_width', 'ATR', 'Return_1W',
+            'Return_1M', 'Return_3M', 'CurrentDrawdown',
+            'MaxDrawdown_252d', 'Sharpe_20d', 'Sharpe_60d'
+        ]
+        
+        # Add simulation features
+        self.simulation_features = [
+            'Sim_Return_1M', 'Sim_Return_3M',
+            'Sim_VaR_95', 'Sim_ExpShortfall', 
+            'Sim_Volatility'
         ]
 
-        obs_dim = len(self.features) * self.n_stocks
+        # Update observation space dimension
+        obs_dim = (len(self.features) + len(self.simulation_features)) * self.n_stocks
         self.observation_space = spaces.Box(
             low=-1, high=1,
             shape=(obs_dim,), 
@@ -124,6 +128,7 @@ class PortfolioEnv(gym.Env):
             return self._train_reset(episode_seed) 
         else:
             return self._test_reset(episode_seed)
+
 
     def step(self, action):
         allocation = self._convert_to_allocation(action)
@@ -165,49 +170,52 @@ class PortfolioEnv(gym.Env):
             print("Training stage 3: Using real data for training")
         
         # Stage 1 & 2: Synthetic Data
-        if (self.stocks is None or self.current_dataset_episodes >= self.episodes_per_dataset):
-            generator = SimpleOHLCGenerator()
-            synthetic_stocks = generator.generate_synthetic_data(
-                n_stocks=self.n_stocks,
-                seed=seed
-            )
-            # else:  
-            #     df = self.stock_data_list[np.random.randint(len(self.stock_data_list))]
-            #     generator = SimpleOHLCGenerator(df)
-            #     synthetic_stocks = generator.generate_bootstrap_data(
-            #         num_samples=self.n_stocks, 
-            #         segment_length=5
-            #     )
-            
-            # Create stocks dictionary with synthetic stocks
-            self.stocks = {
-                f"stock_{i}": df for i, df in enumerate(synthetic_stocks)
-            }
-            self.current_dataset_episodes = 0
-        self.current_dataset_episodes += 1
+        if self.training_stage < 3:
+            if (self.stocks is None or self.current_dataset_episodes >= self.episodes_per_dataset):
+                # Generate appropriate synthetic data based on stage
+                if self.training_stage == 2:
+                    generator = SimpleOHLCGenerator()
+                    synthetic_stocks = generator.generate_synthetic_data(
+                        n_stocks=self.n_stocks,
+                        seed=seed
+                    )
+                else:  
+                    df = self.stock_data_list[np.random.randint(len(self.stock_data_list))]
+                    generator = SimpleOHLCGenerator(df)
+                    synthetic_stocks = generator.generate_bootstrap_data(
+                        num_samples=self.n_stocks, 
+                        segment_length=5
+                    )
+                
+                # Create stocks dictionary with synthetic stocks
+                self.stocks = {
+                    f"stock_{i}": df for i, df in enumerate(synthetic_stocks)
+                }
+                self.current_dataset_episodes = 0
+            self.current_dataset_episodes += 1
         # Stage 3: Real Data
-        # else:
-        #     generator = SimpleOHLCGenerator()
-        #     selected_indices = np.random.choice(
-        #         len(self.stock_data_list), 
-        #         self.n_stocks, 
-        #         replace=False
-        #     )
-        #     processed_stocks = {
-        #         f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
-        #         for i, idx in enumerate(selected_indices)
-        #     }
+        else:
+            generator = SimpleOHLCGenerator()
+            selected_indices = np.random.choice(
+                len(self.stock_data_list), 
+                self.n_stocks, 
+                replace=False
+            )
+            processed_stocks = {
+                f"stock_{i}": generator.add_technical_indicators(self.stock_data_list[idx])
+                for i, idx in enumerate(selected_indices)
+            }
             
-        #     # Find minimum length and align all stocks
-        #     min_length = min(len(df) for df in processed_stocks.values())
-        #     aligned_length = (min_length // self.days_per_step) * self.days_per_step
+            # Find minimum length and align all stocks
+            min_length = min(len(df) for df in processed_stocks.values())
+            aligned_length = (min_length // self.days_per_step) * self.days_per_step
             
-        #     # Align all processed stocks
-        #     self.stocks = {
-        #         stock_name: df.iloc[-aligned_length:].reset_index(drop=True)
-        #         for stock_name, df in processed_stocks.items()
-        #     }
-        #     print(f"Training with real data: aligned to {aligned_length} data points")
+            # Align all processed stocks
+            self.stocks = {
+                stock_name: df.iloc[-aligned_length:].reset_index(drop=True)
+                for stock_name, df in processed_stocks.items()
+            }
+            print(f"Training with real data: aligned to {aligned_length} data points")
         
         # Determine safe bounds for episode
         data_length = min(len(df) for df in self.stocks.values())
@@ -271,23 +279,43 @@ class PortfolioEnv(gym.Env):
         }
         return observation, info
     
+    
     def _get_observation(self):
+        _, stock_stats = self._simulate_future_price_paths(n_simulations=100)
         observation = []
-        for stock_name, stock_data in self.stocks.items():
+        for i, (stock_name, stock_data) in enumerate(self.stocks.items()):
             # Get window for scaling (including current step)
             window_start = max(0, self.current_step - self.window_size + 1) 
             window_end = self.current_step + 1 
             window_data = stock_data.iloc[window_start:window_end]
 
-            # Scale all features for the entire window
+            # Scale historical features (unchanged)
             scaled_features = []
             for feature in self.features:
                 scaler = MinMaxScaler(feature_range=(-1, 1))
                 feature_values = window_data[feature].values.reshape(-1, 1)
                 scaled_window = scaler.fit_transform(feature_values)
-                # Get the scaled value for the current step (last value in the window)
-                scaled_val = scaled_window[-1][0]  # Last row, first column
+                scaled_val = scaled_window[-1][0]
                 scaled_features.append(scaled_val)
+            
+            # Add simulation features (new)
+            stock_stat = stock_stats[stock_name]
+            
+            # 1-month expected return
+            scaled_features.append(np.clip(stock_stat['expected_returns'][0] * 5, -1, 1))
+            
+            # 3-month expected return
+            scaled_features.append(np.clip(stock_stat['expected_returns'][-1] * 3, -1, 1))
+            
+            # VaR 95
+            scaled_features.append(np.clip(stock_stat['final_var_95'] * 3, -1, 1))
+            
+            # Expected shortfall
+            scaled_features.append(np.clip(stock_stat['expected_shortfall'] * 3, -1, 1))
+            
+            # Path volatility (new calculation)
+            path_volatility = np.std(stock_stat['final_returns']) if 'final_returns' in stock_stat else 0.05
+            scaled_features.append(np.clip(path_volatility * 10, -1, 1))
             observation.extend(scaled_features)
         return np.array(observation, dtype=np.float32)
 
@@ -349,84 +377,46 @@ class PortfolioEnv(gym.Env):
             for i in range(self.n_stocks)
         ])
         return np.sum((allocation / 100) * metric_values)
-
+    
     # def _calculate_reward(self, portfolio_return, sharpe, max_drawdown, stock_returns):
-    #     # 1. IMMEDIATE REWARD COMPONENT (based on actual past performance)
-    #    # Get the average return across all stocks as a benchmark
-    #     benchmark_returns = np.mean([
-    #         self.stocks[f'stock_{i}'].iloc[self.current_step].get('Return_1M', 0)
-    #         for i in range(self.n_stocks)
-    #     ])
-    #     # Calculate excess return over benchmark
-    #     excess_return = portfolio_return - max(0, benchmark_returns * 0.01)
-    #     base_reward = excess_return * 100
-    #     sharpe_component = sharpe * 1.0
-    #     drawdown_component = max_drawdown * -1.5
-    #     if max_drawdown < -0.1:
-    #         drawdown_component *= 1.5
-    #     immediate_reward = base_reward + sharpe_component + drawdown_component
+    #     # Calculate benchmark using equal weights over the SAME time period
+    #     equal_weights = np.ones(self.n_stocks) / self.n_stocks
+    #     benchmark_return = np.sum(equal_weights * stock_returns)
         
-    #     # 2. FUTURE REWARD COMPONENT (based on simulated future performance)
-    #     weights = self.previous_allocation / 100.0
-    #     _, stock_stats = self._simulate_future_price_paths()
-    #     expected_future_return = 0
-    #     future_var = 0
-    #     for i in range(self.n_stocks):
-    #         stock_name = f'stock_{i}'
-    #         if weights[i] > 0:
-    #             stock_stat = stock_stats[stock_name]
-    #             expected_future_return += weights[i] * stock_stat['expected_returns'][-1]
-    #             future_var += weights[i] * abs(stock_stat['final_var_95'])
-    #     future_return_component = expected_future_return * 100
-    #     future_risk_penalty = future_var * -100
-    #     future_reward = future_return_component + future_risk_penalty
-    #     total_reward = (0.7 * immediate_reward) + (0.3 * future_reward)
-    #     return immediate_reward
+    #     # Simple excess return calculation
+    #     excess_return = portfolio_return - benchmark_return
+        
+    #     # Scale for easier learning
+    #     reward = excess_return * 100
+        
+    #     return reward
     
     
     def _calculate_reward(self, portfolio_return, sharpe, max_drawdown, stock_returns):
-        # Calculate future benchmark as equal-weighted average
-        benchmark_return = np.mean(stock_returns)
+        # Calculate benchmark using equal weights over the SAME time period
+        equal_weights = np.ones(self.n_stocks) / self.n_stocks
+        benchmark_return = np.sum(equal_weights * stock_returns)
         
-        # Calculate outperformance
+        # Calculate excess return
         excess_return = portfolio_return - benchmark_return
         
-        # Base performance reward using your threshold concept
-        if abs(excess_return) < 0.0005:  # Within ±0.05% is considered equal
-            performance_reward = 1
-        elif excess_return > 0:
-            if excess_return >= 0.01:  # Outperformed by 1% or more
-                performance_reward = 3
-            else:  # Outperformed but by less than 1%
-                performance_reward = 2
-        else:  # Underperformed
-            performance_reward = -1
+        # Simple reward history for smoothing
+        if not hasattr(self, 'reward_history'):
+            self.reward_history = []
         
-        # Add risk adjustment factors
-        risk_reward = 0
+        # Calculate current reward
+        current_reward = excess_return * 100
         
-        # # Reward good Sharpe ratio (risk-adjusted returns)
-        # if sharpe > 1.0:
-        #     risk_reward += 1
-        # elif sharpe > 0.5:
-        #     risk_reward += 0.5
+        # Add to history
+        self.reward_history.append(current_reward)
         
-        # # Penalize large drawdowns
-        # if max_drawdown < -0.1:  # Over 10% drawdown
-        #     risk_reward -= 2
-        # elif max_drawdown < -0.05:  # 5-10% drawdown
-        #     risk_reward -= 1
+        # Keep only recent history (last 3 steps)
+        if len(self.reward_history) > 3:
+            self.reward_history = self.reward_history[-3:]
         
-        # print(f"Performance Reward: {performance_reward}, Risk Reward: {risk_reward}")
-        # Normalize risk_reward to be between -1 and 1
-        # Scale performance_reward to be between -1 and 3
+        # Return smoothed reward
+        return np.mean(self.reward_history)
         
-        # Combined reward
-        total_reward = performance_reward 
-        
-        return total_reward
-    
-    
     def _simulate_future_price_paths(self, n_simulations=50, horizon_months=3):
         # Store simulation results for each stock
         simulated_prices = {}
@@ -441,33 +431,70 @@ class PortfolioEnv(gym.Env):
             current_step = self.current_step
             current_price = stock_data.iloc[current_step]['Close']
             start_idx = max(0, current_step - recent_lookback)
-            recent_returns = stock_data['LogReturn'].iloc[start_idx:current_step+1].values
+            
+            # Check if LogReturn exists in the data
+            if 'LogReturn' not in stock_data.columns:
+                # Calculate log returns from price data
+                prices = stock_data['Close'].values
+                if len(prices) > 1:
+                    # Calculate log returns: ln(P_t / P_{t-1})
+                    log_prices = np.log(prices)
+                    log_returns = np.diff(log_prices)
+                    
+                    # Get recent returns based on current position
+                    if current_step > 0:
+                        idx_end = min(current_step, len(log_returns))
+                        idx_start = max(0, idx_end - recent_lookback)
+                        recent_returns = log_returns[idx_start:idx_end]
+                    else:
+                        # Fallback if at the start of the series
+                        recent_returns = np.array([0.0001])  # Small positive default
+                else:
+                    # Fallback if insufficient price history
+                    recent_returns = np.array([0.0001])
+            else:
+                # Use existing LogReturn column
+                recent_returns = stock_data['LogReturn'].iloc[start_idx:current_step+1].values
+                if len(recent_returns) == 0:
+                    recent_returns = np.array([0.0001])  # Fallback for empty returns
+            
+            # Calculate return statistics
             mean_return = np.mean(recent_returns)
             std_return = max(np.std(recent_returns), 1e-6)  # Prevent zero std
+            
+            # Initialize price paths
             stock_price_paths = np.zeros((n_simulations, horizon_months + 1))
             stock_price_paths[:, 0] = current_price  # Set initial price
-            # Generate paths
+            
+            # Generate paths using geometric Brownian motion
             for sim in range(n_simulations):
                 for month in range(1, horizon_months + 1):
+                    # Scale daily return to monthly (approx 21 trading days)
                     monthly_return = np.random.normal(mean_return * 21, std_return * np.sqrt(21))
                     stock_price_paths[sim, month] = stock_price_paths[sim, month-1] * np.exp(monthly_return)
+            
             # Store price paths
             simulated_prices[stock_name] = stock_price_paths
+            
             # Calculate statistics for this stock
             expected_prices = np.mean(stock_price_paths, axis=0)
             expected_returns = expected_prices / current_price - 1
+            
             # Calculate risk metrics at final horizon
             final_prices = stock_price_paths[:, -1]
             final_returns = final_prices / current_price - 1
             var_95 = np.percentile(final_returns, 5)  # 5% worst case return
             expected_shortfall = np.mean(final_returns[final_returns < var_95])
+            
             # Store stock statistics
             stock_stats[stock_name] = {
                 'expected_prices': expected_prices,
                 'expected_returns': expected_returns,
                 'final_var_95': var_95,
-                'expected_shortfall': expected_shortfall
+                'expected_shortfall': expected_shortfall,
+                'final_returns': final_returns 
             }
+        
         return simulated_prices, stock_stats
     
     def render(self, mode='human'):
@@ -508,6 +535,7 @@ def make_env(stock_data_list, total_timesteps = 200_000, rank=0, seed=0):
 
 def train_model(stock_data_list, total_timesteps=200_000):
     print("Creating environment...")
+    n_envs = 8
     # Create multiple environments running in parallel
     env = SubprocVecEnv(
         [
@@ -515,8 +543,7 @@ def train_model(stock_data_list, total_timesteps=200_000):
                 stock_data_list,
                 total_timesteps=total_timesteps,
                 # rank=(i + 1) * 100_000,
-                # rank=(i + 1) * 10000,
-                rank=(i + 1) * 100,
+                rank=(i + 1) * 10000,
                 seed=MASTER_SEED,
             )
             for i in range(n_envs)
@@ -530,33 +557,31 @@ def train_model(stock_data_list, total_timesteps=200_000):
 
     # env = PortfolioEnv(stock_data_list)
     # check_env(env)
-    print("Initializing RecurrentPPO agent...")
-    model = RecurrentPPO(
-        "MlpLstmPolicy", 
+    print("Initializing PPO agent...")
+    model = PPO(
+        "MlpPolicy", 
         env,
-        tensorboard_log="/projects/genomic-ml/da2343/ml_project_2/drl/portfolio_env_logs",
+        tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
         verbose=1,
-        # device="mps",
-        n_steps=256,
+        device="mps",
+        n_steps=2048,
         learning_rate=1e-4,
         batch_size=128,
         # gamma=0.99,
         # ent_coef=0.01,
         # vf_coef=0.5,
-        max_grad_norm=1.0,
+        # max_grad_norm=1.0,
         policy_kwargs=dict(
             net_arch=dict(pi=[256, 256, 128, 64], 
                           vf=[256, 256, 256, 128]),
-            activation_fn=th.nn.Tanh,
-            lstm_hidden_size=128,  # Size of LSTM hidden states
-            n_lstm_layers=1, 
+            activation_fn=th.nn.Tanh
         )
     )
 
     checkpoint_callback = CheckpointCallback(
         save_freq=1000,
         save_path=SAVE_DIR,
-        name_prefix="rppo",
+        name_prefix="ppov2",
         save_replay_buffer=False,
         save_vecnormalize=True,
     )
@@ -565,7 +590,7 @@ def train_model(stock_data_list, total_timesteps=200_000):
     model.learn(
         total_timesteps=total_timesteps,
         callback=checkpoint_callback,
-        progress_bar=False
+        progress_bar=True
     )
 
     final_model_path = os.path.join(SAVE_DIR, "ppo_portfolio_final")
@@ -620,11 +645,7 @@ def detailed_evaluation(trained_model, eval_env, n_episodes=10):
         
         while not done:
             # Get model's allocation decision
-            action, lstm_states = trained_model.predict(obs, 
-                                                        deterministic=True, 
-                                                        state=lstm_states,
-                                                        episode_start=np.array([done])
-                                                        )
+            action, lstm_states = trained_model.predict(obs, deterministic=True)
             
             # Save current allocation for performance evaluation in next period
             current_allocation = previous_allocation.copy()
@@ -756,10 +777,6 @@ def create_visualizations(avg_allocation, model_returns, model_sharpes, model_dr
                          model_final_values, portfolio_curve, benchmark_curve,
                          benchmark_returns, benchmark_sharpes, benchmark_drawdowns,
                          benchmark_final_values):
-    """
-    Creates comprehensive visualizations comparing model and benchmark performance.
-    Ensures consistent calculation methodologies for fair comparison.
-    """
     RESULTS_DIR = f'{SAVE_DIR}/results'
     os.makedirs(RESULTS_DIR, exist_ok=True)
     
@@ -983,7 +1000,7 @@ if __name__ == "__main__":
     instrument_list = ["AAPL", "MSFT", "JNJ", "PG", "JPM", "NVDA", "AMD", "TSLA", "CRM", "AMZN"] 
     stock_data_list = get_stock_data_list(instrument_list)
     print("Training model...")
-    trained_model = train_model(stock_data_list, total_timesteps=10_000_000)
+    trained_model = train_model(stock_data_list, total_timesteps=1_000_000)
     print("Training complete!")
 
     # EVALUATE
