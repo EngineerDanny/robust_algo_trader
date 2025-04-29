@@ -17,17 +17,20 @@ import torch as th
 import sys
 import os
 
-sys.path.append("/Users/newuser/Projects/robust_algo_trader/drl/")
+sys.path.append("/projects/genomic-ml/da2343/ml_project_2/drl/")
 from ohlc_generator import SimpleOHLCGenerator 
 
 
 # save dir should add the current date and time
-SAVE_DIR = f"/Users/newuser/Projects/robust_algo_trader/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M')}"
+# SAVE_DIR = f"/projects/genomic-ml/da2343/ml_project_2/drl/models/model_{dt.datetime.now().strftime('%Y%m%d_%H%M')}"
+SAVE_DIR = f"/projects/genomic-ml/da2343/ml_project_2/drl/models/model_{dt.datetime.now().strftime('%Y%m%d')}"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # DATA_DIR must be appended before the filename
 # DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_synthetic_data/preprocessed_data"
-DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
+# DATA_DIR = "/Users/newuser/Projects/robust_algo_trader/data/gen_alpaca_data"
+DATA_DIR = "/projects/genomic-ml/da2343/ml_project_2/data/gen_alpaca_data"
+N_PARALLEL_ENVS = 16
 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -43,7 +46,7 @@ class PortfolioEnv(gym.Env):
                  days_per_step=20,
                  total_timesteps=200_000,  # Default to the value in your train_model function
                  stage_transition_percentages=(1.0, 1.0),  # Percentages for stage transitions
-                 n_parallel_envs=8 
+                 n_parallel_envs=N_PARALLEL_ENVS 
                 ):
         
         super(PortfolioEnv, self).__init__()
@@ -445,18 +448,17 @@ def make_env(stock_data_list, total_timesteps = 200_000, rank=0, seed=0):
 
 def train_model(stock_data_list, total_timesteps=200_000):
     print("Creating environment...")
-    n_envs = 8
     # Create multiple environments running in parallel
-    env = SubprocVecEnv([make_env(stock_data_list, total_timesteps=total_timesteps, rank=i) for i in range(n_envs)])
+    env = SubprocVecEnv([make_env(stock_data_list, total_timesteps=total_timesteps, rank=i) for i in range(N_PARALLEL_ENVS)])
     # env = PortfolioEnv(stock_data_list)
     # check_env(env)
     print("Initializing PPO agent...")
     model = PPO(
         "MlpPolicy", 
         env,
-        tensorboard_log="/Users/newuser/Projects/robust_algo_trader/drl/portfolio_env_logs",
+        tensorboard_log="/projects/genomic-ml/da2343/ml_project_2/drl/portfolio_env_logs",
         verbose=1,
-        device="mps",
+        # device="mps",
         n_steps=256,
         learning_rate=1e-4,
         batch_size=128,
@@ -482,7 +484,7 @@ def train_model(stock_data_list, total_timesteps=200_000):
     model.learn(
         total_timesteps=total_timesteps,
         callback=checkpoint_callback,
-        progress_bar=True
+        progress_bar=False
     )
     
     final_model_path = os.path.join(SAVE_DIR, "ppo_portfolio_final")
